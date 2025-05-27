@@ -43,6 +43,15 @@ export const getColumns = (onViewDetails: (employee: Employee) => void): ColumnD
     enableHiding: false,
   },
   {
+    id: "index",
+    header: "#",
+    cell: ({ row }) => {
+      return <span className="text-muted-foreground">{row.index + 1}</span>;
+    },
+    enableSorting: false,
+    enableHiding: false,
+  },
+  {
     accessorKey: "name",
     header: ({ column }) => {
       return (
