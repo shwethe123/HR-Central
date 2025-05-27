@@ -73,6 +73,23 @@ export const getColumns = (onViewDetails: (employee: Employee) => void): ColumnD
     header: "Employee ID",
   },
   {
+    accessorKey: "company",
+    header: ({ column }) => {
+      return (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Company
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      );
+    },
+    filterFn: (row, id, value) => {
+      return value.includes(row.getValue(id))
+    }
+  },
+  {
     accessorKey: "department",
     header: ({ column }) => {
       return (

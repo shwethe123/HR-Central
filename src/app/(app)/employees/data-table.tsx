@@ -59,6 +59,7 @@ interface DataTableProps<TData extends Employee, TValue> {
   data: TData[];
   uniqueDepartments: string[];
   uniqueRoles: string[];
+  uniqueCompanies: string[];
 }
 
 export function DataTable<TData extends Employee, TValue>({
@@ -66,6 +67,7 @@ export function DataTable<TData extends Employee, TValue>({
   data,
   uniqueDepartments,
   uniqueRoles,
+  uniqueCompanies,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -103,9 +105,8 @@ export function DataTable<TData extends Employee, TValue>({
       columnVisibility,
       rowSelection,
     },
-    // Enable a few more global filters
     filterFns: {
-      fuzzy: () => false, // Search is handled by name column filter for now
+      fuzzy: () => false, 
     },
     globalFilterFn: "fuzzy",
   });
@@ -116,6 +117,7 @@ export function DataTable<TData extends Employee, TValue>({
       return {
         "Name": original.name,
         "Employee ID": original.employeeId,
+        "Company": original.company,
         "Department": original.department,
         "Role": original.role,
         "Email": original.email,
@@ -165,6 +167,21 @@ export function DataTable<TData extends Employee, TValue>({
             <DropdownMenuContent align="end" className="w-[250px]">
               <DropdownMenuLabel>Filter by</DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <div className="p-2">
+                <Label htmlFor="company-filter" className="text-sm font-medium">Company</Label>
+                <Select
+                  value={(table.getColumn("company")?.getFilterValue() as string) ?? "all"}
+                  onValueChange={(value) => table.getColumn("company")?.setFilterValue(value === "all" ? undefined : value)}
+                >
+                  <SelectTrigger id="company-filter" className="w-full mt-1">
+                    <SelectValue placeholder="Select Company" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Companies</SelectItem>
+                    {uniqueCompanies.map(comp => <SelectItem key={comp} value={comp}>{comp}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
                <div className="p-2">
                 <Label htmlFor="department-filter" className="text-sm font-medium">Department</Label>
                 <Select
@@ -259,6 +276,7 @@ export function DataTable<TData extends Employee, TValue>({
               <AddEmployeeForm 
                 uniqueDepartments={uniqueDepartments} 
                 uniqueRoles={uniqueRoles}
+                uniqueCompanies={uniqueCompanies}
                 onFormSubmissionSuccess={() => setIsAddEmployeeDialogOpen(false)} 
               />
             </DialogContent>

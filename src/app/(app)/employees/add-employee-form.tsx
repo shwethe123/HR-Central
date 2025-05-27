@@ -2,8 +2,8 @@
 // src/app/(app)/employees/add-employee-form.tsx
 'use client';
 
-import { useEffect, useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
+import { useEffect } from 'react';
+import { useActionState, useFormStatus } from 'react-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils';
 const ClientEmployeeSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   employeeId: z.string().min(3, { message: "Employee ID must be at least 3 characters." }),
+  company: z.string().min(1, { message: "Company is required." }),
   department: z.string().min(1, { message: "Department is required." }),
   role: z.string().min(1, { message: "Role is required." }),
   email: z.string().email({ message: "Invalid email address." }),
@@ -44,6 +45,7 @@ interface AddEmployeeFormProps {
   onFormSubmissionSuccess?: () => void;
   uniqueDepartments: string[];
   uniqueRoles: string[];
+  uniqueCompanies: string[];
   className?: string;
 }
 
@@ -57,7 +59,7 @@ function SubmitButton() {
   );
 }
 
-export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, uniqueRoles, className }: AddEmployeeFormProps) {
+export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, uniqueRoles, uniqueCompanies, className }: AddEmployeeFormProps) {
   const { toast } = useToast();
   const [state, formAction] = useActionState(addEmployee, { message: null, errors: {}, success: false });
 
@@ -66,11 +68,12 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
     defaultValues: {
       name: '',
       employeeId: '',
+      company: '',
       department: '',
       role: '',
       email: '',
       phone: '',
-      startDate: undefined, // react-hook-form prefers undefined for controlled date inputs
+      startDate: undefined, 
       status: 'Active',
       avatar: '',
     },
@@ -82,9 +85,9 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
         title: "Success",
         description: state.message,
       });
-      form.reset(); // Reset form fields on success
+      form.reset(); 
       if (onFormSubmissionSuccess) {
-        onFormSubmissionSuccess(); // Callback to close dialog etc.
+        onFormSubmissionSuccess(); 
       }
     } else if (!state?.success && state?.message && (state.errors || state.message.startsWith("Adding employee failed:") || state.message.startsWith("Validation failed."))) {
        toast({
@@ -99,6 +102,7 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
     const formData = new FormData();
     formData.append('name', data.name);
     formData.append('employeeId', data.employeeId);
+    formData.append('company', data.company);
     formData.append('department', data.department);
     formData.append('role', data.role);
     formData.append('email', data.email);
@@ -126,6 +130,26 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
         {state?.errors?.employeeId && <p className="text-sm text-destructive mt-1">{state.errors.employeeId.join(', ')}</p>}
       </div>
       
+      <div>
+        <Label htmlFor="company-add">Company</Label>
+        <Controller
+          control={form.control}
+          name="company"
+          render={({ field }) => (
+            <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <SelectTrigger id="company-add">
+                <SelectValue placeholder="Select Company" />
+              </SelectTrigger>
+              <SelectContent>
+                {uniqueCompanies.map(comp => <SelectItem key={comp} value={comp}>{comp}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+        />
+        {form.formState.errors.company && <p className="text-sm text-destructive mt-1">{form.formState.errors.company.message}</p>}
+        {state?.errors?.company && <p className="text-sm text-destructive mt-1">{state.errors.company.join(', ')}</p>}
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="department-add">Department</Label>

@@ -43,6 +43,10 @@ export function EmployeeDetailsDialog({ employee, isOpen, onOpenChange }: Employ
             <span>{employee.employeeId}</span>
           </div>
           <div className="flex items-center">
+            <span className="w-[130px] font-medium text-muted-foreground">Company:</span>
+            <span>{employee.company || 'N/A'}</span>
+          </div>
+          <div className="flex items-center">
             <span className="w-[130px] font-medium text-muted-foreground">Department:</span>
             <span>{employee.department}</span>
           </div>

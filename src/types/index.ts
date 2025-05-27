@@ -10,7 +10,8 @@ export type Employee = {
   startDate: string;
   status: "Active" | "Inactive";
   avatar?: string;
-  salary?: number; // Added salary field
+  salary?: number;
+  company?: string; // Added company field
 };
 
 export type Metric = {

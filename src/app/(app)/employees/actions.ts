@@ -12,6 +12,7 @@ import { revalidatePath } from 'next/cache';
 const EmployeeFormSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   employeeId: z.string().min(3, { message: "Employee ID must be at least 3 characters." }),
+  company: z.string().min(1, { message: "Company is required." }),
   department: z.string().min(1, { message: "Department is required." }),
   role: z.string().min(1, { message: "Role is required." }),
   email: z.string().email({ message: "Invalid email address." }),
@@ -26,6 +27,7 @@ export type AddEmployeeFormState = {
   errors?: {
     name?: string[];
     employeeId?: string[];
+    company?: string[];
     department?: string[];
     role?: string[];
     email?: string[];
@@ -45,13 +47,14 @@ export async function addEmployee(
   const validatedFields = EmployeeFormSchema.safeParse({
     name: formData.get('name'),
     employeeId: formData.get('employeeId'),
+    company: formData.get('company'),
     department: formData.get('department'),
     role: formData.get('role'),
     email: formData.get('email'),
-    phone: formData.get('phone') || undefined, // Ensure empty string becomes undefined for optional
+    phone: formData.get('phone') || undefined,
     startDate: formData.get('startDate'),
     status: formData.get('status'),
-    avatar: formData.get('avatar') || undefined, // Ensure empty string becomes undefined for optional URL
+    avatar: formData.get('avatar') || undefined, 
   });
 
   if (!validatedFields.success) {
@@ -65,19 +68,17 @@ export async function addEmployee(
   const newEmployeeData = validatedFields.data;
 
   try {
-    // Simulate adding to a store
     const newEmployee: Employee = {
-      id: `EMP${Date.now()}${Math.random().toString(16).slice(2,6)}`, // Generate a simple unique ID
+      id: `EMP${Date.now()}${Math.random().toString(16).slice(2,6)}`, 
       ...newEmployeeData,
-      phone: newEmployeeData.phone || '', // Ensure stored as string
-      avatar: newEmployeeData.avatar || '', // Ensure stored as string
-      startDate: newEmployeeData.startDate, // Already a string "yyyy-MM-dd"
+      phone: newEmployeeData.phone || '', 
+      avatar: newEmployeeData.avatar || '', 
+      company: newEmployeeData.company,
+      startDate: newEmployeeData.startDate, 
     };
     console.log("New employee added (simulated):", newEmployee);
-    // In a real app, save to DB here.
-    // For now, this won't update the UI list as it's hardcoded.
-
-    revalidatePath('/employees'); // Attempt to refresh data on the employees page
+    
+    revalidatePath('/employees'); 
 
     return {
       message: `Employee "${newEmployee.name}" added successfully (simulated). The list won't update due to the current hardcoded data setup.`,
