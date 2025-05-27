@@ -47,21 +47,20 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-  DialogClose,
 } from "@/components/ui/dialog";
-import { AddEmployeeForm } from "./add-employee-form"; // Import the new form component
+import { AddEmployeeForm } from "./add-employee-form";
+import { EmployeeDetailsDialog } from "./employee-details-dialog"; // Import the new details dialog
+import type { Employee } from "@/types"; // Import Employee type
 
-interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<TData, TValue>[];
+interface DataTableProps<TData extends Employee, TValue> { // Ensure TData is compatible with Employee
+  columnGenerator: (onViewDetails: (employee: TData) => void) => ColumnDef<TData, TValue>[];
   data: TData[];
   uniqueDepartments: string[];
   uniqueRoles: string[];
 }
 
-export function DataTable<TData, TValue>({
-  columns,
+export function DataTable<TData extends Employee, TValue>({
+  columnGenerator,
   data,
   uniqueDepartments,
   uniqueRoles,
@@ -72,9 +71,22 @@ export function DataTable<TData, TValue>({
   const [rowSelection, setRowSelection] = React.useState({});
   const [isAddEmployeeDialogOpen, setIsAddEmployeeDialogOpen] = React.useState(false);
 
+  const [selectedEmployeeForDetails, setSelectedEmployeeForDetails] = React.useState<TData | null>(null);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = React.useState(false);
+
+  const handleViewDetails = React.useCallback((employee: TData) => {
+    setSelectedEmployeeForDetails(employee);
+    setIsDetailsDialogOpen(true);
+  }, []);
+
+  const memoizedColumns = React.useMemo(
+    () => columnGenerator(handleViewDetails),
+    [columnGenerator, handleViewDetails]
+  );
+
   const table = useReactTable({
     data,
-    columns,
+    columns: memoizedColumns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     onSortingChange: setSorting,
@@ -95,11 +107,10 @@ export function DataTable<TData, TValue>({
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
         <Input
-          placeholder="Filter by name or email..."
-          value={(table.getColumn("name")?.getFilterValue() as string) ?? (table.getColumn("email")?.getFilterValue() as string) ?? ""}
+          placeholder="Filter by name..." // Simplified placeholder
+          value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
           onChange={(event) => {
             table.getColumn("name")?.setFilterValue(event.target.value);
-            // table.getColumn("email")?.setFilterValue(event.target.value); // Uncomment if you want to filter by email as well
           }}
           className="max-w-sm"
         />
@@ -116,7 +127,7 @@ export function DataTable<TData, TValue>({
                <div className="p-2">
                 <Label htmlFor="department-filter" className="text-sm font-medium">Department</Label>
                 <Select
-                  value={table.getColumn("department")?.getFilterValue() as string ?? ""}
+                  value={(table.getColumn("department")?.getFilterValue() as string) ?? "all"}
                   onValueChange={(value) => table.getColumn("department")?.setFilterValue(value === "all" ? undefined : value)}
                 >
                   <SelectTrigger id="department-filter" className="w-full mt-1">
@@ -131,7 +142,7 @@ export function DataTable<TData, TValue>({
               <div className="p-2">
                 <Label htmlFor="role-filter" className="text-sm font-medium">Role</Label>
                  <Select
-                  value={table.getColumn("role")?.getFilterValue() as string ?? ""}
+                  value={(table.getColumn("role")?.getFilterValue() as string) ?? "all"}
                   onValueChange={(value) => table.getColumn("role")?.setFilterValue(value === "all" ? undefined : value)}
                 >
                   <SelectTrigger id="role-filter" className="w-full mt-1">
@@ -146,7 +157,7 @@ export function DataTable<TData, TValue>({
                <div className="p-2">
                 <Label htmlFor="status-filter" className="text-sm font-medium">Status</Label>
                  <Select
-                  value={table.getColumn("status")?.getFilterValue() as string ?? ""}
+                  value={(table.getColumn("status")?.getFilterValue() as string) ?? "all"}
                   onValueChange={(value) => table.getColumn("status")?.setFilterValue(value === "all" ? undefined : value)}
                 >
                   <SelectTrigger id="status-filter" className="w-full mt-1">
@@ -213,7 +224,7 @@ export function DataTable<TData, TValue>({
           </Dialog>
         </div>
       </div>
-      <div className="rounded-md border shadow-sm">
+      <div className="rounded-md border shadow-sm bg-card">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -253,7 +264,7 @@ export function DataTable<TData, TValue>({
             ) : (
               <TableRow>
                 <TableCell
-                  colSpan={columns.length}
+                  colSpan={memoizedColumns.length}
                   className="h-24 text-center"
                 >
                   No results.
@@ -285,6 +296,11 @@ export function DataTable<TData, TValue>({
           Next
         </Button>
       </div>
+      <EmployeeDetailsDialog 
+        employee={selectedEmployeeForDetails}
+        isOpen={isDetailsDialogOpen}
+        onOpenChange={setIsDetailsDialogOpen}
+      />
     </div>
   );
 }

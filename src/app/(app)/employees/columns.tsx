@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
@@ -16,7 +17,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-export const columns: ColumnDef<Employee>[] = [
+export const getColumns = (onViewDetails: (employee: Employee) => void): ColumnDef<Employee>[] => [
   {
     id: "select",
     header: ({ table }) => (
@@ -59,7 +60,7 @@ export const columns: ColumnDef<Employee>[] = [
       return (
         <div className="flex items-center gap-3">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={employee.avatar || `https://placehold.co/40x40.png?text=${employee.name.charAt(0)}`} alt={employee.name} data-ai-hint="person avatar" />
+            <AvatarImage src={employee.avatar || undefined} alt={employee.name} data-ai-hint="person avatar" />
             <AvatarFallback>{employee.name.substring(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar>
           <span className="font-medium">{employee.name}</span>
@@ -104,7 +105,7 @@ export const columns: ColumnDef<Employee>[] = [
     header: "Status",
     cell: ({ row }) => {
       const status = row.getValue("status") as string;
-      return <Badge variant={status === "Active" ? "default" : "destructive"} className={status === "Active" ? "bg-green-500 hover:bg-green-600 text-white" : ""}>{status}</Badge>;
+      return <Badge variant={status === "Active" ? "default" : "destructive"} className={`font-semibold ${status === "Active" ? "bg-green-100 text-green-700 border-green-300" : "bg-red-100 text-red-700 border-red-300"}`}>{status}</Badge>;
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id))
@@ -115,7 +116,8 @@ export const columns: ColumnDef<Employee>[] = [
     header: "Start Date",
     cell: ({ row }) => {
         const date = new Date(row.getValue("startDate"));
-        return new Intl.DateTimeFormat("en-US").format(date);
+        // Format date to be more readable, e.g., "Jan 15, 2022"
+        return new Intl.DateTimeFormat("en-US", { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
     }
   },
   {
@@ -138,7 +140,9 @@ export const columns: ColumnDef<Employee>[] = [
               Copy email
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>View details</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onViewDetails(employee)}>
+              View details
+            </DropdownMenuItem>
             <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">Delete employee</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
