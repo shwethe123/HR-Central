@@ -47,12 +47,13 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogTrigger, // Added DialogTrigger here
 } from "@/components/ui/dialog";
 import { AddEmployeeForm } from "./add-employee-form";
-import { EmployeeDetailsDialog } from "./employee-details-dialog"; // Import the new details dialog
-import type { Employee } from "@/types"; // Import Employee type
+import { EmployeeDetailsDialog } from "./employee-details-dialog"; 
+import type { Employee } from "@/types"; 
 
-interface DataTableProps<TData extends Employee, TValue> { // Ensure TData is compatible with Employee
+interface DataTableProps<TData extends Employee, TValue> { 
   columnGenerator: (onViewDetails: (employee: TData) => void) => ColumnDef<TData, TValue>[];
   data: TData[];
   uniqueDepartments: string[];
@@ -107,7 +108,7 @@ export function DataTable<TData extends Employee, TValue>({
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
         <Input
-          placeholder="Filter by name..." // Simplified placeholder
+          placeholder="Filter by name..." 
           value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
           onChange={(event) => {
             table.getColumn("name")?.setFilterValue(event.target.value);
@@ -304,3 +305,4 @@ export function DataTable<TData extends Employee, TValue>({
     </div>
   );
 }
+
