@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -26,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { ChevronDown, PlusCircle, ListFilter, FileDown } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -39,7 +41,7 @@ export function DataTable<TData, TValue>({
   data,
   uniqueDepartments,
   uniqueRoles,
-}: DataTableProps<TDData, TValue>) {
+}: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
@@ -73,7 +75,7 @@ export function DataTable<TData, TValue>({
           onChange={(event) => {
             table.getColumn("name")?.setFilterValue(event.target.value);
             // You might want to search in email as well, or have a global filter
-            // table.getColumn("email")?.setFilterValue(event.target.value) 
+            // table.getColumn("email")?.setFilterValue(event.target.value)
           }}
           className="max-w-sm"
         />
@@ -245,16 +247,3 @@ export function DataTable<TData, TValue>({
     </div>
   );
 }
-
-// Helper Label component if not globally available
-const Label = React.forwardRef<
-  React.ElementRef<typeof import("@radix-ui/react-label").Root>,
-  React.ComponentPropsWithoutRef<typeof import("@radix-ui/react-label").Root>
->(({ className, ...props }, ref) => (
-  <import("@radix-ui/react-label").Root
-    ref={ref}
-    className={className}
-    {...props}
-  />
-));
-Label.displayName = "Label";
