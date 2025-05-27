@@ -43,6 +43,8 @@ const MOCK_EMPLOYEES_DATA: Employee[] = [
     { id: "16", name: "Pepper Potts", employeeId: "EMP016", department: "HR", role: "CEO", email: "pepper.p@example.com", phone: "555-0116", startDate: "2017-09-12", status: "Active", salary: 200000, company: "Synergy Corp" },
     { id: "17", name: "Bruce Wayne", employeeId: "EMP017", department: "Finance", role: "CFO", email: "bruce.w@example.com", phone: "555-0117", startDate: "2019-04-01", status: "Active", salary: 180000, company: "QuantumLeap Inc." },
     { id: "18", name: "Clark Kent", employeeId: "EMP018", department: "Marketing", role: "PR Manager", email: "clark.k@example.com", phone: "555-0118", startDate: "2020-11-20", status: "Active", salary: 90000, company: "QuantumLeap Inc." },
+    { id: "19", name: "Gimli Son of Gloin", employeeId: "EMP019", department: "Engineering", role: "Axe Specialist", email: "gimli@example.com", phone: "555-0119", startDate: "2020-01-01", status: "Active", salary: 100000, company: "Innovatech Solutions" },
+    { id: "20", name: "Legolas Greenleaf", employeeId: "EMP020", department: "Engineering", role: "Archery Master", email: "legolas@example.com", phone: "555-0120", startDate: "2019-01-01", status: "Active", salary: 102000, company: "Innovatech Solutions" },
 ];
 
 async function getEmployeesData(): Promise<Employee[]> {
@@ -54,6 +56,7 @@ async function getEmployeesData(): Promise<Employee[]> {
 interface DepartmentInfo {
   name: string;
   employeeCount: number;
+  employeeSamples: string[];
 }
 
 export default function CompanyDepartmentsPage() {
@@ -75,25 +78,25 @@ export default function CompanyDepartmentsPage() {
   const departmentsInSelectedCompany = useMemo((): DepartmentInfo[] => {
     if (!selectedCompany) return [];
     const companyEmployees = employees.filter(emp => emp.company === selectedCompany);
-    const departmentCounts: Record<string, number> = {};
-    companyEmployees.forEach(emp => {
-      departmentCounts[emp.department] = (departmentCounts[emp.department] || 0) + 1;
-    });
-    return Object.entries(departmentCounts)
-      .map(([name, employeeCount]) => ({ name, employeeCount }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [employees, selectedCompany]);
+    const departmentMap: Record<string, { count: number; samples: string[] }> = {};
 
-  const employeesInSelectedCompany = useMemo((): Employee[] => {
-    if (!selectedCompany) return [];
-    return employees
-      .filter(emp => emp.company === selectedCompany)
-      .sort((a, b) => {
-        if (a.department.localeCompare(b.department) !== 0) {
-          return a.department.localeCompare(b.department);
-        }
-        return a.name.localeCompare(b.name);
-      });
+    companyEmployees.forEach(emp => {
+      if (!departmentMap[emp.department]) {
+        departmentMap[emp.department] = { count: 0, samples: [] };
+      }
+      departmentMap[emp.department].count++;
+      if (departmentMap[emp.department].samples.length < 2) { // Show up to 2 samples
+        departmentMap[emp.department].samples.push(emp.name);
+      }
+    });
+
+    return Object.entries(departmentMap)
+      .map(([name, data]) => ({ 
+        name, 
+        employeeCount: data.count,
+        employeeSamples: data.samples,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [employees, selectedCompany]);
 
   return (
@@ -144,15 +147,24 @@ export default function CompanyDepartmentsPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[70%] font-semibold">Department Name</TableHead>
-                        <TableHead className="text-right font-semibold">Employee Count</TableHead>
+                        <TableHead className="w-[60%] font-semibold">Department Name</TableHead>
+                        <TableHead className="text-left font-semibold">Employees ({employees.filter(e => e.company === selectedCompany).length} total)</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {departmentsInSelectedCompany.map(dept => (
                         <TableRow key={dept.name} className="hover:bg-muted/50">
                           <TableCell className="font-medium py-3">{dept.name}</TableCell>
-                          <TableCell className="text-right py-3">{dept.employeeCount}</TableCell>
+                          <TableCell className="py-3">
+                            {dept.employeeSamples.join(", ")}
+                            {dept.employeeCount > dept.employeeSamples.length && (
+                              <span>
+                                {dept.employeeSamples.length > 0 ? ", " : ""}
+                                (+{dept.employeeCount - dept.employeeSamples.length} more)
+                              </span>
+                            )}
+                             {dept.employeeCount === 0 && <span>No employees</span>}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -169,32 +181,45 @@ export default function CompanyDepartmentsPage() {
               <CardTitle className="flex items-center">
                 <Users className="mr-2 h-6 w-6 text-primary" />
                 Employees in {selectedCompany}
-                </CardTitle>
+              </CardTitle>
             </CardHeader>
-            <CardContent>
-              {employeesInSelectedCompany.length > 0 ? (
-                <div className="rounded-md border overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="font-semibold">Department</TableHead>
-                        <TableHead className="font-semibold">Name</TableHead>
-                        <TableHead className="font-semibold">Role</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {employeesInSelectedCompany.map(emp => (
-                        <TableRow key={emp.id} className="hover:bg-muted/50">
-                          <TableCell className="py-3">{emp.department}</TableCell>
-                          <TableCell className="font-medium py-3">{emp.name}</TableCell>
-                          <TableCell className="py-3">{emp.role}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+            <CardContent className="space-y-6">
+              {departmentsInSelectedCompany.filter(d => d.employeeCount > 0).length > 0 ? (
+                departmentsInSelectedCompany.map(dept => {
+                  if (dept.employeeCount === 0) return null;
+
+                  const deptEmployees = employees
+                    .filter(emp => emp.company === selectedCompany && emp.department === dept.name)
+                    .sort((a, b) => a.name.localeCompare(b.name));
+
+                  if (deptEmployees.length === 0) return null; 
+
+                  return (
+                    <div key={dept.name} className="mb-8 last:mb-0">
+                      <h3 className="text-xl font-semibold mb-3 border-b pb-2 text-foreground/90">{dept.name} ({dept.employeeCount})</h3>
+                      <div className="rounded-md border overflow-x-auto bg-card">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="font-semibold">Name</TableHead>
+                              <TableHead className="font-semibold">Role</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {deptEmployees.map(emp => (
+                              <TableRow key={emp.id} className="hover:bg-muted/50">
+                                <TableCell className="font-medium py-3">{emp.name}</TableCell>
+                                <TableCell className="py-3">{emp.role}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  );
+                })
               ) : (
-                <p className="text-muted-foreground py-4">No employees found for {selectedCompany}.</p>
+                <p className="text-muted-foreground py-4">No employees found in any department for {selectedCompany}.</p>
               )}
             </CardContent>
           </Card>
