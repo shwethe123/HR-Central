@@ -103,7 +103,9 @@ export default function CompanyDepartmentsPage() {
     if (employees.length === 0) return null;
 
     return uniqueCompanies.map(companyName => {
-      const companyEmployees = employees.filter(emp => emp.company === companyName);
+      const companyEmployees = employees
+        .filter(emp => emp.company === companyName)
+        .sort((a,b) => a.name.localeCompare(b.name)); // Sort employees by name
       if (companyEmployees.length === 0) return null;
 
       const companyDepartments = [...new Set(companyEmployees.map(emp => emp.department))].sort();
@@ -131,7 +133,7 @@ export default function CompanyDepartmentsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {companyEmployees.sort((a,b) => a.name.localeCompare(b.name)).map((employee, index) => (
+                    {companyEmployees.map((employee, index) => (
                       <TableRow key={employee.id} className="hover:bg-muted/50">
                         <TableCell className="font-medium py-3 sticky left-0 bg-card z-0">{index + 1}</TableCell>
                         {companyDepartments.map(dept => (
@@ -298,3 +300,5 @@ export default function CompanyDepartmentsPage() {
     </div>
   );
 }
+
+    
