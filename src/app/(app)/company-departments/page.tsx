@@ -19,7 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Building2 } from 'lucide-react';
+import { Building2, Users } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 
 // Mock data specifically for this page to ensure all necessary fields are present.
@@ -64,11 +64,6 @@ export default function CompanyDepartmentsPage() {
     async function fetchData() {
       const data = await getEmployeesData();
       setEmployees(data);
-      // Optionally set a default selected company if desired
-      // const companies = [...new Set(data.map(emp => emp.company).filter(Boolean))] as string[];
-      // if (companies.length > 0) {
-      //   setSelectedCompany(companies[0]);
-      // }
     }
     fetchData();
   }, []);
@@ -86,7 +81,19 @@ export default function CompanyDepartmentsPage() {
     });
     return Object.entries(departmentCounts)
       .map(([name, employeeCount]) => ({ name, employeeCount }))
-      .sort((a, b) => a.name.localeCompare(b.name)); // Sort alphabetically by department name
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [employees, selectedCompany]);
+
+  const employeesInSelectedCompany = useMemo((): Employee[] => {
+    if (!selectedCompany) return [];
+    return employees
+      .filter(emp => emp.company === selectedCompany)
+      .sort((a, b) => {
+        if (a.department.localeCompare(b.department) !== 0) {
+          return a.department.localeCompare(b.department);
+        }
+        return a.name.localeCompare(b.name);
+      });
   }, [employees, selectedCompany]);
 
   return (
@@ -94,14 +101,14 @@ export default function CompanyDepartmentsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-semibold flex items-center">
           <Building2 className="mr-3 h-8 w-8 text-primary" />
-          Company Departments
+          Company Departments & Employees
         </h1>
       </div>
 
       <Card className="shadow-lg rounded-lg overflow-hidden">
         <CardHeader>
           <CardTitle>Filter by Company</CardTitle>
-          <CardDescription>Choose a company to view its departments and the number of employees in each.</CardDescription>
+          <CardDescription>Choose a company to view its departments, employee counts, and employee list.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
@@ -123,48 +130,87 @@ export default function CompanyDepartmentsPage() {
       </Card>
 
       {selectedCompany && (
-        <Card className="shadow-lg rounded-lg overflow-hidden">
-          <CardHeader>
-            <CardTitle>Departments in {selectedCompany}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {departmentsInSelectedCompany.length > 0 ? (
-              <div className="rounded-md border overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[70%] font-semibold">Department Name</TableHead>
-                      <TableHead className="text-right font-semibold">Employee Count</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {departmentsInSelectedCompany.map(dept => (
-                      <TableRow key={dept.name} className="hover:bg-muted/50">
-                        <TableCell className="font-medium py-3">{dept.name}</TableCell>
-                        <TableCell className="text-right py-3">{dept.employeeCount}</TableCell>
+        <>
+          <Card className="shadow-lg rounded-lg overflow-hidden">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Building2 className="mr-2 h-6 w-6 text-primary" />
+                Departments in {selectedCompany}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {departmentsInSelectedCompany.length > 0 ? (
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[70%] font-semibold">Department Name</TableHead>
+                        <TableHead className="text-right font-semibold">Employee Count</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            ) : (
-              <p className="text-muted-foreground py-4">No departments found for {selectedCompany}, or no employees currently in this company.</p>
-            )}
-          </CardContent>
-        </Card>
+                    </TableHeader>
+                    <TableBody>
+                      {departmentsInSelectedCompany.map(dept => (
+                        <TableRow key={dept.name} className="hover:bg-muted/50">
+                          <TableCell className="font-medium py-3">{dept.name}</TableCell>
+                          <TableCell className="text-right py-3">{dept.employeeCount}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <p className="text-muted-foreground py-4">No departments found for {selectedCompany}, or no employees currently in this company.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-lg rounded-lg overflow-hidden">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Users className="mr-2 h-6 w-6 text-primary" />
+                Employees in {selectedCompany}
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {employeesInSelectedCompany.length > 0 ? (
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="font-semibold">Department</TableHead>
+                        <TableHead className="font-semibold">Name</TableHead>
+                        <TableHead className="font-semibold">Role</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {employeesInSelectedCompany.map(emp => (
+                        <TableRow key={emp.id} className="hover:bg-muted/50">
+                          <TableCell className="py-3">{emp.department}</TableCell>
+                          <TableCell className="font-medium py-3">{emp.name}</TableCell>
+                          <TableCell className="py-3">{emp.role}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <p className="text-muted-foreground py-4">No employees found for {selectedCompany}.</p>
+              )}
+            </CardContent>
+          </Card>
+        </>
       )}
+
        {!selectedCompany && employees.length > 0 && (
         <Card className="shadow-lg rounded-lg overflow-hidden">
           <CardHeader>
             <CardTitle>Overview</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground">Please select a company from the dropdown above to view its departments.</p>
+            <p className="text-muted-foreground">Please select a company from the dropdown above to view its department summary and employee list.</p>
           </CardContent>
         </Card>
       )}
     </div>
   );
 }
-
-    
