@@ -24,10 +24,34 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { 
+  DropdownMenu, 
+  DropdownMenuCheckboxItem, 
+  DropdownMenuContent, 
+  DropdownMenuTrigger, 
+  DropdownMenuLabel, 
+  DropdownMenuSeparator 
+} from "@/components/ui/dropdown-menu";
 import { ChevronDown, PlusCircle, ListFilter, FileDown } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { AddEmployeeForm } from "./add-employee-form"; // Import the new form component
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -46,6 +70,7 @@ export function DataTable<TData, TValue>({
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
+  const [isAddEmployeeDialogOpen, setIsAddEmployeeDialogOpen] = React.useState(false);
 
   const table = useReactTable({
     data,
@@ -74,8 +99,7 @@ export function DataTable<TData, TValue>({
           value={(table.getColumn("name")?.getFilterValue() as string) ?? (table.getColumn("email")?.getFilterValue() as string) ?? ""}
           onChange={(event) => {
             table.getColumn("name")?.setFilterValue(event.target.value);
-            // You might want to search in email as well, or have a global filter
-            // table.getColumn("email")?.setFilterValue(event.target.value)
+            // table.getColumn("email")?.setFilterValue(event.target.value); // Uncomment if you want to filter by email as well
           }}
           className="max-w-sm"
         />
@@ -167,9 +191,26 @@ export function DataTable<TData, TValue>({
           <Button variant="outline">
             <FileDown className="mr-2 h-4 w-4" /> Export
           </Button>
-           <Button>
-            <PlusCircle className="mr-2 h-4 w-4" /> Add Employee
-          </Button>
+          <Dialog open={isAddEmployeeDialogOpen} onOpenChange={setIsAddEmployeeDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <PlusCircle className="mr-2 h-4 w-4" /> Add Employee
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[625px]">
+              <DialogHeader>
+                <DialogTitle>Add New Employee</DialogTitle>
+                <DialogDescription>
+                  Fill in the details below to add a new employee to the directory.
+                </DialogDescription>
+              </DialogHeader>
+              <AddEmployeeForm 
+                uniqueDepartments={uniqueDepartments} 
+                uniqueRoles={uniqueRoles}
+                onFormSubmissionSuccess={() => setIsAddEmployeeDialogOpen(false)} 
+              />
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
       <div className="rounded-md border shadow-sm">
