@@ -1,8 +1,9 @@
+
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Users, MessageSquareText, Settings, LifeBuoy, LogOut } from "lucide-react";
+import { Home, Users, MessageSquareText, Settings, LifeBuoy, LogOut, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   SidebarMenu,
@@ -18,6 +19,7 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/employees", label: "Employees", icon: Users },
   { href: "/feedback", label: "Feedback Analysis", icon: MessageSquareText },
+  { href: "/company-departments", label: "Company Departments", icon: Building2 },
 ];
 
 const secondaryNavItems = [
@@ -79,3 +81,5 @@ export function SidebarNav() {
     </>
   );
 }
+
+    
