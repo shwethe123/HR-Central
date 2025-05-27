@@ -112,11 +112,10 @@ export default function CompanyDepartmentsPage() {
         <Card key={companyName} className="shadow-lg rounded-lg overflow-hidden mt-6">
           <CardHeader>
             <CardTitle className="flex items-center">
-              {/* Optional: Add a company icon here if desired */}
               Employees in {companyName}
             </CardTitle>
             <CardDescription>
-              Departments are listed as columns. Employee names appear under their respective department.
+              Departments are listed as columns. Employee names appear under their respective department if they belong to it.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -126,9 +125,8 @@ export default function CompanyDepartmentsPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[50px] font-semibold sticky left-0 bg-card z-10">#</TableHead>
-                      <TableHead className="w-[200px] font-semibold sticky left-[66px] bg-card z-10">Employee Name</TableHead>
                       {companyDepartments.map(dept => (
-                        <TableHead key={dept} className="font-semibold min-w-[150px]">{dept}</TableHead>
+                        <TableHead key={dept} className="font-semibold min-w-[200px]">{dept}</TableHead>
                       ))}
                     </TableRow>
                   </TableHeader>
@@ -136,9 +134,8 @@ export default function CompanyDepartmentsPage() {
                     {companyEmployees.sort((a,b) => a.name.localeCompare(b.name)).map((employee, index) => (
                       <TableRow key={employee.id} className="hover:bg-muted/50">
                         <TableCell className="font-medium py-3 sticky left-0 bg-card z-0">{index + 1}</TableCell>
-                        <TableCell className="py-3 sticky left-[66px] bg-card z-0">{employee.name}</TableCell>
                         {companyDepartments.map(dept => (
-                          <TableCell key={`${employee.id}-${dept}`} className="py-3">
+                          <TableCell key={`${employee.id}-${dept}`} className="py-3 min-w-[200px]">
                             {employee.department === dept ? employee.name : ''}
                           </TableCell>
                         ))}
