@@ -47,11 +47,12 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger, // Added DialogTrigger here
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { AddEmployeeForm } from "./add-employee-form";
 import { EmployeeDetailsDialog } from "./employee-details-dialog"; 
 import type { Employee } from "@/types"; 
+import Papa from "papaparse";
 
 interface DataTableProps<TData extends Employee, TValue> { 
   columnGenerator: (onViewDetails: (employee: TData) => void) => ColumnDef<TData, TValue>[];
@@ -102,7 +103,46 @@ export function DataTable<TData extends Employee, TValue>({
       columnVisibility,
       rowSelection,
     },
+    // Enable a few more global filters
+    filterFns: {
+      fuzzy: () => false, // Search is handled by name column filter for now
+    },
+    globalFilterFn: "fuzzy",
   });
+
+  const handleExport = () => {
+    const rowsToExport = table.getFilteredRowModel().rows.map(row => {
+      const original = row.original as Employee;
+      return {
+        "Name": original.name,
+        "Employee ID": original.employeeId,
+        "Department": original.department,
+        "Role": original.role,
+        "Email": original.email,
+        "Phone": original.phone,
+        "Start Date": original.startDate,
+        "Status": original.status,
+        "Salary": original.salary ? original.salary.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }) : 'N/A',
+      };
+    });
+
+    if (rowsToExport.length === 0) {
+      alert("No data to export.");
+      return;
+    }
+
+    const csv = Papa.unparse(rowsToExport);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", "employees.csv");
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
 
   return (
     <div className="space-y-4">
@@ -200,7 +240,7 @@ export function DataTable<TData extends Employee, TValue>({
                 })}
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button variant="outline">
+          <Button variant="outline" onClick={handleExport}>
             <FileDown className="mr-2 h-4 w-4" /> Export
           </Button>
           <Dialog open={isAddEmployeeDialogOpen} onOpenChange={setIsAddEmployeeDialogOpen}>
@@ -305,4 +345,3 @@ export function DataTable<TData extends Employee, TValue>({
     </div>
   );
 }
-
