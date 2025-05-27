@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState, useFormStatus } from "react";
 import { submitFeedbackAnalysis, type FormState } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,7 +23,7 @@ function SubmitButton() {
 
 export default function FeedbackAnalysisPage() {
   const initialState: FormState = { message: null };
-  const [state, formAction] = useFormState(submitFeedbackAnalysis, initialState);
+  const [state, formAction] = useActionState(submitFeedbackAnalysis, initialState);
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
