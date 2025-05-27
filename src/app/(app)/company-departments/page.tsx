@@ -264,13 +264,15 @@ export default function CompanyDepartmentsPage() {
                         <Table>
                           <TableHeader>
                             <TableRow>
+                              <TableHead className="w-[50px] font-semibold">#</TableHead>
                               <TableHead className="font-semibold">Name</TableHead>
                               <TableHead className="font-semibold">Role</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {deptEmployees.map(emp => (
+                            {deptEmployees.map((emp, empIndex) => (
                               <TableRow key={emp.id} className="hover:bg-muted/50">
+                                <TableCell className="font-medium py-3">{empIndex + 1}</TableCell>
                                 <TableCell className="font-medium py-3">{emp.name}</TableCell>
                                 <TableCell className="py-3">{emp.role}</TableCell>
                               </TableRow>
@@ -306,7 +308,5 @@ export default function CompanyDepartmentsPage() {
     </div>
   );
 }
-
-    
 
     
