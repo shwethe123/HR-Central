@@ -1,8 +1,10 @@
+"use client";
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { BarChart, LineChart, PieChart, Users, Briefcase, TrendingUp, Clock, Building, Percent } from "lucide-react";
+import { BarChart as BarChartIcon, LineChart as LineChartIcon, PieChart as PieChartIcon, Users, Briefcase, TrendingUp, Clock, Building, Percent } from "lucide-react"; // Renamed to avoid conflict
 import type { Metric } from "@/types";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
-import { Bar, Line, Pie, Cell, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend as RechartsLegend } from "recharts";
+import { Bar, Line, Pie, Cell, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend as RechartsLegend, BarChart, LineChart, PieChart } from "recharts"; // Added BarChart, LineChart, PieChart here
 
 const metrics: Metric[] = [
   { title: "Total Employees", value: "1,250", change: "+5% this month", changeType: "positive", icon: Users },
