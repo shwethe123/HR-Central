@@ -19,7 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Building2, Users, List } from 'lucide-react';
+import { Building2, Users } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 
 // Mock data specifically for this page to ensure all necessary fields are present.
@@ -72,7 +72,7 @@ export default function CompanyDepartmentsPage() {
   }, []);
 
   const uniqueCompanies = useMemo(() => {
-    return [...new Set(employees.map(emp => emp.company).filter(Boolean))] as string[];
+    return [...new Set(employees.map(emp => emp.company).filter(Boolean) as string[])].sort();
   }, [employees]);
 
   const departmentsInSelectedCompany = useMemo((): DepartmentInfo[] => {
@@ -98,6 +98,64 @@ export default function CompanyDepartmentsPage() {
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [employees, selectedCompany]);
+
+  const companySpecificEmployeePivotTables = useMemo(() => {
+    if (employees.length === 0) return null;
+
+    return uniqueCompanies.map(companyName => {
+      const companyEmployees = employees.filter(emp => emp.company === companyName);
+      if (companyEmployees.length === 0) return null;
+
+      const companyDepartments = [...new Set(companyEmployees.map(emp => emp.department))].sort();
+      
+      return (
+        <Card key={companyName} className="shadow-lg rounded-lg overflow-hidden mt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              {/* Optional: Add a company icon here if desired */}
+              Employees in {companyName}
+            </CardTitle>
+            <CardDescription>
+              Departments are listed as columns. Employee names appear under their respective department.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {companyDepartments.length > 0 ? (
+              <div className="rounded-md border overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[50px] font-semibold sticky left-0 bg-card z-10">#</TableHead>
+                      <TableHead className="w-[200px] font-semibold sticky left-[66px] bg-card z-10">Employee Name</TableHead>
+                      {companyDepartments.map(dept => (
+                        <TableHead key={dept} className="font-semibold min-w-[150px]">{dept}</TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {companyEmployees.sort((a,b) => a.name.localeCompare(b.name)).map((employee, index) => (
+                      <TableRow key={employee.id} className="hover:bg-muted/50">
+                        <TableCell className="font-medium py-3 sticky left-0 bg-card z-0">{index + 1}</TableCell>
+                        <TableCell className="py-3 sticky left-[66px] bg-card z-0">{employee.name}</TableCell>
+                        {companyDepartments.map(dept => (
+                          <TableCell key={`${employee.id}-${dept}`} className="py-3">
+                            {employee.department === dept ? employee.name : ''}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <p className="text-muted-foreground py-4">No departments with employees found for {companyName}.</p>
+            )}
+          </CardContent>
+        </Card>
+      );
+    }).filter(Boolean);
+  }, [employees, uniqueCompanies]);
+
 
   return (
     <div className="container mx-auto py-2 space-y-6">
@@ -237,41 +295,9 @@ export default function CompanyDepartmentsPage() {
         </Card>
       )}
 
-      {employees.length > 0 && (
-        <Card className="shadow-lg rounded-lg overflow-hidden">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <List className="mr-2 h-6 w-6 text-primary" />
-              Complete Employee Roster
-            </CardTitle>
-             <CardDescription>A complete list of all employees across all companies.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-md border overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[100px] font-semibold">#</TableHead>
-                    <TableHead className="font-semibold">Employee Name</TableHead>
-                    <TableHead className="font-semibold">Company</TableHead>
-                    <TableHead className="font-semibold">Department</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {employees.sort((a,b) => a.name.localeCompare(b.name)).map((employee, index) => (
-                    <TableRow key={employee.id} className="hover:bg-muted/50">
-                      <TableCell className="font-medium py-3">{index + 1}</TableCell>
-                      <TableCell className="py-3">{employee.name}</TableCell>
-                      <TableCell className="py-3">{employee.company || 'N/A'}</TableCell>
-                      <TableCell className="py-3">{employee.department}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* New company-specific pivot tables section */}
+      {employees.length > 0 && companySpecificEmployeePivotTables}
+      
     </div>
   );
 }
