@@ -105,7 +105,13 @@ export default function CompanyDepartmentsPage() {
     return uniqueCompanies.map(companyName => {
       const companyEmployees = employees
         .filter(emp => emp.company === companyName)
-        .sort((a,b) => a.name.localeCompare(b.name)); // Sort employees by name
+        .sort((a, b) => {
+          const deptComparison = a.department.localeCompare(b.department);
+          if (deptComparison !== 0) {
+            return deptComparison;
+          }
+          return a.name.localeCompare(b.name);
+        });
       if (companyEmployees.length === 0) return null;
 
       const companyDepartments = [...new Set(companyEmployees.map(emp => emp.department))].sort();
@@ -300,5 +306,7 @@ export default function CompanyDepartmentsPage() {
     </div>
   );
 }
+
+    
 
     
