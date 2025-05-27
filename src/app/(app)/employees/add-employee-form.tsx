@@ -2,8 +2,8 @@
 // src/app/(app)/employees/add-employee-form.tsx
 'use client';
 
-import { useEffect } from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useEffect, useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -59,7 +59,7 @@ function SubmitButton() {
 
 export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, uniqueRoles, className }: AddEmployeeFormProps) {
   const { toast } = useToast();
-  const [state, formAction] = useFormState(addEmployee, { message: null, errors: {}, success: false });
+  const [state, formAction] = useActionState(addEmployee, { message: null, errors: {}, success: false });
 
   const form = useForm<EmployeeFormData>({
     resolver: zodResolver(ClientEmployeeSchema),
