@@ -1,16 +1,18 @@
+
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { BarChart as BarChartIcon, LineChart as LineChartIcon, PieChart as PieChartIcon, Users, Briefcase, TrendingUp, Clock, Building, Percent } from "lucide-react"; // Renamed to avoid conflict
+import { Users, Briefcase, TrendingUp, Clock, Building, Percent, DollarSign } from "lucide-react";
 import type { Metric } from "@/types";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
-import { Bar, Line, Pie, Cell, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend as RechartsLegend, BarChart, LineChart, PieChart } from "recharts"; // Added BarChart, LineChart, PieChart here
+import { Bar, Line, Pie, Cell, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend as RechartsLegend, BarChart, LineChart, PieChart } from "recharts";
 
 const metrics: Metric[] = [
   { title: "Total Employees", value: "1,250", change: "+5% this month", changeType: "positive", icon: Users },
   { title: "Turnover Rate", value: "12%", change: "-1.2% vs last quarter", changeType: "positive", icon: TrendingUp },
   { title: "Average Tenure", value: "4.2 Years", icon: Clock },
-  { title: "Open Positions", value: "23", icon: Briefcase },
+  { title: "Average Salary", value: "$75,200", change: "+2.5% this year", changeType: "positive", icon: DollarSign },
+  // { title: "Open Positions", value: "23", icon: Briefcase }, // Replaced with Avg Salary for now to keep it 4 items
 ];
 
 const headcountData = [
@@ -28,7 +30,7 @@ const headcountConfig = {
   marketing: { label: "Marketing", color: "hsl(var(--chart-3))" },
   hr: { label: "HR", color: "hsl(var(--chart-4))" },
   support: { label: "Support", color: "hsl(var(--chart-5))" },
-  finance: { label: "Finance", color: "hsl(var(--chart-1))" }, // Re-use a color for simplicity
+  finance: { label: "Finance", color: "hsl(var(--chart-1))" },
 };
 
 const turnoverTrendData = [
@@ -49,7 +51,26 @@ const genderDiversityConfig = {
   male: { label: "Male", color: "hsl(var(--chart-1))" },
   female: { label: "Female", color: "hsl(var(--chart-2))" },
   other: { label: "Other/Prefer not to say", color: "hsl(var(--chart-3))" },
-}
+};
+
+const avgSalaryByDeptData = [
+  { department: "Engineering", avgSalary: 95000, fill: "var(--color-engineering-salary)" },
+  { department: "Sales", avgSalary: 82000, fill: "var(--color-sales-salary)" },
+  { department: "Marketing", avgSalary: 78000, fill: "var(--color-marketing-salary)" },
+  { department: "HR", avgSalary: 72000, fill: "var(--color-hr-salary)" },
+  { department: "Support", avgSalary: 65000, fill: "var(--color-support-salary)" },
+  { department: "Finance", avgSalary: 88000, fill: "var(--color-finance-salary)" },
+];
+const avgSalaryByDeptConfig = {
+  avgSalary: { label: "Average Salary ($)" },
+  "engineering-salary": { label: "Engineering", color: "hsl(var(--chart-5))" },
+  "sales-salary": { label: "Sales", color: "hsl(var(--chart-4))" },
+  "marketing-salary": { label: "Marketing", color: "hsl(var(--chart-3))" },
+  "hr-salary": { label: "HR", color: "hsl(var(--chart-2))" },
+  "support-salary": { label: "Support", color: "hsl(var(--chart-1))" },
+  "finance-salary": { label: "Finance", color: "hsl(var(--chart-5))" }, // Re-use
+};
+
 
 export default function DashboardPage() {
   return (
@@ -121,8 +142,8 @@ export default function DashboardPage() {
             </ChartContainer>
           </CardContent>
         </Card>
-      </div>
-       <Card className="shadow-md hover:shadow-lg transition-shadow lg:col-span-1">
+
+        <Card className="shadow-md hover:shadow-lg transition-shadow">
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Percent className="h-5 w-5" />Gender Diversity</CardTitle>
             <CardDescription>Current gender distribution in the company.</CardDescription>
@@ -143,6 +164,33 @@ export default function DashboardPage() {
             </ChartContainer>
           </CardContent>
         </Card>
+
+        <Card className="shadow-md hover:shadow-lg transition-shadow">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><DollarSign className="h-5 w-5" />Average Salary by Department</CardTitle>
+            <CardDescription>Average annual salary distribution across departments.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={avgSalaryByDeptConfig} className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={avgSalaryByDeptData} accessibilityLayer>
+                  <CartesianGrid vertical={false} />
+                  <XAxis dataKey="department" tickLine={false} tickMargin={10} axisLine={false} />
+                  <YAxis tickLine={false} tickMargin={10} axisLine={false} tickFormatter={(value) => `$${(value / 1000)}k`} />
+                  <ChartTooltip content={<ChartTooltipContent formatter={(value) => value.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 })} />} />
+                  <ChartLegend content={<ChartLegendContent />} />
+                  <Bar dataKey="avgSalary" name="Average Salary" radius={4}>
+                    {avgSalaryByDeptData.map((entry) => (
+                       <Cell key={`cell-salary-${entry.department}`} fill={entry.fill} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
+

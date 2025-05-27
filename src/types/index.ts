@@ -1,3 +1,4 @@
+
 export type Employee = {
   id: string;
   name: string;
@@ -9,6 +10,7 @@ export type Employee = {
   startDate: string;
   status: "Active" | "Inactive";
   avatar?: string;
+  salary?: number; // Added salary field
 };
 
 export type Metric = {
@@ -29,3 +31,4 @@ export type FeedbackAnalysisResult = {
   themes: FeedbackTheme[];
   suggestions: string[];
 };
+
