@@ -1,5 +1,5 @@
 
-'use client'; // Required for using hooks like useRouter and useAuth
+'use client'; 
 
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
@@ -46,7 +46,6 @@ export default function AppLayout({
   if (!user && pathname !== '/login') {
     // This case should ideally be handled by the useEffect,
     // but as a fallback, show loading or redirect.
-    // For simplicity, returning loading again.
      return (
       <div className="flex h-screen items-center justify-center bg-background">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -54,6 +53,12 @@ export default function AppLayout({
     );
   }
   
+  // If user is null and we are on /login, allow login page to render
+  if (!user && pathname === '/login') {
+     return <>{children}</>; // Render login page
+  }
+
+  // If user exists, render the app layout
   const userDisplayName = user?.displayName || "User";
   const userPhotoURL = user?.photoURL;
   const avatarFallback = userDisplayName.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || "HR";

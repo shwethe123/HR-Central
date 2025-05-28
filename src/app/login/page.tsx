@@ -16,6 +16,8 @@ export default function LoginPage() {
 
 
   useEffect(() => {
+    // auth-context now handles redirecting if user is logged in and on /login page
+    // So this useEffect primarily handles the case where auth is not loading AND user exists
     if (!authLoading && user) {
       router.push('/dashboard');
     }
@@ -25,16 +27,17 @@ export default function LoginPage() {
     setIsLoggingIn(true);
     try {
       await loginWithGoogle();
-      // The useEffect above will handle redirection upon successful login
+      // The AuthContext and its useEffect will handle redirection upon successful login
     } catch (error) {
       console.error('Google Sign-In failed:', error);
-      // Optionally, show an error message to the user
-    } finally {
-      // setIsLoggingIn(false); // Let onAuthStateChanged handle loading state via authLoading
+      // Optionally, show an error message to the user (e.g., via toast)
+      setIsLoggingIn(false); // Reset logging in state on error
     }
+    // setIsLoggingIn(false) is also handled by onAuthStateChanged implicitly if login is successful
   };
 
-  if (authLoading || user) {
+  // Show loading spinner if auth state is still loading or if user is already logged in (and about to be redirected)
+  if (authLoading || (user && !authLoading)) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -42,7 +45,8 @@ export default function LoginPage() {
       </div>
     );
   }
-
+  
+  // If not loading and no user, show login page
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-background to-background p-4">
       <div className="w-full max-w-md rounded-xl bg-card p-8 shadow-2xl">
@@ -58,10 +62,10 @@ export default function LoginPage() {
           className="w-full text-base py-6 shadow-md hover:shadow-lg transition-shadow duration-300"
           variant="default"
         >
-          {isLoggingIn || authLoading ? (
+          {isLoggingIn ? ( // Show loader if isLoggingIn is true
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           ) : (
-            <Image src="/google-logo.svg" alt="Google" width={20} height={20} className="mr-3" data-ai-hint="logo social" />
+            <Image src="/google-logo.svg" alt="Google" width={20} height={20} className="mr-3" data-ai-hint="logo social"/>
           )}
           Sign in with Google
         </Button>

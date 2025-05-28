@@ -12,10 +12,10 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
 } from "@/components/ui/sidebar";
-import { AppLogo } from "@/components/icons";
+// import { AppLogo } from "@/components/icons"; // AppLogo is in SidebarHeader now
 import { Separator } from "@/components/ui/separator";
-import { useAuth } from "@/contexts/auth-context"; // Import useAuth
-import { useState } from "react"; // Import useState
+import { useAuth } from "@/contexts/auth-context"; 
+import { useState } from "react"; 
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
@@ -31,7 +31,7 @@ const secondaryNavItems = [
 
 export function SidebarNav() {
   const pathname = usePathname();
-  const { logout, user } = useAuth(); // Get logout function and user from AuthContext
+  const { logout, user, loading: authLoading } = useAuth(); 
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
 
@@ -43,12 +43,13 @@ export function SidebarNav() {
     } catch (error) {
       console.error("Logout failed:", error);
       // Optionally show an error toast to the user
-    } finally {
-      setIsLoggingOut(false);
+      setIsLoggingOut(false); // Reset on error
     }
+    // setIsLoggingOut(false) will be implicitly handled if logout leads to unmount or redirect
   };
 
-  if (!user) { // Don't render sidebar content if user is not logged in (or loading)
+  // Don't render sidebar content if auth is loading or user is not logged in
+  if (authLoading || !user) { 
     return null;
   }
 
