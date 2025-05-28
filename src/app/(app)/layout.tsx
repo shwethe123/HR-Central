@@ -1,3 +1,9 @@
+
+'use client'; // Required for using hooks like useRouter and useAuth
+
+import { useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import { useAuth } from '@/contexts/auth-context';
 import { AppLogo } from "@/components/icons";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
 import {
@@ -11,7 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Bell, Search } from "lucide-react";
+import { Bell, Search, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 export default function AppLayout({
@@ -19,6 +25,40 @@ export default function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (!loading && !user && pathname !== '/login') {
+      router.push('/login');
+    }
+  }, [user, loading, router, pathname]);
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user && pathname !== '/login') {
+    // This case should ideally be handled by the useEffect,
+    // but as a fallback, show loading or redirect.
+    // For simplicity, returning loading again.
+     return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      </div>
+    );
+  }
+  
+  const userDisplayName = user?.displayName || "User";
+  const userPhotoURL = user?.photoURL;
+  const avatarFallback = userDisplayName.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || "HR";
+
+
   return (
     <>
       <Sidebar collapsible="icon" side="left" variant="sidebar">
@@ -54,8 +94,8 @@ export default function AppLayout({
                 <span className="sr-only">Toggle notifications</span>
               </Button>
               <Avatar className="h-9 w-9">
-                <AvatarImage src="https://placehold.co/100x100.png" alt="@shadcn" data-ai-hint="person avatar" />
-                <AvatarFallback>HR</AvatarFallback>
+                <AvatarImage src={userPhotoURL || undefined} alt={userDisplayName} data-ai-hint="person avatar" />
+                <AvatarFallback>{avatarFallback}</AvatarFallback>
               </Avatar>
             </div>
         </header>
