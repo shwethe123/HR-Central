@@ -2,17 +2,16 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, Briefcase, TrendingUp, Clock, Building, Percent, DollarSign } from "lucide-react";
+import { Users, Briefcase, TrendingUp, Clock, Building, Percent, DollarSign, Activity } from "lucide-react";
 import type { Metric } from "@/types";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
-import { Bar, Line, Pie, Cell, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend as RechartsLegend, BarChart, LineChart, PieChart } from "recharts";
+import { Bar, Line, Pie, Cell, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend as RechartsLegend, BarChart, LineChart, PieChart as RechartsPieChart } from "recharts";
 
 const metrics: Metric[] = [
   { title: "Total Employees", value: "1,250", change: "+5% this month", changeType: "positive", icon: Users },
   { title: "Turnover Rate", value: "12%", change: "-1.2% vs last quarter", changeType: "positive", icon: TrendingUp },
   { title: "Average Tenure", value: "4.2 Years", icon: Clock },
   { title: "Average Salary", value: "$75,200", change: "+2.5% this year", changeType: "positive", icon: DollarSign },
-  // { title: "Open Positions", value: "23", icon: Briefcase }, // Replaced with Avg Salary for now to keep it 4 items
 ];
 
 const headcountData = [
@@ -68,11 +67,23 @@ const avgSalaryByDeptConfig = {
   "marketing-salary": { label: "Marketing", color: "hsl(var(--chart-3))" },
   "hr-salary": { label: "HR", color: "hsl(var(--chart-2))" },
   "support-salary": { label: "Support", color: "hsl(var(--chart-1))" },
-  "finance-salary": { label: "Finance", color: "hsl(var(--chart-5))" }, // Re-use
+  "finance-salary": { label: "Finance", color: "hsl(var(--chart-5))" },
+};
+
+const employeeStatusData = [
+  { name: "Active", value: 950, fill: "var(--color-active)" },
+  { name: "Inactive", value: 300, fill: "var(--color-inactive)" },
+];
+const employeeStatusConfig = {
+  value: { label: "Employees" },
+  active: { label: "Active", color: "hsl(var(--chart-2))" }, // Soft Green
+  inactive: { label: "Inactive", color: "hsl(var(--chart-5))" }, // Pink
 };
 
 
 export default function DashboardPage() {
+  const totalEmployeesForStatusChart = employeeStatusData.reduce((sum, entry) => sum + entry.value, 0);
+
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-3xl font-semibold">HR Dashboard</h1>
@@ -151,15 +162,17 @@ export default function DashboardPage() {
           <CardContent>
             <ChartContainer config={genderDiversityConfig} className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart accessibilityLayer>
-                  <RechartsTooltip contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }} />
+                <RechartsPieChart accessibilityLayer>
+                  <RechartsTooltip 
+                    contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }} 
+                  />
                   <ChartLegend content={<ChartLegendContent nameKey="name" />} />
                   <Pie data={genderDiversityData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
                      {genderDiversityData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.fill} />
                       ))}
                   </Pie>
-                </PieChart>
+                </RechartsPieChart>
               </ResponsiveContainer>
             </ChartContainer>
           </CardContent>
@@ -189,8 +202,37 @@ export default function DashboardPage() {
             </ChartContainer>
           </CardContent>
         </Card>
+
+        <Card className="shadow-md hover:shadow-lg transition-shadow">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Activity className="h-5 w-5" />Employee Status</CardTitle>
+            <CardDescription>Distribution of active and inactive employees.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={employeeStatusConfig} className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <RechartsPieChart accessibilityLayer>
+                  <RechartsTooltip 
+                    contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
+                    formatter={(value: number, name: string, props: any) => {
+                      if (totalEmployeesForStatusChart === 0) return [`${value.toLocaleString()}`, name];
+                      const percentage = ((value / totalEmployeesForStatusChart) * 100).toFixed(1);
+                      return [`${value.toLocaleString()} (${percentage}%)`, name];
+                    }}
+                  />
+                  <ChartLegend content={<ChartLegendContent nameKey="name" />} />
+                  <Pie data={employeeStatusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
+                     {employeeStatusData.map((entry, index) => (
+                        <Cell key={`cell-status-${index}`} fill={entry.fill} />
+                      ))}
+                  </Pie>
+                </RechartsPieChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+
       </div>
     </div>
   );
 }
-
