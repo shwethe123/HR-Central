@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Users, MessageSquareText, Settings, LifeBuoy, LogOut, Building2, Loader2 } from "lucide-react";
+import { Home, Users, MessageSquareText, Settings, LifeBuoy, LogOut, Building2, Loader2, CalendarClock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   SidebarMenu,
@@ -20,6 +20,7 @@ import { useState } from "react";
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/employees", label: "Employees", icon: Users },
+  { href: "/leave-requests", label: "Leave Requests", icon: CalendarClock },
   { href: "/feedback", label: "Feedback Analysis", icon: MessageSquareText },
   { href: "/company-departments", label: "Company Departments", icon: Building2 },
 ];
