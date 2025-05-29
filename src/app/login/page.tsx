@@ -1,44 +1,93 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { AppLogo } from '@/components/icons';
-import { Loader2 } from 'lucide-react';
-import Image from 'next/image';
+import { Loader2, Eye, EyeOff, UserPlus, LogIn } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import type { AuthError } from 'firebase/auth';
 
 export default function LoginPage() {
-  const { user, loginWithGoogle, loading: authLoading } = useAuth();
-  const router = useRouter(); // Keep for potential future use, though AuthProvider handles redirects
-  const [isLoggingIn, setIsLoggingIn] = useState(false); // Tracks button click login attempt
+  const { user, loginWithEmailPassword, signUpWithEmailPassword, loading: authLoading } = useAuth();
+  
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [isLoginLoading, setIsLoginLoading] = useState(false);
 
-  // AuthProvider's useEffect now handles redirecting if user is logged in and on /login page
-  // or if user is not logged in and on a protected page.
-  // This useEffect can be simplified or removed if not needed for other logic.
+  const [signUpEmail, setSignUpEmail] = useState('');
+  const [signUpPassword, setSignUpPassword] = useState('');
+  const [showSignUpPassword, setShowSignUpPassword] = useState(false);
+  const [signUpConfirmPassword, setSignUpConfirmPassword] = useState('');
+  const [showSignUpConfirmPassword, setShowSignUpConfirmPassword] = useState(false);
+  const [signUpError, setSignUpError] = useState<string | null>(null);
+  const [isSignUpLoading, setIsSignUpLoading] = useState(false);
+
+  // AuthProvider now handles redirects
   // useEffect(() => {
   //   if (!authLoading && user) {
-  //     // This case should be handled by AuthProvider now
-  //     // router.push('/dashboard');
+  //     router.push('/dashboard');
   //   }
   // }, [user, authLoading, router]);
 
-  const handleGoogleSignIn = async () => {
-    setIsLoggingIn(true); // Indicate login attempt started
-    try {
-      await loginWithGoogle();
-      // The AuthContext and its useEffect will handle redirection upon successful login
-      // No need to setIsLoggingIn(false) here, as onAuthStateChanged will update authLoading
-    } catch (error) {
-      console.error('Google Sign-In failed:', error);
-      setIsLoggingIn(false); // Reset logging in state on error to allow re-attempt
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoginError(null);
+    setIsLoginLoading(true);
+    const result = await loginWithEmailPassword(loginEmail, loginPassword);
+    if (!result.success && result.error) {
+      setLoginError(getFriendlyErrorMessage(result.error));
+    }
+    // On success, AuthProvider's onAuthStateChanged will redirect
+    setIsLoginLoading(false);
+  };
+
+  const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setSignUpError(null);
+    if (signUpPassword !== signUpConfirmPassword) {
+      setSignUpError("Passwords do not match.");
+      return;
+    }
+    setIsSignUpLoading(true);
+    const result = await signUpWithEmailPassword(signUpEmail, signUpPassword);
+    if (!result.success && result.error) {
+      setSignUpError(getFriendlyErrorMessage(result.error));
+    }
+    // On success, AuthProvider's onAuthStateChanged will redirect
+    setIsSignUpLoading(false);
+  };
+
+  const getFriendlyErrorMessage = (error: AuthError): string => {
+    switch (error.code) {
+      case 'auth/invalid-email':
+        return 'Invalid email address format.';
+      case 'auth/user-disabled':
+        return 'This user account has been disabled.';
+      case 'auth/user-not-found':
+        return 'No user found with this email.';
+      case 'auth/wrong-password':
+        return 'Incorrect password.';
+      case 'auth/email-already-in-use':
+        return 'This email address is already in use.';
+      case 'auth/weak-password':
+        return 'Password should be at least 6 characters.';
+      case 'auth/requires-recent-login':
+        return 'This operation is sensitive and requires recent authentication. Log in again before retrying this request.';
+      case 'auth/operation-not-allowed':
+         return 'Email/password accounts are not enabled. Enable them in the Firebase Console.';
+      default:
+        return error.message || 'An unexpected error occurred. Please try again.';
     }
   };
 
-  // Show loading spinner if auth state is still loading or if login button was clicked
-  // or if user is already logged in (and AuthProvider is about to redirect)
-  if (authLoading || (user && !authLoading)) { 
+  if (authLoading || (user && !authLoading)) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -46,36 +95,142 @@ export default function LoginPage() {
       </div>
     );
   }
-  
-  // If not authLoading and no user, show login page
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-background to-background p-4">
-      <div className="w-full max-w-md rounded-xl bg-card p-8 shadow-2xl">
-        <div className="mb-8 flex flex-col items-center text-center">
-          <AppLogo className="mb-4 h-12 w-12 text-primary" />
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Welcome to HR Central</h1>
-          <p className="mt-2 text-muted-foreground">Sign in to access your dashboard.</p>
-        </div>
-        
-        <Button 
-          onClick={handleGoogleSignIn} 
-          disabled={isLoggingIn} // Disable button while login attempt is in progress
-          className="w-full text-base py-6 shadow-md hover:shadow-lg transition-shadow duration-300"
-          variant="default"
-        >
-          {isLoggingIn ? ( 
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          ) : (
-            <Image src="/google-logo.svg" alt="Google" width={20} height={20} className="mr-3" data-ai-hint="logo social"/>
-          )}
-          Sign in with Google
-        </Button>
-
-        <p className="mt-8 text-center text-xs text-muted-foreground">
-          By signing in, you agree to our Terms of Service and Privacy Policy.
-        </p>
-      </div>
-       <footer className="absolute bottom-4 text-center text-xs text-muted-foreground">
+      <Card className="w-full max-w-md shadow-2xl">
+        <CardHeader className="text-center">
+          <div className="mb-4 flex justify-center">
+            <AppLogo className="h-10 w-10 text-primary" />
+          </div>
+          <CardTitle className="text-2xl font-bold tracking-tight">Welcome to HR Central</CardTitle>
+          <CardDescription>Sign in or create an account to continue.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="login" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="login">Login</TabsTrigger>
+              <TabsTrigger value="signup">Sign Up</TabsTrigger>
+            </TabsList>
+            <TabsContent value="login">
+              <form onSubmit={handleLogin} className="space-y-4 pt-4">
+                <div>
+                  <Label htmlFor="login-email">Email</Label>
+                  <Input
+                    id="login-email"
+                    type="email"
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    required
+                    className="mt-1"
+                  />
+                </div>
+                <div className="relative">
+                  <Label htmlFor="login-password">Password</Label>
+                  <Input
+                    id="login-password"
+                    type={showLoginPassword ? "text" : "password"}
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    className="mt-1 pr-10"
+                  />
+                   <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-7 h-7 w-7 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowLoginPassword(!showLoginPassword)}
+                    tabIndex={-1}
+                  >
+                    {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    <span className="sr-only">{showLoginPassword ? 'Hide password' : 'Show password'}</span>
+                  </Button>
+                </div>
+                {loginError && <p className="text-sm text-destructive">{loginError}</p>}
+                <Button type="submit" className="w-full" disabled={isLoginLoading || authLoading}>
+                  {isLoginLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogIn className="mr-2 h-4 w-4" />}
+                  Login
+                </Button>
+              </form>
+            </TabsContent>
+            <TabsContent value="signup">
+              <form onSubmit={handleSignUp} className="space-y-4 pt-4">
+                <div>
+                  <Label htmlFor="signup-email">Email</Label>
+                  <Input
+                    id="signup-email"
+                    type="email"
+                    value={signUpEmail}
+                    onChange={(e) => setSignUpEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    required
+                    className="mt-1"
+                  />
+                </div>
+                 <div className="relative">
+                  <Label htmlFor="signup-password">Password</Label>
+                  <Input
+                    id="signup-password"
+                    type={showSignUpPassword ? "text" : "password"}
+                    value={signUpPassword}
+                    onChange={(e) => setSignUpPassword(e.target.value)}
+                    placeholder="At least 6 characters"
+                    required
+                    className="mt-1 pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-7 h-7 w-7 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowSignUpPassword(!showSignUpPassword)}
+                    tabIndex={-1}
+                  >
+                    {showSignUpPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    <span className="sr-only">{showSignUpPassword ? 'Hide password' : 'Show password'}</span>
+                  </Button>
+                </div>
+                <div className="relative">
+                  <Label htmlFor="signup-confirm-password">Confirm Password</Label>
+                  <Input
+                    id="signup-confirm-password"
+                    type={showSignUpConfirmPassword ? "text" : "password"}
+                    value={signUpConfirmPassword}
+                    onChange={(e) => setSignUpConfirmPassword(e.target.value)}
+                    placeholder="Retype your password"
+                    required
+                    className="mt-1 pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-7 h-7 w-7 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowSignUpConfirmPassword(!showSignUpConfirmPassword)}
+                    tabIndex={-1}
+                  >
+                    {showSignUpConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    <span className="sr-only">{showSignUpConfirmPassword ? 'Hide password' : 'Show password'}</span>
+                  </Button>
+                </div>
+                {signUpError && <p className="text-sm text-destructive">{signUpError}</p>}
+                <Button type="submit" className="w-full" disabled={isSignUpLoading || authLoading}>
+                  {isSignUpLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
+                  Sign Up
+                </Button>
+              </form>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+        <CardFooter className="flex-col items-center justify-center text-xs text-muted-foreground pt-6">
+            <p>By signing in or creating an account, you agree to our</p>
+            <p><a href="#" className="underline hover:text-primary">Terms of Service</a> and <a href="#" className="underline hover:text-primary">Privacy Policy</a>.</p>
+        </CardFooter>
+      </Card>
+      <footer className="absolute bottom-4 text-center text-xs text-muted-foreground">
         &copy; {new Date().getFullYear()} HR Central. All rights reserved.
       </footer>
     </div>
