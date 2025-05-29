@@ -1,4 +1,6 @@
 
+import type { Timestamp } from 'firebase/firestore';
+
 export type Employee = {
   id: string;
   name: string;
@@ -37,14 +39,21 @@ export type FeedbackAnalysisResult = {
 export type LeaveRequest = {
   id: string;
   employeeId: string;
-  employeeName: string; // For convenience in display
-  startDate: string; // Consider using Date objects in a real app
-  endDate: string;   // Consider using Date objects in a real app
+  employeeName: string; 
+  startDate: string; 
+  endDate: string;   
   reason: string;
   status: "Pending" | "Approved" | "Rejected";
-  requestedDate: string | firebase.firestore.Timestamp; 
+  requestedDate: Timestamp | string; 
   processedBy?: string; 
-  processedDate?: string | firebase.firestore.Timestamp;
+  processedDate?: Timestamp | string;
   rejectionReason?: string; 
 };
 
+export type ChatMessage = {
+  id: string;
+  senderId: string;
+  senderName: string;
+  text: string;
+  createdAt: Timestamp; // Always store as Timestamp, convert to Date on client
+};

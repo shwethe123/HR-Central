@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Users, MessageSquareText, Settings, LifeBuoy, LogOut, Building2, Loader2, CalendarClock } from "lucide-react";
+import { Home, Users, MessageSquareText, Settings, LifeBuoy, LogOut, Building2, Loader2, CalendarClock, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   SidebarMenu,
@@ -21,6 +21,7 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/employees", label: "Employees", icon: Users },
   { href: "/leave-requests", label: "Leave Requests", icon: CalendarClock },
+  { href: "/chat", label: "Chat", icon: MessageCircle },
   { href: "/feedback", label: "Feedback Analysis", icon: MessageSquareText },
   { href: "/company-departments", label: "Company Departments", icon: Building2 },
 ];
@@ -50,7 +51,6 @@ export function SidebarNav() {
   };
 
   // Don't render sidebar content if auth is loading.
-  // Allow rendering even if user is null for now, as auth is "disabled".
   if (authLoading) { 
     return null;
   }
@@ -95,12 +95,14 @@ export function SidebarNav() {
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
-          <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Log Out" onClick={handleLogout} disabled={isLoggingOut}>
-              {isLoggingOut ? <Loader2 className="animate-spin" /> : <LogOut />}
-              <span>Log Out</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+          {user && ( // Only show logout if user is theoretically logged in
+            <SidebarMenuItem>
+              <SidebarMenuButton tooltip="Log Out" onClick={handleLogout} disabled={isLoggingOut}>
+                {isLoggingOut ? <Loader2 className="animate-spin" /> : <LogOut />}
+                <span>Log Out</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
         </SidebarMenu>
       </SidebarGroup>
     </>
