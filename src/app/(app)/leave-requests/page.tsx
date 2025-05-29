@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { LeaveRequest, Employee } from "@/types";
 import { getLeaveRequestColumns } from "./columns";
-import { LeaveRequestDataTable } from "./data-table"; 
+import { LeaveRequestDataTable } from "./data-table";
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -15,12 +15,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { LeaveRequestForm } from "./leave-request-form";
-import { CalendarPlus, FileText, AlertCircle, CheckCircle } from 'lucide-react';
+import { CalendarPlus, FileText } from 'lucide-react';
 import { MOCK_EMPLOYEES_DATA } from '../employees/page'; // Import mock employees
 import { updateLeaveRequestStatus, type UpdateLeaveStatusFormState } from './actions';
 import { useToast } from '@/hooks/use-toast';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Card, CardContent, CardHeader, CardDescription } from "@/components/ui/card";
+// Alert, AlertDescription, AlertTitle removed as they are not used in the latest version of the page
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { format } from 'date-fns';
 
 // Mock data for leave requests
@@ -62,8 +63,8 @@ export default function LeaveRequestsPage() {
   const handleUpdateRequestStatus = async (id: string, status: "Approved" | "Rejected", rejectionReason?: string) => {
     const result: UpdateLeaveStatusFormState = await updateLeaveRequestStatus(id, status, rejectionReason);
     if (result.success && result.updatedRequestId && result.newStatus) {
-      setLeaveRequests(prev => 
-        prev.map(req => 
+      setLeaveRequests(prev =>
+        prev.map(req =>
           req.id === result.updatedRequestId ? { ...req, status: result.newStatus!, rejectionReason: newStatus === "Rejected" ? rejectionReason : undefined, processedDate: new Date().toISOString().split('T')[0] } : req
         )
       );
@@ -77,8 +78,9 @@ export default function LeaveRequestsPage() {
     setSelectedRequestDetails(request);
     setIsDetailsDialogOpen(true);
   };
-  
-  const columns = useMemo(() => getLeaveRequestColumns(handleUpdateRequestStatus, handleViewDetails), []);
+
+  const columns = useMemo(() => getLeaveRequestColumns(handleUpdateRequestStatus, handleViewDetails), [handleUpdateRequestStatus, handleViewDetails]);
+
 
   return (
     <div className="container mx-auto py-2 space-y-6">
@@ -100,9 +102,9 @@ export default function LeaveRequestsPage() {
                 Fill in the details below to submit a new leave request.
               </DialogDescription>
             </DialogHeader>
-            <LeaveRequestForm 
-              employees={employees} 
-              onFormSubmissionSuccess={handleFormSubmissionSuccess} 
+            <LeaveRequestForm
+              employees={employees}
+              onFormSubmissionSuccess={handleFormSubmissionSuccess}
             />
           </DialogContent>
         </Dialog>
@@ -144,15 +146,15 @@ export default function LeaveRequestsPage() {
               </div>
               <div className="grid grid-cols-[120px_1fr] items-center gap-2">
                 <span className="font-medium text-muted-foreground">Status:</span>
-                <Badge 
+                <Badge
                     variant={
                         selectedRequestDetails.status === "Approved" ? "default" :
                         selectedRequestDetails.status === "Rejected" ? "destructive" : "outline"
-                    } 
+                    }
                     className={`font-semibold ${
                         selectedRequestDetails.status === "Approved" ? "bg-green-100 text-green-700 border-green-300" :
                         selectedRequestDetails.status === "Rejected" ? "bg-red-100 text-red-700 border-red-300" :
-                        "bg-yellow-100 text-yellow-700 border-yellow-300"
+                        "bg-yellow-100 text-yellow-700 border-yellow-300" // Example for Pending
                     }`}
                 >
                     {selectedRequestDetails.status}
@@ -176,7 +178,7 @@ export default function LeaveRequestsPage() {
               )}
             </div>
           )}
-          <DialogDescription className="mt-4 text-right">
+          <DialogDescription className="mt-4 text-right"> {/* DialogDescription used for footer content as per original */}
             <Button variant="outline" onClick={() => setIsDetailsDialogOpen(false)}>Close</Button>
           </DialogDescription>
         </DialogContent>
