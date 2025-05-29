@@ -29,13 +29,15 @@ export default function AppLayout({
   const router = useRouter();
   const pathname = usePathname();
 
+  /*
   useEffect(() => {
     if (!loading && !user && pathname !== '/login') {
       router.push('/login');
     }
   }, [user, loading, router, pathname]);
+  */
 
-  if (loading) {
+  if (loading) { // This loading state will be false due to AuthContext changes
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -43,20 +45,19 @@ export default function AppLayout({
     );
   }
 
-  if (!user && pathname !== '/login') {
-    // This case should ideally be handled by the useEffect,
-    // but as a fallback, show loading or redirect.
-     return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
-      </div>
-    );
-  }
+  // Since auth is disabled for now, !user will be true, and !loading will be true.
+  // The original redirect logic is commented out, so this check isn't strictly necessary
+  // for redirection anymore, but it might be part of other logic later.
+  // if (!user && pathname !== '/login' && !loading) { 
+  //    // This case will be true if login page itself is not rendered within this layout
+  //    // and auth is disabled. For now, we allow access.
+  // }
   
   // If user is null and we are on /login, allow login page to render
-  if (!user && pathname === '/login') {
-     return <>{children}</>; // Render login page
-  }
+  // This specific check for /login might not be hit if /login uses a different layout.
+  // if (!user && pathname === '/login') {
+  //    return <>{children}</>; // Render login page
+  // }
 
   // If user exists, render the app layout
   const userDisplayName = user?.displayName || "User";

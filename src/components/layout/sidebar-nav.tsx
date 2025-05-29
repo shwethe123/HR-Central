@@ -48,8 +48,9 @@ export function SidebarNav() {
     // setIsLoggingOut(false) will be implicitly handled if logout leads to unmount or redirect
   };
 
-  // Don't render sidebar content if auth is loading or user is not logged in
-  if (authLoading || !user) { 
+  // Don't render sidebar content if auth is loading.
+  // Allow rendering even if user is null for now, as auth is "disabled".
+  if (authLoading) { 
     return null;
   }
 
