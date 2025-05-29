@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useActionState } from 'react';
+import { useEffect, useActionState, startTransition } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -41,7 +41,7 @@ type LeaveRequestFormData = z.infer<typeof ClientLeaveRequestSchema>;
 
 interface LeaveRequestFormProps {
   employees: Employee[]; // To populate the employee select dropdown
-  onFormSubmissionSuccess?: (newRequest: any) => void; // Pass back the new request
+  onFormSubmissionSuccess?: (newRequestId?: string) => void; 
   className?: string;
 }
 
@@ -76,8 +76,8 @@ export function LeaveRequestForm({ employees, onFormSubmissionSuccess, className
         description: state.message,
       });
       form.reset(); 
-      if (onFormSubmissionSuccess && state.newLeaveRequest) {
-        onFormSubmissionSuccess(state.newLeaveRequest); 
+      if (onFormSubmissionSuccess) {
+        onFormSubmissionSuccess(state.newLeaveRequestId); 
       }
     } else if (!state?.success && state?.message && (state.errors || state.message.includes("failed:"))) {
        toast({
@@ -97,7 +97,9 @@ export function LeaveRequestForm({ employees, onFormSubmissionSuccess, className
     formData.append('endDate', format(data.endDate, "yyyy-MM-dd"));
     formData.append('reason', data.reason);
     
-    formAction(formData);
+    startTransition(() => {
+      formAction(formData);
+    });
   };
 
   return (
@@ -192,3 +194,4 @@ export function LeaveRequestForm({ employees, onFormSubmissionSuccess, className
     </form>
   );
 }
+
