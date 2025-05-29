@@ -9,9 +9,9 @@ import { Loader2, Eye, EyeOff, UserPlus, LogIn } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { AuthError } from 'firebase/auth';
-import Image from 'next/image'; // For Google logo
+import Image from 'next/image';
 
 export default function LoginPage() {
   const { user, loginWithEmailPassword, signUpWithEmailPassword, loginWithGoogle, loading: authLoading } = useAuth();
@@ -31,6 +31,37 @@ export default function LoginPage() {
   const [isSignUpLoading, setIsSignUpLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
+  const getFriendlyErrorMessage = (error: AuthError): string => {
+    switch (error.code) {
+      case 'auth/invalid-email':
+        return 'Invalid email address format.';
+      case 'auth/user-disabled':
+        return 'This user account has been disabled.';
+      case 'auth/user-not-found':
+        return 'No user found with this email.';
+      case 'auth/wrong-password':
+        return 'Incorrect password.';
+      case 'auth/email-already-in-use':
+        return 'This email address is already in use.';
+      case 'auth/weak-password':
+        return 'Password should be at least 6 characters.';
+      case 'auth/requires-recent-login':
+        return 'This operation is sensitive and requires recent authentication. Log in again before retrying this request.';
+      case 'auth/operation-not-allowed':
+         return 'This sign-in method (Email/Password or Google) is not enabled for this Firebase project. Please contact support or check Firebase console settings.';
+      case 'auth/popup-closed-by-user':
+        return 'Sign-in process was cancelled (popup closed).';
+      case 'auth/popup-blocked':
+        return 'Sign-in popup was blocked by the browser. Please allow popups for this site.';
+      case 'auth/unauthorized-domain':
+        return 'This domain is not authorized for Firebase operations. Please check "Authorized domains" in Firebase console.';
+      case 'auth/api-key-not-valid':
+        return 'The API Key for Firebase is invalid. Please check your application configuration.';
+      default:
+        console.error("Firebase Auth Error:", error.code, error.message);
+        return error.message || 'An unexpected error occurred. Please try again.';
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -59,47 +90,17 @@ export default function LoginPage() {
   };
 
   const handleGoogleSignIn = async () => {
-    setLoginError(null); // Clear other errors
+    setLoginError(null); 
     setSignUpError(null);
     setIsGoogleLoading(true);
     const result = await loginWithGoogle();
     if (!result.success && result.error) {
-      setLoginError(getFriendlyErrorMessage(result.error)); // Display error in login section for simplicity
+      setLoginError(getFriendlyErrorMessage(result.error)); 
     }
     setIsGoogleLoading(false);
   };
 
-  const getFriendlyErrorMessage = (error: AuthError): string => {
-    switch (error.code) {
-      case 'auth/invalid-email':
-        return 'Invalid email address format.';
-      case 'auth/user-disabled':
-        return 'This user account has been disabled.';
-      case 'auth/user-not-found':
-        return 'No user found with this email.';
-      case 'auth/wrong-password':
-        return 'Incorrect password.';
-      case 'auth/email-already-in-use':
-        return 'This email address is already in use.';
-      case 'auth/weak-password':
-        return 'Password should be at least 6 characters.';
-      case 'auth/requires-recent-login':
-        return 'This operation is sensitive and requires recent authentication. Log in again before retrying this request.';
-      case 'auth/operation-not-allowed':
-         return 'This sign-in method is not enabled. Please contact support.';
-      case 'auth/popup-closed-by-user':
-        return 'Sign-in process was cancelled (popup closed).';
-      case 'auth/popup-blocked':
-        return 'Sign-in popup was blocked by the browser. Please allow popups for this site.';
-      case 'auth/unauthorized-domain':
-        return 'This domain is not authorized for this operation. Please contact support.';
-      default:
-        console.error("Firebase Auth Error:", error);
-        return error.message || 'An unexpected error occurred. Please try again.';
-    }
-  };
-
-  if (authLoading || (user && !authLoading)) {
+  if (authLoading || (user && !authLoading)) { // Keep user check for initial redirect if already logged in
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />

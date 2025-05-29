@@ -9,19 +9,24 @@ import {
   type User,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  GoogleAuthProvider, // Import GoogleAuthProvider
-  signInWithPopup,      // Import signInWithPopup
+  GoogleAuthProvider,
+  signInWithPopup,
   type AuthError,
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useRouter, usePathname } from 'next/navigation';
 
+interface AuthResult {
+  success: boolean;
+  error?: AuthError | null;
+}
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  loginWithEmailPassword: (email: string, password: string) => Promise<{ success: boolean; error?: AuthError | null }>;
-  signUpWithEmailPassword: (email: string, password: string) => Promise<{ success: boolean; error?: AuthError | null }>;
-  loginWithGoogle: () => Promise<{ success: boolean; error?: AuthError | null }>; // Add loginWithGoogle
+  loginWithEmailPassword: (email: string, password: string) => Promise<AuthResult>;
+  signUpWithEmailPassword: (email: string, password: string) => Promise<AuthResult>;
+  loginWithGoogle: () => Promise<AuthResult>;
   logout: () => Promise<void>;
 }
 
@@ -37,16 +42,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
-      if (!currentUser && pathname !== '/login' && pathname !== '/signup') {
+      if (!currentUser && pathname !== '/login' && !pathname.startsWith('/_next/')) { // Added /_next/ check for HMR
         router.push('/login');
-      } else if (currentUser && (pathname === '/login' || pathname === '/signup')) {
+      } else if (currentUser && pathname === '/login') {
         router.push('/dashboard');
       }
     });
     return () => unsubscribe();
   }, [router, pathname]);
 
-  const loginWithEmailPassword = async (email: string, password: string): Promise<{ success: boolean; error?: AuthError | null }> => {
+  const loginWithEmailPassword = async (email: string, password: string): Promise<AuthResult> => {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
@@ -59,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signUpWithEmailPassword = async (email: string, password: string): Promise<{ success: boolean; error?: AuthError | null }> => {
+  const signUpWithEmailPassword = async (email: string, password: string): Promise<AuthResult> => {
     setLoading(true);
     try {
       await createUserWithEmailAndPassword(auth, email, password);
@@ -72,12 +77,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const loginWithGoogle = async (): Promise<{ success: boolean; error?: AuthError | null }> => {
+  const loginWithGoogle = async (): Promise<AuthResult> => {
     setLoading(true);
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-      // onAuthStateChanged will handle setting user and redirecting
       setLoading(false);
       return { success: true };
     } catch (error) {
@@ -91,10 +95,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       await signOut(auth);
-      router.push('/login'); 
+      // onAuthStateChanged will handle redirect to /login
     } catch (error) {
       console.error("Error signing out:", error);
-      setLoading(false);
+    } finally {
+      setLoading(false); // Ensure loading is set to false even if signOut fails to prevent UI lock
     }
   };
 
