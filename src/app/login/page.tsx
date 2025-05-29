@@ -11,9 +11,10 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { AuthError } from 'firebase/auth';
+import Image from 'next/image'; // For Google logo
 
 export default function LoginPage() {
-  const { user, loginWithEmailPassword, signUpWithEmailPassword, loading: authLoading } = useAuth();
+  const { user, loginWithEmailPassword, signUpWithEmailPassword, loginWithGoogle, loading: authLoading } = useAuth();
   
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -28,13 +29,8 @@ export default function LoginPage() {
   const [showSignUpConfirmPassword, setShowSignUpConfirmPassword] = useState(false);
   const [signUpError, setSignUpError] = useState<string | null>(null);
   const [isSignUpLoading, setIsSignUpLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
-  // AuthProvider now handles redirects
-  // useEffect(() => {
-  //   if (!authLoading && user) {
-  //     router.push('/dashboard');
-  //   }
-  // }, [user, authLoading, router]);
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -44,7 +40,6 @@ export default function LoginPage() {
     if (!result.success && result.error) {
       setLoginError(getFriendlyErrorMessage(result.error));
     }
-    // On success, AuthProvider's onAuthStateChanged will redirect
     setIsLoginLoading(false);
   };
 
@@ -60,8 +55,18 @@ export default function LoginPage() {
     if (!result.success && result.error) {
       setSignUpError(getFriendlyErrorMessage(result.error));
     }
-    // On success, AuthProvider's onAuthStateChanged will redirect
     setIsSignUpLoading(false);
+  };
+
+  const handleGoogleSignIn = async () => {
+    setLoginError(null); // Clear other errors
+    setSignUpError(null);
+    setIsGoogleLoading(true);
+    const result = await loginWithGoogle();
+    if (!result.success && result.error) {
+      setLoginError(getFriendlyErrorMessage(result.error)); // Display error in login section for simplicity
+    }
+    setIsGoogleLoading(false);
   };
 
   const getFriendlyErrorMessage = (error: AuthError): string => {
@@ -81,8 +86,15 @@ export default function LoginPage() {
       case 'auth/requires-recent-login':
         return 'This operation is sensitive and requires recent authentication. Log in again before retrying this request.';
       case 'auth/operation-not-allowed':
-         return 'Email/password accounts are not enabled. Enable them in the Firebase Console.';
+         return 'This sign-in method is not enabled. Please contact support.';
+      case 'auth/popup-closed-by-user':
+        return 'Sign-in process was cancelled (popup closed).';
+      case 'auth/popup-blocked':
+        return 'Sign-in popup was blocked by the browser. Please allow popups for this site.';
+      case 'auth/unauthorized-domain':
+        return 'This domain is not authorized for this operation. Please contact support.';
       default:
+        console.error("Firebase Auth Error:", error);
         return error.message || 'An unexpected error occurred. Please try again.';
     }
   };
@@ -155,6 +167,19 @@ export default function LoginPage() {
                   Login
                 </Button>
               </form>
+              <div className="my-4 flex items-center">
+                <div className="flex-grow border-t border-muted"></div>
+                <span className="mx-2 text-xs uppercase text-muted-foreground">Or continue with</span>
+                <div className="flex-grow border-t border-muted"></div>
+              </div>
+              <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={isGoogleLoading || authLoading}>
+                {isGoogleLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Image src="/google-logo.svg" alt="Google logo" width={16} height={16} className="mr-2" />
+                )}
+                Google
+              </Button>
             </TabsContent>
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4 pt-4">

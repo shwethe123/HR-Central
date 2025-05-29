@@ -9,17 +9,19 @@ import {
   type User,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  GoogleAuthProvider, // Import GoogleAuthProvider
+  signInWithPopup,      // Import signInWithPopup
   type AuthError,
 } from 'firebase/auth';
-import { auth } from '@/lib/firebase'; // googleProvider no longer needed here
+import { auth } from '@/lib/firebase';
 import { useRouter, usePathname } from 'next/navigation';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  // loginWithGoogle: () => Promise<void>; // Removed Google login
   loginWithEmailPassword: (email: string, password: string) => Promise<{ success: boolean; error?: AuthError | null }>;
   signUpWithEmailPassword: (email: string, password: string) => Promise<{ success: boolean; error?: AuthError | null }>;
+  loginWithGoogle: () => Promise<{ success: boolean; error?: AuthError | null }>; // Add loginWithGoogle
   logout: () => Promise<void>;
 }
 
@@ -35,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
-      if (!currentUser && pathname !== '/login' && pathname !== '/signup') { // Allow /signup route
+      if (!currentUser && pathname !== '/login' && pathname !== '/signup') {
         router.push('/login');
       } else if (currentUser && (pathname === '/login' || pathname === '/signup')) {
         router.push('/dashboard');
@@ -48,7 +50,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // onAuthStateChanged will handle setting user and redirecting
       setLoading(false);
       return { success: true };
     } catch (error) {
@@ -62,7 +63,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       await createUserWithEmailAndPassword(auth, email, password);
-      // onAuthStateChanged will handle setting user and redirecting
       setLoading(false);
       return { success: true };
     } catch (error) {
@@ -72,12 +72,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const loginWithGoogle = async (): Promise<{ success: boolean; error?: AuthError | null }> => {
+    setLoading(true);
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+      // onAuthStateChanged will handle setting user and redirecting
+      setLoading(false);
+      return { success: true };
+    } catch (error) {
+      console.error("Error signing in with Google:", error);
+      setLoading(false);
+      return { success: false, error: error as AuthError };
+    }
+  };
+
   const logout = async () => {
     setLoading(true);
     try {
       await signOut(auth);
-      // onAuthStateChanged will handle setting user to null and redirecting to /login
-      router.push('/login'); // Ensure redirect after logout
+      router.push('/login'); 
     } catch (error) {
       console.error("Error signing out:", error);
       setLoading(false);
@@ -85,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, loginWithEmailPassword, signUpWithEmailPassword, logout }}>
+    <AuthContext.Provider value={{ user, loading, loginWithEmailPassword, signUpWithEmailPassword, loginWithGoogle, logout }}>
       {children}
     </AuthContext.Provider>
   );
