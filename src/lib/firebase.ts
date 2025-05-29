@@ -7,14 +7,27 @@ import { getStorage } from 'firebase/storage';
 
 // Log environment variables during development to help debug loading issues.
 if (process.env.NODE_ENV === 'development') {
-  console.log("Firebase Config Loaded in firebase.ts (targeting form-e0205 based on last user input):");
+  const currentProjectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  const currentAuthDomain = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN;
+
+  console.log(`Firebase Config Initialization (targeting project: ${currentProjectId || 'NOT_FOUND_IN_ENV'}):`);
   console.log("API Key:", process.env.NEXT_PUBLIC_FIREBASE_API_KEY ? "Loaded" : "MISSING_OR_NOT_LOADED");
-  console.log("Auth Domain:", process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ? "Loaded" : "MISSING_OR_NOT_LOADED");
-  console.log("Project ID:", process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ? "Loaded" : "MISSING_OR_NOT_LOADED");
+  console.log(`Auth Domain (using): ${currentAuthDomain || 'MISSING_OR_NOT_LOADED'}`);
+  console.log(`Project ID (using): ${currentProjectId || 'MISSING_OR_NOT_LOADED'}`);
   console.log("Storage Bucket:", process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ? "Loaded" : "MISSING_OR_NOT_LOADED");
   console.log("Messaging Sender ID:", process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ? "Loaded" : "MISSING_OR_NOT_LOADED");
   console.log("App ID:", process.env.NEXT_PUBLIC_FIREBASE_APP_ID ? "Loaded" : "MISSING_OR_NOT_LOADED");
   console.log("Measurement ID:", process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID ? "Loaded (optional)" : "MISSING_OR_NOT_LOADED (optional)");
+
+  if (!currentProjectId || !currentAuthDomain || !process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
+    console.error(
+      "CRITICAL: One or more core Firebase configuration variables (Project ID, Auth Domain, API Key) are missing from your .env.local file or not being loaded. Please check and ensure they are correctly set for the target Firebase project and that you have restarted your Next.js server."
+    );
+  } else if (currentProjectId !== "form-e0205") {
+    console.warn(
+      `WARNING: Your .env.local seems to be configured for project '${currentProjectId}', but you might be expecting to target 'form-e0205'. Please verify your .env.local file.`
+    );
+  }
 }
 
 const firebaseConfig = {
@@ -31,17 +44,19 @@ let app: FirebaseApp;
 
 if (!getApps().length) {
   if (!firebaseConfig.apiKey || !firebaseConfig.projectId || !firebaseConfig.authDomain) {
-    console.error(
-      "Firebase configuration is incomplete. Check your .env.local file and ensure NEXT_PUBLIC_FIREBASE_API_KEY, NEXT_PUBLIC_FIREBASE_PROJECT_ID, and NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN are set correctly. Restart the Next.js server after changes."
-    );
-    // You might want to throw an error here or handle it more gracefully in a real app.
+    // This error is now covered by the more detailed log above in development
+    if (process.env.NODE_ENV !== 'development') {
+      console.error(
+        "Firebase configuration is incomplete. Check your environment variables."
+      );
+    }
+    // Potentially throw an error or handle gracefully, especially in production
   }
   try {
     app = initializeApp(firebaseConfig);
   } catch (e) {
     console.error("Error initializing Firebase app:", e);
-    // Fallback or rethrow, depending on desired behavior
-    throw e;
+    throw e; // Rethrow to make it clear initialization failed
   }
 } else {
   app = getApps()[0];
