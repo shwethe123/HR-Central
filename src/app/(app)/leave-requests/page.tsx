@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { LeaveRequest, Employee } from "@/types";
 import { getLeaveRequestColumns } from "./columns";
 import { LeaveRequestDataTable } from "./data-table";
@@ -16,12 +16,11 @@ import {
 } from "@/components/ui/dialog";
 import { LeaveRequestForm } from "./leave-request-form";
 import { CalendarPlus, FileText, Loader2 } from 'lucide-react';
-import { MOCK_EMPLOYEES_DATA } from '../employees/page'; 
 import { updateLeaveRequestStatus, type UpdateLeaveStatusFormState } from './actions';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { format as formatDateFns } from 'date-fns'; // Renamed to avoid conflict
+import { format as formatDateFns } from 'date-fns';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, Timestamp } from 'firebase/firestore';
 
@@ -30,20 +29,28 @@ const formatDate = (dateInput: string | Timestamp | undefined): string => {
   if (!dateInput) return 'N/A';
   let date: Date;
   if (typeof dateInput === 'string') {
-    date = new Date(dateInput);
+    try {
+        // Attempt to parse common ISO string formats, including those from Firestore toDate().toISOString()
+        date = new Date(dateInput);
+    } catch (e) {
+        console.warn("Invalid date string encountered:", dateInput, e);
+        return 'Invalid Date String';
+    }
   } else if (dateInput instanceof Timestamp) {
     date = dateInput.toDate();
-  } else {
+  } else if (dateInput instanceof Date) { // Already a Date object
+    date = dateInput;
+  }
+   else {
+    console.warn("Invalid date type encountered:", dateInput);
+    return 'Invalid Date Type';
+  }
+  if (isNaN(date.getTime())) {
+    console.warn("Date resulted in NaN:", dateInput);
     return 'Invalid Date';
   }
-  if (isNaN(date.getTime())) return 'Invalid Date';
   return formatDateFns(date, "MMMM d, yyyy");
 };
-
-
-async function getEmployees(): Promise<Employee[]> {
-  return MOCK_EMPLOYEES_DATA;
-}
 
 export default function LeaveRequestsPage() {
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
@@ -51,11 +58,12 @@ export default function LeaveRequestsPage() {
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [selectedRequestDetails, setSelectedRequestDetails] = useState<LeaveRequest | null>(null);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingRequests, setIsLoadingRequests] = useState(true);
+  const [isLoadingEmployees, setIsLoadingEmployees] = useState(true);
   const { toast } = useToast();
 
-  const fetchLeaveRequests = async () => {
-    setIsLoading(true);
+  const fetchLeaveRequests = useCallback(async () => {
+    setIsLoadingRequests(true);
     try {
       const leaveRequestsCollectionRef = collection(db, "leaveRequests");
       const q = query(leaveRequestsCollectionRef, orderBy("requestedDate", "desc"));
@@ -63,14 +71,16 @@ export default function LeaveRequestsPage() {
       const fetchedRequests: LeaveRequest[] = querySnapshot.docs.map(doc => {
         const data = doc.data();
         // Ensure dates are correctly handled if they are Timestamps
-        const requestedDate = data.requestedDate instanceof Timestamp ? data.requestedDate.toDate().toISOString() : data.requestedDate;
-        const processedDate = data.processedDate instanceof Timestamp ? data.processedDate.toDate().toISOString() : data.processedDate;
+        const requestedDate = data.requestedDate; // Keep as Timestamp or string
+        const processedDate = data.processedDate; // Keep as Timestamp or string
         
         return {
           id: doc.id,
           ...data,
           requestedDate,
           processedDate,
+          startDate: data.startDate, 
+          endDate: data.endDate,     
         } as LeaveRequest;
       });
       setLeaveRequests(fetchedRequests);
@@ -82,32 +92,81 @@ export default function LeaveRequestsPage() {
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setIsLoadingRequests(false);
     }
-  };
+  }, [toast]);
+
+  const fetchEmployees = useCallback(async () => {
+    setIsLoadingEmployees(true);
+    try {
+      const employeesCollectionRef = collection(db, "employees");
+      const q = query(employeesCollectionRef, orderBy("name", "asc"));
+      const querySnapshot = await getDocs(q);
+      const fetchedEmployees: Employee[] = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          name: data.name || "",
+          employeeId: data.employeeId || "",
+          department: data.department || "",
+          role: data.role || "",
+          email: data.email || "",
+          phone: data.phone || "",
+          startDate: data.startDate || "", 
+          status: data.status || "Active",
+          avatar: data.avatar || "",
+          company: data.company || "",
+          salary: data.salary === undefined ? undefined : Number(data.salary),
+        } as Employee;
+      });
+      setEmployees(fetchedEmployees);
+    } catch (error) {
+      console.error("Error fetching employees for leave request form:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch employees for the form.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingEmployees(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
     async function fetchInitialData() {
-      const empData = await getEmployees();
-      setEmployees(empData);
+      // Fetch employees first, then leave requests, or in parallel if appropriate
+      await fetchEmployees();
       await fetchLeaveRequests();
     }
     fetchInitialData();
-  }, []);
+  }, [fetchEmployees, fetchLeaveRequests]);
 
-  const handleFormSubmissionSuccess = (/* newRequestId: string */) => {
-    // newRequestId is available from the action if needed for optimistic updates
-    fetchLeaveRequests(); // Refetch the list
+  const handleFormSubmissionSuccess = () => {
+    fetchLeaveRequests(); 
     setIsFormDialogOpen(false);
   };
 
   const handleUpdateRequestStatus = async (id: string, status: "Approved" | "Rejected", rejectionReason?: string) => {
+    const originalRequests = [...leaveRequests];
+    setLeaveRequests(prev =>
+      prev.map(req =>
+        req.id === id ? { 
+            ...req, 
+            status: status, 
+            rejectionReason: status === "Rejected" ? rejectionReason : undefined, 
+            processedDate: new Date().toISOString() // Store as ISO string for client, server action will convert to Timestamp
+        } : req
+      )
+    );
+
     const result: UpdateLeaveStatusFormState = await updateLeaveRequestStatus(id, status, rejectionReason);
-    if (result.success) {
-      fetchLeaveRequests(); // Refetch the list
-      toast({ title: "Status Updated", description: result.message });
+    if (result.success && result.updatedRequestId && result.newStatus) {
+        fetchLeaveRequests(); 
+        toast({ title: "Status Updated", description: result.message });
     } else {
-      toast({ title: "Error", description: result.message || "Failed to update status.", variant: "destructive" });
+        setLeaveRequests(originalRequests);
+        toast({ title: "Error", description: result.message || "Failed to update status.", variant: "destructive" });
     }
   };
 
@@ -116,9 +175,9 @@ export default function LeaveRequestsPage() {
     setIsDetailsDialogOpen(true);
   };
   
-  // Memoize columns only when handler functions change
-  const columns = useMemo(() => getLeaveRequestColumns(handleUpdateRequestStatus, handleViewDetails), []);
+  const columns = useMemo(() => getLeaveRequestColumns(handleUpdateRequestStatus, handleViewDetails), [handleUpdateRequestStatus, handleViewDetails]);
 
+  const isLoading = isLoadingRequests || isLoadingEmployees;
 
   return (
     <div className="container mx-auto py-2 space-y-6">
@@ -129,7 +188,7 @@ export default function LeaveRequestsPage() {
         </h1>
         <Dialog open={isFormDialogOpen} onOpenChange={setIsFormDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button disabled={isLoadingEmployees}>
               <CalendarPlus className="mr-2 h-4 w-4" /> Request Leave
             </Button>
           </DialogTrigger>
@@ -140,10 +199,17 @@ export default function LeaveRequestsPage() {
                 Fill in the details below to submit a new leave request.
               </DialogDescription>
             </DialogHeader>
-            <LeaveRequestForm
-              employees={employees}
-              onFormSubmissionSuccess={handleFormSubmissionSuccess}
-            />
+            {isLoadingEmployees ? (
+                <div className="flex justify-center items-center py-10">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <p className="ml-2 text-muted-foreground">Loading employees...</p>
+                </div>
+            ) : (
+                <LeaveRequestForm
+                employees={employees}
+                onFormSubmissionSuccess={handleFormSubmissionSuccess}
+                />
+            )}
           </DialogContent>
         </Dialog>
       </div>
@@ -154,7 +220,7 @@ export default function LeaveRequestsPage() {
             <CardDescription>View and manage all submitted leave requests.</CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {isLoadingRequests ? (
             <div className="flex justify-center items-center py-10">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <p className="ml-2 text-muted-foreground">Loading leave requests...</p>
@@ -165,7 +231,6 @@ export default function LeaveRequestsPage() {
         </CardContent>
       </Card>
 
-      {/* Details Dialog */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -228,8 +293,8 @@ export default function LeaveRequestsPage() {
           </DialogDescription>
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }
 
+    
