@@ -60,6 +60,7 @@ interface DataTableProps<TData extends Employee, TValue> {
   uniqueDepartments: string[];
   uniqueRoles: string[];
   uniqueCompanies: string[];
+  onRefreshData: () => Promise<void>; // Callback to refresh data
 }
 
 export function DataTable<TData extends Employee, TValue>({
@@ -68,6 +69,7 @@ export function DataTable<TData extends Employee, TValue>({
   uniqueDepartments,
   uniqueRoles,
   uniqueCompanies,
+  onRefreshData,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -143,6 +145,13 @@ export function DataTable<TData extends Employee, TValue>({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleAddEmployeeSuccess = async (newEmployeeId?: string) => {
+    setIsAddEmployeeDialogOpen(false);
+    if (newEmployeeId) { // Or just always refresh
+      await onRefreshData(); // Call the refresh function passed from parent
+    }
   };
 
 
@@ -277,7 +286,7 @@ export function DataTable<TData extends Employee, TValue>({
                 uniqueDepartments={uniqueDepartments} 
                 uniqueRoles={uniqueRoles}
                 uniqueCompanies={uniqueCompanies}
-                onFormSubmissionSuccess={() => setIsAddEmployeeDialogOpen(false)} 
+                onFormSubmissionSuccess={handleAddEmployeeSuccess} 
               />
             </DialogContent>
           </Dialog>

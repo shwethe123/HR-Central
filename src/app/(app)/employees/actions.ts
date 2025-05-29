@@ -4,10 +4,8 @@
 import { z } from 'zod';
 import type { Employee } from '@/types';
 import { revalidatePath } from 'next/cache';
-
-// For now, we'll just log the employee data as there's no database.
-// In a real app, you'd save this to a database.
-// let mockEmployeeStore: Employee[] = []; // This won't persist reliably
+import { db } from '@/lib/firebase';
+import { collection, addDoc } from 'firebase/firestore';
 
 const EmployeeFormSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -19,7 +17,11 @@ const EmployeeFormSchema = z.object({
   phone: z.string().optional().or(z.literal('')),
   startDate: z.string().refine((date) => !isNaN(Date.parse(date)), { message: "Start date is required and must be valid." }),
   status: z.enum(["Active", "Inactive"], { required_error: "Status is required." }),
-  avatar: z.string().url({ message: "Invalid URL for avatar." }).optional().or(z.literal('')),
+  avatar: z.string().url({ message: "Avatar must be a valid URL (e.g., https://...)" }).optional().or(z.literal('')),
+  salary: z.preprocess(
+    (val) => (val === "" || val === undefined ? undefined : Number(val)),
+    z.number({ invalid_type_error: "Salary must be a number." }).optional()
+  ),
 });
 
 export type AddEmployeeFormState = {
@@ -35,9 +37,11 @@ export type AddEmployeeFormState = {
     startDate?: string[];
     status?: string[];
     avatar?: string[];
+    salary?: string[];
     _form?: string[];
   };
   success?: boolean;
+  newEmployeeId?: string;
 };
 
 export async function addEmployee(
@@ -54,7 +58,8 @@ export async function addEmployee(
     phone: formData.get('phone') || undefined,
     startDate: formData.get('startDate'),
     status: formData.get('status'),
-    avatar: formData.get('avatar') || undefined, 
+    avatar: formData.get('avatar') || undefined,
+    salary: formData.get('salary') || undefined,
   });
 
   if (!validatedFields.success) {
@@ -68,24 +73,35 @@ export async function addEmployee(
   const newEmployeeData = validatedFields.data;
 
   try {
-    const newEmployee: Employee = {
-      id: `EMP${Date.now()}${Math.random().toString(16).slice(2,6)}`, 
-      ...newEmployeeData,
-      phone: newEmployeeData.phone || '', 
-      avatar: newEmployeeData.avatar || '', 
-      company: newEmployeeData.company,
-      startDate: newEmployeeData.startDate, 
+    const employeesCollectionRef = collection(db, "employees");
+    
+    // Prepare data for Firestore, ensuring optional fields are handled
+    const employeeToSave: Omit<Employee, 'id'> = {
+        name: newEmployeeData.name,
+        employeeId: newEmployeeData.employeeId,
+        company: newEmployeeData.company,
+        department: newEmployeeData.department,
+        role: newEmployeeData.role,
+        email: newEmployeeData.email,
+        phone: newEmployeeData.phone || '',
+        startDate: newEmployeeData.startDate, // Storing as string as per initial plan
+        status: newEmployeeData.status,
+        avatar: newEmployeeData.avatar || '',
+        salary: newEmployeeData.salary, // Salary is already a number or undefined
     };
-    console.log("New employee added (simulated):", newEmployee);
+
+    const docRef = await addDoc(employeesCollectionRef, employeeToSave);
+    console.log("New employee added to Firestore with ID:", docRef.id);
     
     revalidatePath('/employees'); 
 
     return {
-      message: `Employee "${newEmployee.name}" added successfully (simulated). The list won't update due to the current hardcoded data setup.`,
+      message: `Employee "${newEmployeeData.name}" added successfully to Firestore.`,
       success: true,
+      newEmployeeId: docRef.id,
     };
   } catch (error) {
-    console.error("Error adding employee:", error);
+    console.error("Error adding employee to Firestore:", error);
     let errorMessage = "An unexpected error occurred while adding the employee.";
     if (error instanceof Error) {
       errorMessage = error.message;

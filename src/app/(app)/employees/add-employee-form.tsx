@@ -2,7 +2,7 @@
 // src/app/(app)/employees/add-employee-form.tsx
 'use client';
 
-import { useEffect, useActionState } from 'react';
+import { useEffect, useActionState, startTransition } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -37,12 +37,15 @@ const ClientEmployeeSchema = z.object({
   startDate: z.date({ required_error: "Start date is required." }),
   status: z.enum(["Active", "Inactive"],{ required_error: "Status is required." }),
   avatar: z.string().url({ message: "Avatar must be a valid URL (e.g., https://...)" }).optional().or(z.literal('')),
+  salary: z.string().optional().refine(val => val === undefined || val === "" || !isNaN(parseFloat(val)), {
+    message: "Salary must be a number or empty.",
+  }),
 });
 
 type EmployeeFormData = z.infer<typeof ClientEmployeeSchema>;
 
 interface AddEmployeeFormProps {
-  onFormSubmissionSuccess?: () => void;
+  onFormSubmissionSuccess?: (newEmployeeId?: string) => void;
   uniqueDepartments: string[];
   uniqueRoles: string[];
   uniqueCompanies: string[];
@@ -76,6 +79,7 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
       startDate: undefined, 
       status: 'Active',
       avatar: '',
+      salary: '',
     },
   });
 
@@ -87,7 +91,7 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
       });
       form.reset(); 
       if (onFormSubmissionSuccess) {
-        onFormSubmissionSuccess(); 
+        onFormSubmissionSuccess(state.newEmployeeId); 
       }
     } else if (!state?.success && state?.message && (state.errors || state.message.startsWith("Adding employee failed:") || state.message.startsWith("Validation failed."))) {
        toast({
@@ -98,7 +102,7 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
     }
   }, [state, toast, form, onFormSubmissionSuccess]);
   
-  const onSubmit = async (data: EmployeeFormData) => {
+  const onSubmit = (data: EmployeeFormData) => {
     const formData = new FormData();
     formData.append('name', data.name);
     formData.append('employeeId', data.employeeId);
@@ -110,8 +114,11 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
     formData.append('startDate', format(data.startDate, "yyyy-MM-dd"));
     formData.append('status', data.status);
     if (data.avatar) formData.append('avatar', data.avatar);
+    if (data.salary) formData.append('salary', data.salary);
     
-    formAction(formData);
+    startTransition(() => {
+        formAction(formData);
+    });
   };
 
   return (
@@ -136,7 +143,7 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
           control={form.control}
           name="company"
           render={({ field }) => (
-            <Select onValueChange={field.onChange} defaultValue={field.value}>
+            <Select onValueChange={field.onChange} value={field.value} defaultValue="">
               <SelectTrigger id="company-add">
                 <SelectValue placeholder="Select Company" />
               </SelectTrigger>
@@ -157,7 +164,7 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
             control={form.control}
             name="department"
             render={({ field }) => (
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} value={field.value} defaultValue="">
                 <SelectTrigger id="department-add">
                   <SelectValue placeholder="Select Department" />
                 </SelectTrigger>
@@ -177,7 +184,7 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
             control={form.control}
             name="role"
             render={({ field }) => (
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} value={field.value} defaultValue="">
                 <SelectTrigger id="role-add">
                   <SelectValue placeholder="Select Role" />
                 </SelectTrigger>
@@ -248,7 +255,7 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
             control={form.control}
             name="status"
             render={({ field }) => (
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} value={field.value} defaultValue="Active">
                 <SelectTrigger id="status-add">
                   <SelectValue placeholder="Select Status" />
                 </SelectTrigger>
@@ -269,6 +276,13 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
         <Input id="avatar-add" type="url" {...form.register('avatar')} placeholder="https://placehold.co/100x100.png" />
         {form.formState.errors.avatar && <p className="text-sm text-destructive mt-1">{form.formState.errors.avatar.message}</p>}
         {state?.errors?.avatar && <p className="text-sm text-destructive mt-1">{state.errors.avatar.join(', ')}</p>}
+      </div>
+
+      <div>
+        <Label htmlFor="salary-add">Salary (Optional, Numbers only)</Label>
+        <Input id="salary-add" type="text" {...form.register('salary')} placeholder="e.g., 75000" inputMode="numeric" />
+        {form.formState.errors.salary && <p className="text-sm text-destructive mt-1">{form.formState.errors.salary.message}</p>}
+        {state?.errors?.salary && <p className="text-sm text-destructive mt-1">{state.errors.salary.join(', ')}</p>}
       </div>
       
       {state?.errors?._form && <p className="text-sm font-medium text-destructive mt-2">{state.errors._form.join(', ')}</p>}
