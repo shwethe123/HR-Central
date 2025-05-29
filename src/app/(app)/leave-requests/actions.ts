@@ -4,9 +4,8 @@
 import { z } from 'zod';
 import type { LeaveRequest } from '@/types';
 import { revalidatePath } from 'next/cache';
-
-// In a real app, this data would come from and be saved to a database.
-// For now, we'll simulate updates for demonstration purposes.
+import { db } from '@/lib/firebase';
+import { collection, addDoc, doc, updateDoc, Timestamp } from 'firebase/firestore';
 
 const LeaveRequestFormSchema = z.object({
   employeeId: z.string().min(1, { message: "Employee is required." }),
@@ -15,7 +14,7 @@ const LeaveRequestFormSchema = z.object({
   reason: z.string().min(5, { message: "Reason must be at least 5 characters." }).max(500, { message: "Reason cannot exceed 500 characters." }),
 }).refine(data => new Date(data.endDate) >= new Date(data.startDate), {
   message: "End date cannot be before start date.",
-  path: ["endDate"], // Field to blame for the error
+  path: ["endDate"], 
 });
 
 export type SubmitLeaveRequestFormState = {
@@ -28,14 +27,14 @@ export type SubmitLeaveRequestFormState = {
     _form?: string[];
   };
   success?: boolean;
-  newLeaveRequest?: LeaveRequest; // To send back the created request if needed
+  newLeaveRequestId?: string; 
 };
 
 export async function submitLeaveRequest(
   prevState: SubmitLeaveRequestFormState | undefined,
   formData: FormData
 ): Promise<SubmitLeaveRequestFormState> {
-  const employeeName = formData.get('employeeName') as string || 'Unknown Employee'; // Get employeeName for the new request object
+  const employeeName = formData.get('employeeName') as string || 'Unknown Employee'; 
 
   const validatedFields = LeaveRequestFormSchema.safeParse({
     employeeId: formData.get('employeeId'),
@@ -55,27 +54,28 @@ export async function submitLeaveRequest(
   const newLeaveRequestData = validatedFields.data;
 
   try {
-    const newRequest: LeaveRequest = {
-      id: `LR${Date.now()}${Math.random().toString(16).slice(2, 8)}`,
+    const leaveRequestsCollectionRef = collection(db, "leaveRequests");
+    const docRef = await addDoc(leaveRequestsCollectionRef, {
       employeeId: newLeaveRequestData.employeeId,
-      employeeName: employeeName, 
+      employeeName: employeeName,
       startDate: newLeaveRequestData.startDate,
       endDate: newLeaveRequestData.endDate,
       reason: newLeaveRequestData.reason,
       status: "Pending",
-      requestedDate: new Date().toISOString().split('T')[0], // Current date
-    };
-    console.log("New leave request submitted (simulated):", newRequest);
+      requestedDate: Timestamp.fromDate(new Date()), // Store as Firestore Timestamp
+    });
+    
+    console.log("New leave request submitted to Firestore with ID:", docRef.id);
     
     revalidatePath('/leave-requests'); 
 
     return {
-      message: `Leave request for ${newRequest.employeeName} submitted successfully (simulated).`,
+      message: `Leave request for ${employeeName} submitted successfully.`,
       success: true,
-      newLeaveRequest: newRequest, // Pass back the created object
+      newLeaveRequestId: docRef.id,
     };
   } catch (error) {
-    console.error("Error submitting leave request:", error);
+    console.error("Error submitting leave request to Firestore:", error);
     let errorMessage = "An unexpected error occurred while submitting the leave request.";
     if (error instanceof Error) {
       errorMessage = error.message;
@@ -101,20 +101,39 @@ export async function updateLeaveRequestStatus(
   newStatus: "Approved" | "Rejected",
   rejectionReason?: string
 ): Promise<UpdateLeaveStatusFormState> {
-  console.log(`Updating leave request ${requestId} to ${newStatus} (simulated).`);
-  if (newStatus === "Rejected" && rejectionReason) {
-    console.log(`Rejection reason: ${rejectionReason}`);
-  }
-
-  // In a real app, you would find the request in the database and update its status.
-  // For this simulation, we'll just return a success message.
+  console.log(`Updating leave request ${requestId} to ${newStatus} in Firestore.`);
   
-  revalidatePath('/leave-requests');
+  try {
+    const leaveRequestDocRef = doc(db, "leaveRequests", requestId);
+    const dataToUpdate: { status: string; processedDate: Timestamp; rejectionReason?: string } = {
+      status: newStatus,
+      processedDate: Timestamp.fromDate(new Date()),
+    };
 
-  return {
-    message: `Leave request ${requestId} has been ${newStatus.toLowerCase()} (simulated).`,
-    success: true,
-    updatedRequestId: requestId,
-    newStatus: newStatus,
-  };
+    if (newStatus === "Rejected" && rejectionReason) {
+      dataToUpdate.rejectionReason = rejectionReason;
+      console.log(`Rejection reason: ${rejectionReason}`);
+    }
+
+    await updateDoc(leaveRequestDocRef, dataToUpdate);
+    
+    revalidatePath('/leave-requests');
+
+    return {
+      message: `Leave request ${requestId} has been ${newStatus.toLowerCase()}.`,
+      success: true,
+      updatedRequestId: requestId,
+      newStatus: newStatus,
+    };
+  } catch (error) {
+    console.error("Error updating leave request status in Firestore:", error);
+    let errorMessage = "An unexpected error occurred while updating leave request status.";
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    return {
+      message: `Updating leave request status failed: ${errorMessage}`,
+      success: false,
+    };
+  }
 }

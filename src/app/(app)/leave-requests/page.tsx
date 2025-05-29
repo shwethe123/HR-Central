@@ -15,58 +15,96 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { LeaveRequestForm } from "./leave-request-form";
-import { CalendarPlus, FileText } from 'lucide-react';
-import { MOCK_EMPLOYEES_DATA } from '../employees/page'; // Import mock employees
+import { CalendarPlus, FileText, Loader2 } from 'lucide-react';
+import { MOCK_EMPLOYEES_DATA } from '../employees/page'; 
 import { updateLeaveRequestStatus, type UpdateLeaveStatusFormState } from './actions';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { format } from 'date-fns';
+import { format as formatDateFns } from 'date-fns'; // Renamed to avoid conflict
+import { db } from '@/lib/firebase';
+import { collection, getDocs, query, orderBy, Timestamp } from 'firebase/firestore';
 
-// Mock data for leave requests
-const MOCK_LEAVE_REQUESTS_DATA: LeaveRequest[] = [
-  { id: "LR001", employeeId: "1", employeeName: "Alice Wonderland", startDate: "2024-08-01", endDate: "2024-08-05", reason: "Vacation to explore new places.", status: "Pending", requestedDate: "2024-07-15" },
-  { id: "LR002", employeeId: "3", employeeName: "Charlie Brown", startDate: "2024-07-20", endDate: "2024-07-22", reason: "Personal reasons, need a short break.", status: "Approved", requestedDate: "2024-07-10", processedBy: "HR", processedDate: "2024-07-11" },
-  { id: "LR003", employeeId: "4", employeeName: "Diana Prince", startDate: "2024-08-10", endDate: "2024-08-10", reason: "Doctor's appointment.", status: "Pending", requestedDate: "2024-07-18" },
-  { id: "LR004", employeeId: "2", employeeName: "Bob The Builder", startDate: "2024-09-01", endDate: "2024-09-10", reason: "Attending a workshop for skill development.", status: "Rejected", requestedDate: "2024-07-01", processedBy: "HR", processedDate: "2024-07-05", rejectionReason: "Team workload too high during this period." },
-  { id: "LR005", employeeId: "5", employeeName: "Edward Scissorhands", startDate: "2024-07-25", endDate: "2024-07-26", reason: "Family emergency.", status: "Approved", requestedDate: "2024-07-24", processedBy: "HR", processedDate: "2024-07-24" },
-];
+// Helper to format dates, handling both string and Firestore Timestamp
+const formatDate = (dateInput: string | Timestamp | undefined): string => {
+  if (!dateInput) return 'N/A';
+  let date: Date;
+  if (typeof dateInput === 'string') {
+    date = new Date(dateInput);
+  } else if (dateInput instanceof Timestamp) {
+    date = dateInput.toDate();
+  } else {
+    return 'Invalid Date';
+  }
+  if (isNaN(date.getTime())) return 'Invalid Date';
+  return formatDateFns(date, "MMMM d, yyyy");
+};
 
 
 async function getEmployees(): Promise<Employee[]> {
-  // In a real app, fetch from an API or shared service
   return MOCK_EMPLOYEES_DATA;
 }
 
 export default function LeaveRequestsPage() {
-  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>(MOCK_LEAVE_REQUESTS_DATA);
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [selectedRequestDetails, setSelectedRequestDetails] = useState<LeaveRequest | null>(null);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  useEffect(() => {
-    async function fetchEmployees() {
-      const data = await getEmployees();
-      setEmployees(data);
+  const fetchLeaveRequests = async () => {
+    setIsLoading(true);
+    try {
+      const leaveRequestsCollectionRef = collection(db, "leaveRequests");
+      const q = query(leaveRequestsCollectionRef, orderBy("requestedDate", "desc"));
+      const querySnapshot = await getDocs(q);
+      const fetchedRequests: LeaveRequest[] = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        // Ensure dates are correctly handled if they are Timestamps
+        const requestedDate = data.requestedDate instanceof Timestamp ? data.requestedDate.toDate().toISOString() : data.requestedDate;
+        const processedDate = data.processedDate instanceof Timestamp ? data.processedDate.toDate().toISOString() : data.processedDate;
+        
+        return {
+          id: doc.id,
+          ...data,
+          requestedDate,
+          processedDate,
+        } as LeaveRequest;
+      });
+      setLeaveRequests(fetchedRequests);
+    } catch (error) {
+      console.error("Error fetching leave requests:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch leave requests from the database.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
-    fetchEmployees();
+  };
+
+  useEffect(() => {
+    async function fetchInitialData() {
+      const empData = await getEmployees();
+      setEmployees(empData);
+      await fetchLeaveRequests();
+    }
+    fetchInitialData();
   }, []);
 
-  const handleFormSubmissionSuccess = (newRequest: LeaveRequest) => {
-    setLeaveRequests(prevRequests => [newRequest, ...prevRequests]);
+  const handleFormSubmissionSuccess = (/* newRequestId: string */) => {
+    // newRequestId is available from the action if needed for optimistic updates
+    fetchLeaveRequests(); // Refetch the list
     setIsFormDialogOpen(false);
   };
 
   const handleUpdateRequestStatus = async (id: string, status: "Approved" | "Rejected", rejectionReason?: string) => {
     const result: UpdateLeaveStatusFormState = await updateLeaveRequestStatus(id, status, rejectionReason);
-    if (result.success && result.updatedRequestId && result.newStatus) {
-      setLeaveRequests(prev =>
-        prev.map(req =>
-          req.id === result.updatedRequestId ? { ...req, status: result.newStatus!, rejectionReason: result.newStatus === "Rejected" ? rejectionReason : undefined, processedDate: new Date().toISOString().split('T')[0] } : req
-        )
-      );
+    if (result.success) {
+      fetchLeaveRequests(); // Refetch the list
       toast({ title: "Status Updated", description: result.message });
     } else {
       toast({ title: "Error", description: result.message || "Failed to update status.", variant: "destructive" });
@@ -77,8 +115,9 @@ export default function LeaveRequestsPage() {
     setSelectedRequestDetails(request);
     setIsDetailsDialogOpen(true);
   };
-
-  const columns = useMemo(() => getLeaveRequestColumns(handleUpdateRequestStatus, handleViewDetails), [handleUpdateRequestStatus, handleViewDetails]);
+  
+  // Memoize columns only when handler functions change
+  const columns = useMemo(() => getLeaveRequestColumns(handleUpdateRequestStatus, handleViewDetails), []);
 
 
   return (
@@ -115,7 +154,14 @@ export default function LeaveRequestsPage() {
             <CardDescription>View and manage all submitted leave requests.</CardDescription>
         </CardHeader>
         <CardContent>
+          {isLoading ? (
+            <div className="flex justify-center items-center py-10">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="ml-2 text-muted-foreground">Loading leave requests...</p>
+            </div>
+          ) : (
             <LeaveRequestDataTable columns={columns} data={leaveRequests} />
+          )}
         </CardContent>
       </Card>
 
@@ -133,11 +179,11 @@ export default function LeaveRequestsPage() {
               </div>
               <div className="grid grid-cols-[120px_1fr] items-center gap-2">
                 <span className="font-medium text-muted-foreground">Start Date:</span>
-                <span>{format(new Date(selectedRequestDetails.startDate), "MMMM d, yyyy")}</span>
+                <span>{formatDate(selectedRequestDetails.startDate)}</span>
               </div>
               <div className="grid grid-cols-[120px_1fr] items-center gap-2">
                 <span className="font-medium text-muted-foreground">End Date:</span>
-                <span>{format(new Date(selectedRequestDetails.endDate), "MMMM d, yyyy")}</span>
+                <span>{formatDate(selectedRequestDetails.endDate)}</span>
               </div>
               <div className="grid grid-cols-[120px_1fr] items-start gap-2">
                 <span className="font-medium text-muted-foreground">Reason:</span>
@@ -153,7 +199,7 @@ export default function LeaveRequestsPage() {
                     className={`font-semibold ${
                         selectedRequestDetails.status === "Approved" ? "bg-green-100 text-green-700 border-green-300" :
                         selectedRequestDetails.status === "Rejected" ? "bg-red-100 text-red-700 border-red-300" :
-                        "bg-yellow-100 text-yellow-700 border-yellow-300" // Example for Pending
+                        "bg-yellow-100 text-yellow-700 border-yellow-300" 
                     }`}
                 >
                     {selectedRequestDetails.status}
@@ -161,12 +207,12 @@ export default function LeaveRequestsPage() {
               </div>
               <div className="grid grid-cols-[120px_1fr] items-center gap-2">
                 <span className="font-medium text-muted-foreground">Requested On:</span>
-                <span>{format(new Date(selectedRequestDetails.requestedDate), "MMMM d, yyyy")}</span>
+                <span>{formatDate(selectedRequestDetails.requestedDate)}</span>
               </div>
               {selectedRequestDetails.processedDate && (
                 <div className="grid grid-cols-[120px_1fr] items-center gap-2">
                   <span className="font-medium text-muted-foreground">Processed On:</span>
-                  <span>{format(new Date(selectedRequestDetails.processedDate), "MMMM d, yyyy")}</span>
+                  <span>{formatDate(selectedRequestDetails.processedDate)}</span>
                 </div>
               )}
               {selectedRequestDetails.status === "Rejected" && selectedRequestDetails.rejectionReason && (
@@ -177,7 +223,7 @@ export default function LeaveRequestsPage() {
               )}
             </div>
           )}
-          <DialogDescription className="mt-4 text-right"> {/* DialogDescription used for footer content as per original */}
+          <DialogDescription className="mt-4 text-right"> 
             <Button variant="outline" onClick={() => setIsDetailsDialogOpen(false)}>Close</Button>
           </DialogDescription>
         </DialogContent>
@@ -186,3 +232,4 @@ export default function LeaveRequestsPage() {
     </div>
   );
 }
+

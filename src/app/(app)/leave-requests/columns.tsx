@@ -28,20 +28,35 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import React from "react";
+import { format as formatDateFns } from 'date-fns';
+import { Timestamp } from 'firebase/firestore';
 
 
-const formatDate = (dateString: string) => {
-  return new Intl.DateTimeFormat("en-US", { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(dateString));
+const formatDate = (dateInput: string | Timestamp | undefined): string => {
+  if (!dateInput) return 'N/A';
+  let date: Date;
+  if (typeof dateInput === 'string') {
+    date = new Date(dateInput);
+  } else if (dateInput instanceof Timestamp) {
+    date = dateInput.toDate();
+  } else {
+    // Fallback for unexpected types, though shouldn't happen with proper data handling
+    return 'Invalid Date';
+  }
+  // Check if date is valid after conversion
+  if (isNaN(date.getTime())) return 'Invalid Date';
+  return formatDateFns(date, "MMM d, yyyy"); // Shortened month format
 };
+
 
 const statusBadgeVariant = (status: LeaveRequest["status"]) => {
   switch (status) {
     case "Pending":
-      return "outline"; // Yellow-ish or neutral
+      return "outline"; 
     case "Approved":
-      return "default"; // Green or primary
+      return "default"; 
     case "Rejected":
-      return "destructive"; // Red
+      return "destructive"; 
     default:
       return "secondary";
   }
@@ -106,7 +121,14 @@ export const getLeaveRequestColumns = (
     cell: ({ row }) => {
       const status = row.original.status;
       return (
-        <Badge variant={statusBadgeVariant(status)} className="font-semibold flex items-center">
+        <Badge 
+          variant={statusBadgeVariant(status)} 
+          className={`font-semibold flex items-center
+            ${status === "Approved" ? "bg-green-100 text-green-700 border-green-300" :
+              status === "Rejected" ? "bg-red-100 text-red-700 border-red-300" :
+              status === "Pending" ? "bg-yellow-100 text-yellow-700 border-yellow-300" : ""
+            }`}
+        >
           {statusIcon(status)}
           {status}
         </Badge>
@@ -118,6 +140,7 @@ export const getLeaveRequestColumns = (
     accessorKey: "requestedDate",
     header: "Requested On",
     cell: ({ row }) => formatDate(row.original.requestedDate),
+    sortingFn: 'datetime', // Add if you want to sort by date correctly
   },
   {
     id: "actions",
@@ -174,7 +197,7 @@ export const getLeaveRequestColumns = (
                             onUpdateRequestStatus(request.id, "Rejected", rejectionReason);
                             setRejectionReason("");
                         }}
-                        className="bg-red-600 hover:bg-red-700 text-white"
+                        className="bg-red-600 hover:bg-red-700 text-white focus:bg-red-700 focus:ring-red-500"
                       >
                         Confirm Rejection
                       </AlertDialogAction>
@@ -189,3 +212,4 @@ export const getLeaveRequestColumns = (
     },
   },
 ];
+
