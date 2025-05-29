@@ -19,7 +19,6 @@ import { CalendarPlus, FileText } from 'lucide-react';
 import { MOCK_EMPLOYEES_DATA } from '../employees/page'; // Import mock employees
 import { updateLeaveRequestStatus, type UpdateLeaveStatusFormState } from './actions';
 import { useToast } from '@/hooks/use-toast';
-// Alert, AlertDescription, AlertTitle removed as they are not used in the latest version of the page
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from 'date-fns';
@@ -65,7 +64,7 @@ export default function LeaveRequestsPage() {
     if (result.success && result.updatedRequestId && result.newStatus) {
       setLeaveRequests(prev =>
         prev.map(req =>
-          req.id === result.updatedRequestId ? { ...req, status: result.newStatus!, rejectionReason: newStatus === "Rejected" ? rejectionReason : undefined, processedDate: new Date().toISOString().split('T')[0] } : req
+          req.id === result.updatedRequestId ? { ...req, status: result.newStatus!, rejectionReason: result.newStatus === "Rejected" ? rejectionReason : undefined, processedDate: new Date().toISOString().split('T')[0] } : req
         )
       );
       toast({ title: "Status Updated", description: result.message });
