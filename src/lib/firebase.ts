@@ -1,12 +1,12 @@
 
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-// import { getAnalytics } from "firebase/analytics"; // Analytics is not used in the current app features
+// import { getAnalytics } from "firebase/analytics"; // Uncomment if you add MEASUREMENT_ID and use Analytics
 
-// For debugging during setup - these logs help verify if env vars are loaded.
-// It's good practice to remove or comment them out in production.
-if (typeof window === 'undefined') { // Log only on server-side during build/dev to avoid cluttering browser console too much
-  console.log("Firebase Config Being Used in firebase.ts (Server-side check):");
+// Log environment variables during development to help debug loading issues.
+// These logs should ideally be removed or disabled in production.
+if (process.env.NODE_ENV === 'development') {
+  console.log("Firebase Config Loaded in firebase.ts:");
   console.log("API Key:", process.env.NEXT_PUBLIC_FIREBASE_API_KEY ? "Loaded" : "MISSING_OR_NOT_LOADED");
   console.log("Auth Domain:", process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ? "Loaded" : "MISSING_OR_NOT_LOADED");
   console.log("Project ID:", process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ? "Loaded" : "MISSING_OR_NOT_LOADED");
@@ -15,7 +15,6 @@ if (typeof window === 'undefined') { // Log only on server-side during build/dev
   console.log("App ID:", process.env.NEXT_PUBLIC_FIREBASE_APP_ID ? "Loaded" : "MISSING_OR_NOT_LOADED");
   console.log("Measurement ID:", process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID ? "Loaded (optional)" : "MISSING_OR_NOT_LOADED (optional)");
 }
-
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -30,12 +29,19 @@ const firebaseConfig = {
 let app: FirebaseApp;
 
 if (!getApps().length) {
-  if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
-    console.error("Firebase API Key or Project ID is missing. Check your .env.local file and ensure it's loaded correctly. Also, ensure the Next.js development server was restarted after changing .env.local.");
-    // Potentially throw an error or handle this case more gracefully in a real app
-    // For now, we proceed, and Firebase SDK will likely throw its own error.
+  if (!firebaseConfig.apiKey || !firebaseConfig.projectId || !firebaseConfig.authDomain) {
+    console.error(
+      "Firebase configuration is incomplete. Check your .env.local file and ensure NEXT_PUBLIC_FIREBASE_API_KEY, NEXT_PUBLIC_FIREBASE_PROJECT_ID, and NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN are set correctly. Restart the Next.js server after changes."
+    );
+    // In a real app, you might want to throw an error here or handle it more gracefully.
   }
-  app = initializeApp(firebaseConfig);
+  try {
+    app = initializeApp(firebaseConfig);
+  } catch (e) {
+    console.error("Error initializing Firebase app:", e);
+    // Fallback or rethrow, depending on desired behavior
+    throw e;
+  }
 } else {
   app = getApps()[0];
 }
