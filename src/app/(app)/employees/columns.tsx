@@ -123,6 +123,27 @@ export const getColumns = (onViewDetails: (employee: Employee) => void): ColumnD
     }
   },
   {
+    accessorKey: "gender",
+    header: ({ column }) => {
+      return (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Gender
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      );
+    },
+    cell: ({ row }) => {
+      const gender = row.original.gender || "N/A";
+      return <span>{gender}</span>;
+    },
+    filterFn: (row, id, value) => {
+      return value.includes(row.getValue(id))
+    }
+  },
+  {
     accessorKey: "email",
     header: "Email",
   },

@@ -12,6 +12,7 @@ export type Employee = {
   avatar?: string;
   salary?: number;
   company?: string; 
+  gender?: "Male" | "Female" | "Other" | "Prefer not to say";
 };
 
 export type Metric = {
@@ -41,9 +42,9 @@ export type LeaveRequest = {
   endDate: string;   // Consider using Date objects in a real app
   reason: string;
   status: "Pending" | "Approved" | "Rejected";
-  requestedDate: string; // Date of submission
-  // Optional fields for approval/rejection details
-  processedBy?: string; // ID or name of manager/HR
-  processedDate?: string;
-  rejectionReason?: string; // If status is 'Rejected'
+  requestedDate: string | firebase.firestore.Timestamp; 
+  processedBy?: string; 
+  processedDate?: string | firebase.firestore.Timestamp;
+  rejectionReason?: string; 
 };
+

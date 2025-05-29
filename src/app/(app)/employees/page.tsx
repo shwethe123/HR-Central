@@ -10,10 +10,6 @@ import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 
-// MOCK_EMPLOYEES_DATA is no longer the primary source, but can be kept for reference or initial seeding if needed.
-// For now, we will fetch directly from Firestore.
-// export const MOCK_EMPLOYEES_DATA: Employee[] = [ ... ]; // Removed for Firestore integration
-
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -23,7 +19,6 @@ export default function EmployeesPage() {
     setIsLoading(true);
     try {
       const employeesCollectionRef = collection(db, "employees");
-      // Example: Order by name. You can adjust the ordering as needed.
       const q = query(employeesCollectionRef, orderBy("name", "asc"));
       const querySnapshot = await getDocs(q);
       const fetchedEmployees: Employee[] = querySnapshot.docs.map(doc => {
@@ -31,18 +26,18 @@ export default function EmployeesPage() {
         return {
           id: doc.id,
           ...data,
-          // Ensure all fields from Employee type are present, providing defaults if necessary
           name: data.name || "",
           employeeId: data.employeeId || "",
           department: data.department || "",
           role: data.role || "",
           email: data.email || "",
           phone: data.phone || "",
-          startDate: data.startDate || "", // Assuming startDate is stored as a string
+          startDate: data.startDate || "", 
           status: data.status || "Active",
           avatar: data.avatar || "",
           company: data.company || "",
-          salary: data.salary === undefined ? undefined : Number(data.salary), // Ensure salary is number or undefined
+          salary: data.salary === undefined ? undefined : Number(data.salary),
+          gender: data.gender || "Prefer not to say", // Added gender mapping
         } as Employee;
       });
       setEmployees(fetchedEmployees);
@@ -92,7 +87,7 @@ export default function EmployeesPage() {
         uniqueDepartments={uniqueDepartments} 
         uniqueRoles={uniqueRoles} 
         uniqueCompanies={uniqueCompanies}
-        onRefreshData={fetchEmployees} // Pass refetch function
+        onRefreshData={fetchEmployees} 
       />
     </div>
   );

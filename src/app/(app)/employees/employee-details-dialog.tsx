@@ -54,6 +54,10 @@ export function EmployeeDetailsDialog({ employee, isOpen, onOpenChange }: Employ
             <span className="w-[130px] font-medium text-muted-foreground">Role:</span>
             <span>{employee.role}</span>
           </div>
+           <div className="flex items-center">
+            <span className="w-[130px] font-medium text-muted-foreground">Gender:</span>
+            <span>{employee.gender || 'N/A'}</span>
+          </div>
           <div className="flex items-center">
             <span className="w-[130px] font-medium text-muted-foreground">Email:</span>
             <a href={`mailto:${employee.email}`} className="text-primary hover:underline truncate" title={employee.email}>

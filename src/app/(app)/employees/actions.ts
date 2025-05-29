@@ -17,6 +17,7 @@ const EmployeeFormSchema = z.object({
   phone: z.string().optional().or(z.literal('')),
   startDate: z.string().refine((date) => !isNaN(Date.parse(date)), { message: "Start date is required and must be valid." }),
   status: z.enum(["Active", "Inactive"], { required_error: "Status is required." }),
+  gender: z.enum(["Male", "Female", "Other", "Prefer not to say"], { required_error: "Gender is required." }),
   avatar: z.string().url({ message: "Avatar must be a valid URL (e.g., https://...)" }).optional().or(z.literal('')),
   salary: z.preprocess(
     (val) => (val === "" || val === undefined ? undefined : Number(val)),
@@ -36,6 +37,7 @@ export type AddEmployeeFormState = {
     phone?: string[];
     startDate?: string[];
     status?: string[];
+    gender?: string[];
     avatar?: string[];
     salary?: string[];
     _form?: string[];
@@ -58,6 +60,7 @@ export async function addEmployee(
     phone: formData.get('phone') || undefined,
     startDate: formData.get('startDate'),
     status: formData.get('status'),
+    gender: formData.get('gender'),
     avatar: formData.get('avatar') || undefined,
     salary: formData.get('salary') || undefined,
   });
@@ -75,7 +78,6 @@ export async function addEmployee(
   try {
     const employeesCollectionRef = collection(db, "employees");
     
-    // Prepare data for Firestore, ensuring optional fields are handled
     const employeeToSave: Omit<Employee, 'id'> = {
         name: newEmployeeData.name,
         employeeId: newEmployeeData.employeeId,
@@ -84,10 +86,11 @@ export async function addEmployee(
         role: newEmployeeData.role,
         email: newEmployeeData.email,
         phone: newEmployeeData.phone || '',
-        startDate: newEmployeeData.startDate, // Storing as string as per initial plan
+        startDate: newEmployeeData.startDate,
         status: newEmployeeData.status,
+        gender: newEmployeeData.gender,
         avatar: newEmployeeData.avatar || '',
-        salary: newEmployeeData.salary, // Salary is already a number or undefined
+        salary: newEmployeeData.salary, 
     };
 
     const docRef = await addDoc(employeesCollectionRef, employeeToSave);

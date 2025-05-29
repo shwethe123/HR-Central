@@ -39,7 +39,8 @@ const ClientEmployeeSchema = z.object({
   phone: z.string().optional(),
   startDate: z.date({ required_error: "Start date is required." }),
   status: z.enum(["Active", "Inactive"],{ required_error: "Status is required." }),
-  avatar: (typeof window !== 'undefined' ? z.instanceof(FileList) : z.any()) // Handle FileList for avatar
+  gender: z.enum(["Male", "Female", "Other", "Prefer not to say"], { required_error: "Gender is required." }),
+  avatar: (typeof window !== 'undefined' ? z.instanceof(FileList) : z.any()) 
     .optional()
     .refine(
       (fileList) => !fileList || fileList.length === 0 || fileList.length === 1,
@@ -47,7 +48,7 @@ const ClientEmployeeSchema = z.object({
         message: "Only one avatar image can be uploaded.",
       }
     )
-    .transform((fileList) => (fileList && fileList.length > 0 ? fileList[0] : undefined)), // Transform FileList to single File or undefined
+    .transform((fileList) => (fileList && fileList.length > 0 ? fileList[0] : undefined)), 
   salary: z.string().optional().refine(val => val === undefined || val === "" || !isNaN(parseFloat(val)), {
     message: "Salary must be a number or empty.",
   }),
@@ -99,7 +100,8 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
       phone: '',
       startDate: undefined, 
       status: 'Active',
-      avatar: undefined, // Default avatar to undefined for File input
+      gender: 'Prefer not to say',
+      avatar: undefined, 
       salary: '',
     },
   });
@@ -134,10 +136,11 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
     if (data.phone) formData.append('phone', data.phone);
     formData.append('startDate', format(data.startDate, "yyyy-MM-dd"));
     formData.append('status', data.status);
+    formData.append('gender', data.gender);
     if (data.salary) formData.append('salary', data.salary);
 
     let avatarUrl = '';
-    const fileToUpload = data.avatar; // This is File | undefined due to Zod transform
+    const fileToUpload = data.avatar; 
 
     if (fileToUpload) {
       setIsImageUploading(true);
@@ -145,7 +148,7 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
         const sRef = storageRef(storage, `employee-avatars/${Date.now()}-${fileToUpload.name}`);
         const uploadTask = uploadBytesResumable(sRef, fileToUpload);
         
-        await uploadTask; // Wait for upload to complete
+        await uploadTask; 
         avatarUrl = await getDownloadURL(uploadTask.snapshot.ref);
         toast({ title: "Avatar Uploaded", description: "Image successfully uploaded." });
       } catch (error) {
@@ -155,9 +158,6 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
           description: "Could not upload avatar. Proceeding without avatar.",
           variant: "destructive",
         });
-        // Optionally stop submission:
-        // setIsImageUploading(false);
-        // return; 
       } finally {
         setIsImageUploading(false);
       }
@@ -271,7 +271,7 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
         {state?.errors?.phone && <p className="text-sm text-destructive mt-1">{state.errors.phone.join(', ')}</p>}
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <Label htmlFor="startDate-add">Start Date</Label>
           <Controller
@@ -326,6 +326,28 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
           />
           {form.formState.errors.status && <p className="text-sm text-destructive mt-1">{form.formState.errors.status.message}</p>}
           {state?.errors?.status && <p className="text-sm text-destructive mt-1">{state.errors.status.join(', ')}</p>}
+        </div>
+        <div>
+          <Label htmlFor="gender-add">Gender</Label>
+          <Controller
+            control={form.control}
+            name="gender"
+            render={({ field }) => (
+              <Select onValueChange={field.onChange} value={field.value} defaultValue="Prefer not to say">
+                <SelectTrigger id="gender-add">
+                  <SelectValue placeholder="Select Gender" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Male">Male</SelectItem>
+                  <SelectItem value="Female">Female</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                  <SelectItem value="Prefer not to say">Prefer not to say</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          />
+          {form.formState.errors.gender && <p className="text-sm text-destructive mt-1">{form.formState.errors.gender.message}</p>}
+          {state?.errors?.gender && <p className="text-sm text-destructive mt-1">{state.errors.gender.join(', ')}</p>}
         </div>
       </div>
 
