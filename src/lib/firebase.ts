@@ -8,23 +8,28 @@ import { getStorage } from 'firebase/storage';
 // Log environment variables during development to help debug loading issues.
 // This logging helps verify if .env.local is being read correctly.
 if (process.env.NODE_ENV === 'development') {
-  const currentProjectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  const currentApiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
   const currentAuthDomain = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN;
+  const currentProjectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  const currentStorageBucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+  const currentMessagingSenderId = process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID;
+  const currentAppId = process.env.NEXT_PUBLIC_FIREBASE_APP_ID;
+  const currentMeasurementId = process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID;
 
-  console.log(`Firebase Config Initialization (targeting project: ${currentProjectId || 'NOT_FOUND_IN_ENV'}):`);
-  console.log("API Key:", process.env.NEXT_PUBLIC_FIREBASE_API_KEY ? "Loaded" : "MISSING_OR_NOT_LOADED");
-  console.log(`Auth Domain (using): ${currentAuthDomain || 'MISSING_OR_NOT_LOADED'}`);
-  console.log(`Project ID (using): ${currentProjectId || 'MISSING_OR_NOT_LOADED'}`);
-  console.log("Storage Bucket:", process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ? "Loaded" : "MISSING_OR_NOT_LOADED");
-  console.log("Messaging Sender ID:", process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ? "Loaded" : "MISSING_OR_NOT_LOADED");
-  console.log("App ID:", process.env.NEXT_PUBLIC_FIREBASE_APP_ID ? "Loaded" : "MISSING_OR_NOT_LOADED");
-  console.log("Measurement ID:", process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID ? "Loaded (optional)" : "MISSING_OR_NOT_LOADED (optional)");
+  console.log(`Firebase Config Initialization in firebase.ts (targeting project ID: ${currentProjectId || 'NOT_FOUND_IN_ENV'}):`);
+  console.log("API Key (using):", currentApiKey ? currentApiKey.substring(0, 5) + "..." : "MISSING_OR_NOT_LOADED"); // Show only part of API Key for safety
+  console.log("Auth Domain (using):", currentAuthDomain || "MISSING_OR_NOT_LOADED");
+  console.log("Project ID (using):", currentProjectId || "MISSING_OR_NOT_LOADED");
+  console.log("Storage Bucket (using):", currentStorageBucket || "MISSING_OR_NOT_LOADED");
+  console.log("Messaging Sender ID (using):", currentMessagingSenderId || "MISSING_OR_NOT_LOADED");
+  console.log("App ID (using):", currentAppId || "MISSING_OR_NOT_LOADED");
+  console.log("Measurement ID (using):", currentMeasurementId || "MISSING_OR_NOT_LOADED (optional)");
 
-  if (!currentProjectId || !currentAuthDomain || !process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
+  if (!currentApiKey || !currentProjectId || !currentAuthDomain) {
     console.error(
-      "CRITICAL: One or more core Firebase configuration variables (Project ID, Auth Domain, API Key) are missing from your .env.local file or not being loaded. Please check and ensure they are correctly set for the target Firebase project and that you have restarted your Next.js server."
+      "CRITICAL: One or more core Firebase configuration variables (API Key, Project ID, Auth Domain) are missing or not being loaded from your .env.local file. Please check and ensure they are correctly set for the target Firebase project and that you have restarted your Next.js server."
     );
-  } else if (currentProjectId !== "form-e0205") {
+  } else if (currentProjectId !== "form-e0205") { // Update this if your target project ID changes
     console.warn(
       `WARNING: Your .env.local seems to be configured for project '${currentProjectId}', but you might be expecting to target 'form-e0205'. Please verify your .env.local file.`
     );
@@ -51,12 +56,16 @@ if (!getApps().length) {
       );
     }
     // Potentially throw an error or handle gracefully, especially in production
+    // For now, we proceed and let Firebase SDK throw more specific errors if config is truly unusable.
   }
   try {
     app = initializeApp(firebaseConfig);
   } catch (e) {
-    console.error("Error initializing Firebase app:", e);
-    throw e; // Rethrow to make it clear initialization failed
+    console.error("Error initializing Firebase app in firebase.ts:", e);
+    // It's crucial to not silently fail here.
+    // If initialization fails, subsequent Firebase calls will also fail.
+    // Depending on app structure, might rethrow or set a global error state.
+    throw e; 
   }
 } else {
   app = getApps()[0];
