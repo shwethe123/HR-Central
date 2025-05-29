@@ -2,7 +2,7 @@
 // src/app/(app)/employees/add-employee-form.tsx
 'use client';
 
-import { useEffect, useActionState, startTransition } from 'react';
+import { useEffect, useActionState, startTransition, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -25,6 +25,9 @@ import { Calendar as CalendarIcon, Loader2 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
+import { storage } from '@/lib/firebase'; // Import storage
+import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage'; // Import storage functions
+
 
 const ClientEmployeeSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -36,7 +39,15 @@ const ClientEmployeeSchema = z.object({
   phone: z.string().optional(),
   startDate: z.date({ required_error: "Start date is required." }),
   status: z.enum(["Active", "Inactive"],{ required_error: "Status is required." }),
-  avatar: z.string().url({ message: "Avatar must be a valid URL (e.g., https://...)" }).optional().or(z.literal('')),
+  avatar: (typeof window !== 'undefined' ? z.instanceof(FileList) : z.any()) // Handle FileList for avatar
+    .optional()
+    .refine(
+      (fileList) => !fileList || fileList.length === 0 || fileList.length === 1,
+      {
+        message: "Only one avatar image can be uploaded.",
+      }
+    )
+    .transform((fileList) => (fileList && fileList.length > 0 ? fileList[0] : undefined)), // Transform FileList to single File or undefined
   salary: z.string().optional().refine(val => val === undefined || val === "" || !isNaN(parseFloat(val)), {
     message: "Salary must be a number or empty.",
   }),
@@ -52,12 +63,21 @@ interface AddEmployeeFormProps {
   className?: string;
 }
 
-function SubmitButton() {
-  const { pending } = useFormStatus();
+function SubmitButton({ isImageUploading }: { isImageUploading: boolean }) {
+  const { pending: isActionPending } = useFormStatus();
+  const isDisabled = isImageUploading || isActionPending;
+  
+  let buttonText = "Add Employee";
+  if (isImageUploading) {
+    buttonText = "Uploading Image...";
+  } else if (isActionPending) {
+    buttonText = "Adding Employee...";
+  }
+
   return (
-    <Button type="submit" disabled={pending} className="w-full sm:w-auto">
-      {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-      Add Employee
+    <Button type="submit" disabled={isDisabled} className="w-full sm:w-auto">
+      {isDisabled && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+      {buttonText}
     </Button>
   );
 }
@@ -65,6 +85,7 @@ function SubmitButton() {
 export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, uniqueRoles, uniqueCompanies, className }: AddEmployeeFormProps) {
   const { toast } = useToast();
   const [state, formAction] = useActionState(addEmployee, { message: null, errors: {}, success: false });
+  const [isImageUploading, setIsImageUploading] = useState(false);
 
   const form = useForm<EmployeeFormData>({
     resolver: zodResolver(ClientEmployeeSchema),
@@ -78,7 +99,7 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
       phone: '',
       startDate: undefined, 
       status: 'Active',
-      avatar: '',
+      avatar: undefined, // Default avatar to undefined for File input
       salary: '',
     },
   });
@@ -102,7 +123,7 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
     }
   }, [state, toast, form, onFormSubmissionSuccess]);
   
-  const onSubmit = (data: EmployeeFormData) => {
+  const onSubmit = async (data: EmployeeFormData) => {
     const formData = new FormData();
     formData.append('name', data.name);
     formData.append('employeeId', data.employeeId);
@@ -113,8 +134,36 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
     if (data.phone) formData.append('phone', data.phone);
     formData.append('startDate', format(data.startDate, "yyyy-MM-dd"));
     formData.append('status', data.status);
-    if (data.avatar) formData.append('avatar', data.avatar);
     if (data.salary) formData.append('salary', data.salary);
+
+    let avatarUrl = '';
+    const fileToUpload = data.avatar; // This is File | undefined due to Zod transform
+
+    if (fileToUpload) {
+      setIsImageUploading(true);
+      try {
+        const sRef = storageRef(storage, `employee-avatars/${Date.now()}-${fileToUpload.name}`);
+        const uploadTask = uploadBytesResumable(sRef, fileToUpload);
+        
+        await uploadTask; // Wait for upload to complete
+        avatarUrl = await getDownloadURL(uploadTask.snapshot.ref);
+        toast({ title: "Avatar Uploaded", description: "Image successfully uploaded." });
+      } catch (error) {
+        console.error("Error uploading avatar:", error);
+        toast({
+          title: "Avatar Upload Failed",
+          description: "Could not upload avatar. Proceeding without avatar.",
+          variant: "destructive",
+        });
+        // Optionally stop submission:
+        // setIsImageUploading(false);
+        // return; 
+      } finally {
+        setIsImageUploading(false);
+      }
+    }
+    
+    formData.append('avatar', avatarUrl);
     
     startTransition(() => {
         formAction(formData);
@@ -148,7 +197,10 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
                 <SelectValue placeholder="Select Company" />
               </SelectTrigger>
               <SelectContent>
-                {uniqueCompanies.map(comp => <SelectItem key={comp} value={comp}>{comp}</SelectItem>)}
+                {[ "ဆန်ဆိုင်း", "ဝမ်လုံးဆိုင်", "ဟောင်လိတ်ဆိုင်"].map(comp => <SelectItem key={comp} value={comp}>{comp}</SelectItem>)}
+                {uniqueCompanies.filter(comp => ![ "ဆန်ဆိုင်း", "ဝမ်လုံးဆိုင်", "ဟောင်လိတ်ဆိုင်"].includes(comp)).map(comp => (
+                  <SelectItem key={comp} value={comp}>{comp}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           )}
@@ -169,8 +221,11 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
                   <SelectValue placeholder="Select Department" />
                 </SelectTrigger>
                 <SelectContent>
-                  {uniqueDepartments.map(dep => <SelectItem key={dep} value={dep}>{dep}</SelectItem>)}
-                </SelectContent>
+                {["G-ထွက်", "လက်ကားပိုင်း", "လက်လီပိုင်း", "ကားအော်ဒါ", "အဝင်ပိုင်း", "ပစ္စည်းမှာ", "အကြွေးကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ကားတင်", "ငွေကိုင်"].map(dep => <SelectItem key={dep} value={dep}>{dep}</SelectItem>)}
+                  {uniqueDepartments.filter(dep => !["G-ထွက်", "လက်ကားပိုင်း", "လက်လီပိုင်း", "ကားအော်ဒါ", "အဝင်ပိုင်း", "ပစ္စည်းမှာ", "အကြွေးကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ကားတင်", "ငွေကိုင်"].includes(dep)).map(dep => (
+                    <SelectItem key={dep} value={dep}>{dep}</SelectItem>
+                  ))}
+                  </SelectContent>
               </Select>
             )}
           />
@@ -189,7 +244,10 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
                   <SelectValue placeholder="Select Role" />
                 </SelectTrigger>
                 <SelectContent>
-                  {uniqueRoles.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+                  {["ခေါင်းဆောင်", "စာရင်းကိုင်", "Hစစ်", "ပစ္စည်းမှာ", "အဝင်", "ငွေကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ကားတင်", ].map(dep => <SelectItem key={dep} value={dep}>{dep}</SelectItem>)}
+                  {uniqueDepartments.filter(dep => !["ခေါင်းဆောင်", "စာရင်းကိုင်", "Hစစ်", "ပစ္စည်းမှာ", "အဝင်", "ပစ္စည်းမှာ", "ငွေကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ကားတင်"].includes(dep)).map(dep => (
+                    <SelectItem key={dep} value={dep}>{dep}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             )}
@@ -272,8 +330,8 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
       </div>
 
       <div>
-        <Label htmlFor="avatar-add">Avatar URL (Optional)</Label>
-        <Input id="avatar-add" type="url" {...form.register('avatar')} placeholder="https://placehold.co/100x100.png" />
+        <Label htmlFor="avatar-add">Avatar Image (Optional)</Label>
+        <Input id="avatar-add" type="file" {...form.register('avatar')} accept="image/*" />
         {form.formState.errors.avatar && <p className="text-sm text-destructive mt-1">{form.formState.errors.avatar.message}</p>}
         {state?.errors?.avatar && <p className="text-sm text-destructive mt-1">{state.errors.avatar.join(', ')}</p>}
       </div>
@@ -288,7 +346,7 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
       {state?.errors?._form && <p className="text-sm font-medium text-destructive mt-2">{state.errors._form.join(', ')}</p>}
 
       <div className="flex justify-end pt-2">
-        <SubmitButton />
+        <SubmitButton isImageUploading={isImageUploading} />
       </div>
     </form>
   );
