@@ -6,6 +6,7 @@ import { getStorage } from 'firebase/storage';
 // import { getAnalytics } from "firebase/analytics"; // Uncomment if you add MEASUREMENT_ID and use Analytics
 
 // Log environment variables during development to help debug loading issues.
+// This logging helps verify if .env.local is being read correctly.
 if (process.env.NODE_ENV === 'development') {
   const currentProjectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
   const currentAuthDomain = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN;
@@ -44,8 +45,7 @@ let app: FirebaseApp;
 
 if (!getApps().length) {
   if (!firebaseConfig.apiKey || !firebaseConfig.projectId || !firebaseConfig.authDomain) {
-    // This error is now covered by the more detailed log above in development
-    if (process.env.NODE_ENV !== 'development') {
+    if (process.env.NODE_ENV !== 'development') { // Avoid redundant logging if dev logs already showed it
       console.error(
         "Firebase configuration is incomplete. Check your environment variables."
       );
