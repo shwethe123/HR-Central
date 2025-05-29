@@ -1,12 +1,9 @@
 
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider } from 'firebase/auth'; // GoogleAuthProvider might be unused if only Email/Pass is active
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 // import { getAnalytics } from "firebase/analytics"; // Uncomment if you add MEASUREMENT_ID and use Analytics
-
-// Log environment variables during development to help debug loading issues.
-// This logging helps verify if .env.local is being read correctly.
 
 const currentApiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 const currentAuthDomain = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN;
@@ -16,6 +13,7 @@ const currentMessagingSenderId = process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SEND
 const currentAppId = process.env.NEXT_PUBLIC_FIREBASE_APP_ID;
 const currentMeasurementId = process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID;
 
+// Enhanced logging for debugging .env.local loading issues
 if (process.env.NODE_ENV === 'development') {
   console.log(`%cFirebase Config Initialization in firebase.ts (Attempting to use):`, 'color: orange; font-weight: bold;');
   console.log("API Key (raw):", currentApiKey ? currentApiKey.substring(0, 5) + "..." : "MISSING_OR_NOT_LOADED_IN_ENV");
@@ -28,12 +26,12 @@ if (process.env.NODE_ENV === 'development') {
 
   if (!currentApiKey || !currentProjectId || !currentAuthDomain) {
     console.error(
-      "CRITICAL: One or more core Firebase configuration variables (API Key, Project ID, Auth Domain) are missing or not being loaded from your .env.local file. Please check and ensure they are correctly set for the target Firebase project and that you have restarted your Next.js server."
+        "CRITICAL Firebase Config Error: One or more core Firebase configuration variables (API Key, Project ID, Auth Domain) are MISSING or NOT LOADED from your .env.local file. Please verify your .env.local file and ensure your Next.js server was restarted after changes."
     );
-  } else if (currentProjectId !== "form-e0205") { 
-    console.warn(
-      `WARNING: Your .env.local seems to be configured for project '${currentProjectId}', but you might be intending to target 'form-e0205'. Please verify your .env.local file if this is not intended.`
-    );
+  } else if (currentProjectId !== "form-e0205") { // Check if targeting the intended project
+      console.warn(
+        `Firebase Config Warning: Your .env.local seems to be configured for project '${currentProjectId}', but you might be intending to target 'form-e0205'. Please verify your .env.local file if this is not intended.`
+      );
   }
 }
 
@@ -44,32 +42,39 @@ const firebaseConfig = {
   storageBucket: currentStorageBucket,
   messagingSenderId: currentMessagingSenderId,
   appId: currentAppId,
-  measurementId: currentMeasurementId,
+  measurementId: currentMeasurementId, // Can be undefined if not set
 };
 
 let app: FirebaseApp;
 
 if (!getApps().length) {
   if (!firebaseConfig.apiKey || !firebaseConfig.projectId || !firebaseConfig.authDomain) {
-    // This check might be redundant due to the earlier log, but kept for safety.
     console.error(
-        "Firebase configuration is incomplete. Check your environment variables passed to firebaseConfig."
+        "Firebase Initialization Error: Firebase configuration is incomplete. Check environment variables being passed to firebaseConfig."
     );
+    // Potentially throw an error here or handle it gracefully depending on app requirements
   }
   try {
     app = initializeApp(firebaseConfig);
+    if (process.env.NODE_ENV === 'development') {
+        console.log('%cFirebase App Initialized Successfully with Project ID:', 'color: green;', firebaseConfig.projectId);
+    }
   } catch (e) {
-    console.error("Error initializing Firebase app in firebase.ts:", e);
+    console.error("CRITICAL Firebase Initialization Error in firebase.ts:", e);
+    // It's important to re-throw or handle this, as the app likely can't function without Firebase.
     throw e; 
   }
 } else {
   app = getApps()[0];
+   if (process.env.NODE_ENV === 'development') {
+        console.log('%cFirebase App Already Initialized (using existing instance) for Project ID:', 'color: blue;', app.options.projectId);
+    }
 }
 
 const auth = getAuth(app);
-const googleProvider = new GoogleAuthProvider();
+const googleProvider = new GoogleAuthProvider(); // Kept for potential future use
 const db = getFirestore(app);
 const storage = getStorage(app);
-// const analytics = typeof window !== 'undefined' && firebaseConfig.measurementId ? getAnalytics(app) : undefined;
+// const analytics = typeof window !== 'undefined' && firebaseConfig.measurementId ? getAnalytics(app) : undefined; // Analytics
 
 export { app, auth, googleProvider, db, storage };
