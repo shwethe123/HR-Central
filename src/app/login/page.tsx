@@ -11,33 +11,34 @@ import Image from 'next/image';
 
 export default function LoginPage() {
   const { user, loginWithGoogle, loading: authLoading } = useAuth();
-  const router = useRouter();
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const router = useRouter(); // Keep for potential future use, though AuthProvider handles redirects
+  const [isLoggingIn, setIsLoggingIn] = useState(false); // Tracks button click login attempt
 
-
-  useEffect(() => {
-    // auth-context now handles redirecting if user is logged in and on /login page
-    // So this useEffect primarily handles the case where auth is not loading AND user exists
-    if (!authLoading && user) {
-      router.push('/dashboard');
-    }
-  }, [user, authLoading, router]);
+  // AuthProvider's useEffect now handles redirecting if user is logged in and on /login page
+  // or if user is not logged in and on a protected page.
+  // This useEffect can be simplified or removed if not needed for other logic.
+  // useEffect(() => {
+  //   if (!authLoading && user) {
+  //     // This case should be handled by AuthProvider now
+  //     // router.push('/dashboard');
+  //   }
+  // }, [user, authLoading, router]);
 
   const handleGoogleSignIn = async () => {
-    setIsLoggingIn(true);
+    setIsLoggingIn(true); // Indicate login attempt started
     try {
       await loginWithGoogle();
       // The AuthContext and its useEffect will handle redirection upon successful login
+      // No need to setIsLoggingIn(false) here, as onAuthStateChanged will update authLoading
     } catch (error) {
       console.error('Google Sign-In failed:', error);
-      // Optionally, show an error message to the user (e.g., via toast)
-      setIsLoggingIn(false); // Reset logging in state on error
+      setIsLoggingIn(false); // Reset logging in state on error to allow re-attempt
     }
-    // setIsLoggingIn(false) is also handled by onAuthStateChanged implicitly if login is successful
   };
 
-  // Show loading spinner if auth state is still loading or if user is already logged in (and about to be redirected)
-  if (authLoading || (user && !authLoading)) {
+  // Show loading spinner if auth state is still loading or if login button was clicked
+  // or if user is already logged in (and AuthProvider is about to redirect)
+  if (authLoading || (user && !authLoading)) { 
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -46,7 +47,7 @@ export default function LoginPage() {
     );
   }
   
-  // If not loading and no user, show login page
+  // If not authLoading and no user, show login page
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-background to-background p-4">
       <div className="w-full max-w-md rounded-xl bg-card p-8 shadow-2xl">
@@ -58,11 +59,11 @@ export default function LoginPage() {
         
         <Button 
           onClick={handleGoogleSignIn} 
-          disabled={isLoggingIn || authLoading}
+          disabled={isLoggingIn} // Disable button while login attempt is in progress
           className="w-full text-base py-6 shadow-md hover:shadow-lg transition-shadow duration-300"
           variant="default"
         >
-          {isLoggingIn ? ( // Show loader if isLoggingIn is true
+          {isLoggingIn ? ( 
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           ) : (
             <Image src="/google-logo.svg" alt="Google" width={20} height={20} className="mr-3" data-ai-hint="logo social"/>

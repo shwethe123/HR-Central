@@ -12,9 +12,8 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
 } from "@/components/ui/sidebar";
-// import { AppLogo } from "@/components/icons"; // AppLogo is in SidebarHeader now
 import { Separator } from "@/components/ui/separator";
-import { useAuth } from "@/contexts/auth-context"; 
+import { useAuth } from '@/contexts/auth-context'; 
 import { useState } from "react"; 
 
 const navItems = [
@@ -28,7 +27,7 @@ const navItems = [
 
 const secondaryNavItems = [
   { href: "/settings", label: "Settings", icon: Settings },
-  { href: "/support", label: "Support", icon: LifeBuoy },
+  // { href: "/support", label: "Support", icon: LifeBuoy }, // Support page not yet created
 ];
 
 export function SidebarNav() {
@@ -41,18 +40,21 @@ export function SidebarNav() {
     setIsLoggingOut(true);
     try {
       await logout();
-      // Redirect is handled by AuthContext or AppLayout
+      // Redirect is handled by AuthContext
     } catch (error) {
       console.error("Logout failed:", error);
-      // Optionally show an error toast to the user
-      setIsLoggingOut(false); // Reset on error
+      setIsLoggingOut(false); 
     }
-    // setIsLoggingOut(false) will be implicitly handled if logout leads to unmount or redirect
   };
 
-  // Don't render sidebar content if auth is loading.
+  // Don't render sidebar content if auth is loading initially.
+  // Once loading is false, sidebar should render based on user state (which might be null if not logged in, but AuthProvider handles redirect)
   if (authLoading) { 
-    return null;
+    return (
+        <div className="flex flex-col items-center justify-center h-full p-4">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+    );
   }
 
   return (
@@ -95,7 +97,7 @@ export function SidebarNav() {
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
-          {user && ( // Only show logout if user is theoretically logged in
+          {user && ( 
             <SidebarMenuItem>
               <SidebarMenuButton tooltip="Log Out" onClick={handleLogout} disabled={isLoggingOut}>
                 {isLoggingOut ? <Loader2 className="animate-spin" /> : <LogOut />}

@@ -28,7 +28,7 @@ function SubmitButton() {
 }
 
 export default function ChatPage() {
-  const { user } = useAuth(); // Auth system needs to be active for this to work
+  const { user, loading: authLoading } = useAuth(); 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -63,14 +63,11 @@ export default function ChatPage() {
     if (state?.success) {
       setNewMessage(''); // Clear input on successful send
       formRef.current?.reset(); // Reset the native form element
-      // state.message is handled by potential toast or alert if needed
     }
     if (state?.errors?._form) {
-      // Handle form-level errors, e.g., show a toast
       console.error("Form error:", state.errors._form.join(', '));
     }
   }, [state]);
-
 
   const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -80,12 +77,13 @@ export default function ChatPage() {
     formAction(formData);
   };
   
-  if (!user && process.env.NODE_ENV === 'development') {
-      // This is a temporary measure since auth is "disabled" for other features.
-      // For a real chat, user must be logged in.
-      console.warn("ChatPage: User is not logged in. Chat functionality will be limited/non-functional.");
+  if (authLoading) {
+    return (
+      <div className="flex h-[calc(100vh-120px)] items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      </div>
+    );
   }
-
 
   return (
     <Card className="w-full h-[calc(100vh-120px)] flex flex-col shadow-xl rounded-lg">
@@ -104,7 +102,7 @@ export default function ChatPage() {
               >
                 {msg.senderId !== user?.uid && (
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={undefined} alt={msg.senderName} data-ai-hint="person avatar" />
+                    <AvatarImage src={undefined} alt={msg.senderName} data-ai-hint="person avatar"/>
                     <AvatarFallback>{msg.senderName?.substring(0, 1).toUpperCase() || 'U'}</AvatarFallback>
                   </Avatar>
                 )}
@@ -123,10 +121,10 @@ export default function ChatPage() {
                     {msg.createdAt ? format(msg.createdAt.toDate(), 'p') : 'Sending...'}
                   </p>
                 </div>
-                 {msg.senderId === user?.uid && (
+                 {msg.senderId === user?.uid && user && (
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={user?.photoURL || undefined} alt={user?.displayName || 'Me'} data-ai-hint="person avatar" />
-                    <AvatarFallback>{user?.displayName?.substring(0, 1).toUpperCase() || 'M'}</AvatarFallback>
+                    <AvatarImage src={user.photoURL || undefined} alt={user.displayName || 'Me'} data-ai-hint="person avatar" />
+                    <AvatarFallback>{user.displayName?.substring(0, 1).toUpperCase() || 'M'}</AvatarFallback>
                   </Avatar>
                 )}
               </div>
@@ -138,11 +136,15 @@ export default function ChatPage() {
         {user ? (
           <form
             ref={formRef}
-            action={formAction}
-            className="flex w-full items-center gap-2"
-            onSubmit={(e) => { // This onSubmit is for client-side effects like clearing input
-              if (!newMessage.trim()) e.preventDefault(); // Prevent empty submissions if handled purely by client
+            action={formAction} // Using Server Action
+            onSubmit={(e) => { // Client-side onSubmit for effects like clearing input or preventing empty submission
+              if (!newMessage.trim()) {
+                e.preventDefault(); // Prevent submitting empty messages if not handled by server action validation
+              }
+              // The actual submission is handled by the form's 'action' prop.
+              // We don't call formAction(formData) here directly if we're using the native form submission for the server action.
             }}
+            className="flex w-full items-center gap-2"
           >
             <input type="hidden" name="senderId" value={user.uid} />
             <input type="hidden" name="senderName" value={user.displayName || 'Anonymous User'} />
@@ -157,7 +159,6 @@ export default function ChatPage() {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
                   if (newMessage.trim()) {
-                     // Programmatically submit the form
                     formRef.current?.requestSubmit();
                   }
                 }
@@ -167,7 +168,7 @@ export default function ChatPage() {
           </form>
         ) : (
           <p className="text-sm text-muted-foreground text-center w-full">
-            Please log in to send messages. (Login system is currently disabled for other features)
+            Please log in to send messages.
           </p>
         )}
       </CardFooter>

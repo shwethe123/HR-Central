@@ -10,7 +10,7 @@ import {
   type User 
 } from 'firebase/auth';
 import { auth, googleProvider } from '@/lib/firebase';
-import { useRouter } from 'next/navigation'; 
+import { useRouter, usePathname } from 'next/navigation'; 
 
 interface AuthContextType {
   user: User | null;
@@ -23,50 +23,42 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(false); // Set loading to false initially
+  const [loading, setLoading] = useState(true); // Start with loading true
   const router = useRouter();
-  // const pathname = usePathname(); // Not needed if useEffect is commented out
+  const pathname = usePathname();
 
-  /*
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
-      // if (!currentUser && pathname !== '/login') { //pathname is from usePathname()
-      //   router.push('/login'); 
-      // } else if (currentUser && pathname === '/login') {
-      //   router.push('/dashboard');
-      // }
+      if (!currentUser && pathname !== '/login') {
+        router.push('/login'); 
+      } else if (currentUser && pathname === '/login') {
+        router.push('/dashboard');
+      }
     });
     return () => unsubscribe();
-  // }, [router, pathname]); // zależności usunięte pathname
-  }, [router]);
-  */
+  }, [router, pathname]);
 
   const loginWithGoogle = async () => {
-    // setLoading(true); // No longer relying on onAuthStateChanged to set loading
+    setLoading(true); 
     try {
       await signInWithPopup(auth, googleProvider);
-      // onAuthStateChanged would normally handle setting user and loading
-      // For now, this won't update UI state as listener is off
-      console.log("Login attempted. Auth listener is off for UI updates.");
+      // onAuthStateChanged will handle setting user and redirecting
     } catch (error) {
       console.error("Error signing in with Google:", error);
-      // setLoading(false); 
+      setLoading(false); 
     }
   };
 
   const logout = async () => {
-    // setLoading(true); // No longer relying on onAuthStateChanged
+    setLoading(true); 
     try {
       await signOut(auth);
-      // setUser(null); // This would be handled by onAuthStateChanged
-      console.log("Logout attempted. Auth listener is off for UI updates.");
-      router.push('/login'); // Still attempt redirect on explicit logout
+      // onAuthStateChanged will handle setting user to null and redirecting to /login
     } catch (error) {
       console.error("Error signing out:", error);
-    } finally {
-      // setLoading(false);
+      setLoading(false);
     }
   };
 
@@ -84,4 +76,3 @@ export function useAuth() {
   }
   return context;
 }
-

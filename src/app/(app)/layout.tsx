@@ -1,8 +1,9 @@
 
 'use client'; 
 
-import { useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+// No longer need useEffect for redirect here, AuthProvider handles it.
+// import { useEffect } from 'react';
+// import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { AppLogo } from "@/components/icons";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
@@ -26,40 +27,19 @@ export default function AppLayout({
   children: React.ReactNode;
 }) {
   const { user, loading } = useAuth();
-  const router = useRouter();
-  const pathname = usePathname();
+  // const router = useRouter(); // Not needed for redirect
+  // const pathname = usePathname(); // Not needed for redirect
 
-  /*
-  useEffect(() => {
-    if (!loading && !user && pathname !== '/login') {
-      router.push('/login');
-    }
-  }, [user, loading, router, pathname]);
-  */
-
-  if (loading) { // This loading state will be false due to AuthContext changes
+  if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
       </div>
     );
   }
-
-  // Since auth is disabled for now, !user will be true, and !loading will be true.
-  // The original redirect logic is commented out, so this check isn't strictly necessary
-  // for redirection anymore, but it might be part of other logic later.
-  // if (!user && pathname !== '/login' && !loading) { 
-  //    // This case will be true if login page itself is not rendered within this layout
-  //    // and auth is disabled. For now, we allow access.
-  // }
   
-  // If user is null and we are on /login, allow login page to render
-  // This specific check for /login might not be hit if /login uses a different layout.
-  // if (!user && pathname === '/login') {
-  //    return <>{children}</>; // Render login page
-  // }
+  // Redirect logic is now handled by AuthProvider
 
-  // If user exists, render the app layout
   const userDisplayName = user?.displayName || "User";
   const userPhotoURL = user?.photoURL;
   const avatarFallback = userDisplayName.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || "HR";
@@ -99,10 +79,17 @@ export default function AppLayout({
                 <Bell className="h-5 w-5" />
                 <span className="sr-only">Toggle notifications</span>
               </Button>
-              <Avatar className="h-9 w-9">
-                <AvatarImage src={userPhotoURL || undefined} alt={userDisplayName} data-ai-hint="person avatar" />
-                <AvatarFallback>{avatarFallback}</AvatarFallback>
-              </Avatar>
+              {user ? (
+                <Avatar className="h-9 w-9">
+                  <AvatarImage src={userPhotoURL || undefined} alt={userDisplayName} data-ai-hint="person avatar" />
+                  <AvatarFallback>{avatarFallback}</AvatarFallback>
+                </Avatar>
+              ) : (
+                // Placeholder or different UI if user is not logged in (though they should be redirected)
+                <Avatar className="h-9 w-9"> 
+                  <AvatarFallback>U</AvatarFallback>
+                </Avatar>
+              )}
             </div>
         </header>
         <main className="flex-1 p-4 sm:p-6">
