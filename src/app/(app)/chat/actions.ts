@@ -48,10 +48,7 @@ export async function sendMessage(
   const { conversationId, text, senderId, senderName } = validatedFields.data;
 
   try {
-    // Note: The collection name 'generalChatMessages' might be misleading now.
-    // Consider renaming to 'chatMessages' if this collection will hold all messages.
-    // For now, we'll keep it as is to minimize breaking changes, but it's a good point for future refactor.
-    await addDoc(collection(db, 'chatMessages'), { // Changed collection name to 'chatMessages'
+    await addDoc(collection(db, 'chatMessages'), {
       conversationId,
       senderId,
       senderName,
@@ -59,9 +56,11 @@ export async function sendMessage(
       createdAt: serverTimestamp(),
     });
 
-    // Revalidate the specific chat path if dynamic paths are used later for conversations
-    // For now, revalidating the general chat path is fine.
-    revalidatePath('/chat');
+    // Revalidate the specific chat path using the dynamic conversationId
+    revalidatePath(`/chat/${conversationId}`);
+    // Also revalidate the users list in case counts or last active status needs update (future)
+    revalidatePath('/chat/users');
+
 
     return {
       message: "Message sent successfully.",

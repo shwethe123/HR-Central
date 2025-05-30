@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Users, MessageSquareText, Settings, LifeBuoy, LogOut, Building2, Loader2, CalendarClock, MessageCircle, User as UserIconLucide, Users2 } from "lucide-react"; // Added Users2
+import { Home, Users, MessageSquareText, Settings, LifeBuoy, LogOut, Building2, Loader2, CalendarClock, MessageCircle, User as UserIconLucide, Users2, MessageSquarePlus } from "lucide-react"; // Added Users2, MessageSquarePlus
 import { cn } from "@/lib/utils";
 import {
   SidebarMenu,
@@ -16,12 +16,16 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from '@/contexts/auth-context'; 
 import { useState } from "react"; 
 
+const GENERAL_CHAT_CONVERSATION_ID = "general_company_chat";
+
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
-  { href: "/employees", label: "Employees", icon: UserIconLucide }, // Changed icon for distinction
-  { href: "/teams", label: "Teams", icon: Users2 }, // New Teams link with Users2 icon
+  { href: "/employees", label: "Employees", icon: UserIconLucide },
+  { href: "/teams", label: "Teams", icon: Users2 },
   { href: "/leave-requests", label: "Leave Requests", icon: CalendarClock },
-  { href: "/chat", label: "Chat", icon: MessageCircle },
+  // Updated Chat Links
+  { href: `/chat/${GENERAL_CHAT_CONVERSATION_ID}?name=Company%20General%20Chat`, label: "General Chat", icon: MessageCircle },
+  { href: "/chat/users", label: "1-on-1 Chat", icon: MessageSquarePlus }, 
   { href: "/feedback", label: "Feedback Analysis", icon: MessageSquareText },
   { href: "/company-departments", label: "Company Depts.", icon: Building2 },
 ];
@@ -29,7 +33,6 @@ const navItems = [
 const accountNavItems = [
   { href: "/profile", label: "Profile", icon: UserIconLucide },
   { href: "/settings", label: "Settings", icon: Settings },
-  // { href: "/support", label: "Support", icon: LifeBuoy }, // Support page not yet created
 ];
 
 export function SidebarNav() {
@@ -37,26 +40,23 @@ export function SidebarNav() {
   const { logout, user, loading: authLoading } = useAuth(); 
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
       await logout();
-      // Redirect is handled by AuthContext
     } catch (error) {
       console.error("Logout failed:", error);
       setIsLoggingOut(false); 
     }
   };
   
-  if (authLoading && !user) { // Show loader only if auth is loading AND user is not yet available
+  if (authLoading && !user) {
     return (
         <div className="flex flex-col items-center justify-center h-full p-4">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
     );
   }
-
 
   return (
     <>
@@ -66,7 +66,11 @@ export function SidebarNav() {
             <SidebarMenuItem key={item.href}>
               <SidebarMenuButton
                 asChild
-                isActive={pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href))}
+                isActive={
+                  pathname === item.href || 
+                  (item.href.startsWith("/chat/") && pathname.startsWith("/chat/")) || // Make chat links active if in any chat
+                  (item.href !== "/dashboard" && !item.href.startsWith("/chat/") && pathname.startsWith(item.href))
+                }
                 tooltip={item.label}
               >
                 <Link href={item.href}>
