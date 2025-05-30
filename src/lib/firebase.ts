@@ -15,8 +15,7 @@ const currentAppId = process.env.NEXT_PUBLIC_FIREBASE_APP_ID;
 const currentMeasurementId = process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID; // Can be undefined
 
 // THIS IS THE TARGET PROJECT ID THE APP SHOULD BE USING.
-// The .env.local file MUST match this for Firebase Auth to work correctly with authorized domains.
-const TARGET_PROJECT_ID = "form-e0205";
+const TARGET_PROJECT_ID = "form-e0205"; // Based on user's latest confirmation
 
 if (typeof window !== 'undefined') {
   console.log(
@@ -41,7 +40,7 @@ if (typeof window !== 'undefined') {
     );
   } else if (currentProjectId !== TARGET_PROJECT_ID) {
      console.warn(
-        `%cFirebase Config Alert: Your .env.local is configured for project '${currentProjectId}', BUT the target project ID should be '${TARGET_PROJECT_ID}'. Please ensure NEXT_PUBLIC_FIREBASE_PROJECT_ID in .env.local is '${TARGET_PROJECT_ID}'. This mismatch is likely the cause of 'auth/unauthorized-domain' errors if domains are authorized for '${TARGET_PROJECT_ID}'.`, 'color: #FF8C00; font-weight: bold; background-color: #FFFBEA;'
+        `%cFirebase Config Alert: Your .env.local is configured for project '${currentProjectId}', BUT the target project ID should be '${TARGET_PROJECT_ID}'. Please ensure NEXT_PUBLIC_FIREBASE_PROJECT_ID in .env.local is '${TARGET_PROJECT_ID}'. This mismatch is likely the cause of 'auth/unauthorized-domain' or other auth errors if domains/OAuth are authorized for '${TARGET_PROJECT_ID}'.`, 'color: #FF8C00; font-weight: bold; background-color: #FFFBEA;'
       );
   }
 }
@@ -66,8 +65,6 @@ if (!getApps().length) {
     console.error(
         "Firebase Initialization Error: Firebase configuration is incomplete in firebaseConfig object (likely due to missing env vars). Critical values (apiKey, projectId, authDomain) are missing. Check .env.local and restart server."
     );
-    // For critical missing config, we might not want to proceed to initializeApp
-    // as it will fail.
   }
   try {
     app = initializeApp(firebaseConfig);
@@ -77,8 +74,6 @@ if (!getApps().length) {
   } catch (e: any) {
     console.error("CRITICAL Firebase Initialization Error in firebase.ts during initializeApp(firebaseConfig):", e.message || e);
     console.error("Firebase config object used for initialization attempt:", firebaseConfig);
-    // To prevent the app from continuing with a broken Firebase setup:
-    // throw new Error(`Firebase initialization failed: ${e.message}`);
   }
 } else {
   app = getApps()[0];
@@ -94,8 +89,6 @@ if (app) {
   dbInstance = getFirestore(app);
   storageInstance = getStorage(app);
 } else {
-  // Fallback or error handling if app didn't initialize
-  // This state should ideally not be reached if errors are thrown above.
   console.error("Firebase app object is not initialized. Firebase services (Auth, Firestore, Storage) cannot be loaded.");
   // @ts-ignore
   authInstance = undefined; 
