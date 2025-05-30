@@ -6,7 +6,7 @@ import React, { useState, useEffect, useRef, useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import type { User } from 'firebase/auth';
 import { db } from '@/lib/firebase';
-import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, Timestamp, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import type { ChatMessage } from '@/types';
 import { sendMessage, type SendMessageFormState } from './actions';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { format } from 'date-fns';
-import { Send, Loader2, MessageSquare, AlertTriangle } from 'lucide-react';
+import { Send, Loader2, MessageSquare, AlertTriangle, Check, CheckCheck } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -74,8 +74,8 @@ export default function ChatInterface({
   }, [conversationId, chatTargetName, isGeneralChat, propEffectiveChatTitle]);
 
   useEffect(() => {
-    if (!conversationId) {
-      setMessages([]); // Clear messages if no conversation is selected
+    if (!conversationId || !currentUser) {
+      setMessages([]);
       return;
     }
 
@@ -84,18 +84,35 @@ export default function ChatInterface({
       where('conversationId', '==', conversationId),
       orderBy('createdAt', 'asc')
     );
+
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const fetchedMessages: ChatMessage[] = [];
-      querySnapshot.forEach((doc) => {
-        fetchedMessages.push({ id: doc.id, ...doc.data() } as ChatMessage);
+      const updates: Promise<void>[] = [];
+
+      querySnapshot.forEach((docSnap) => {
+        const message = { id: docSnap.id, ...docSnap.data() } as ChatMessage;
+        fetchedMessages.push(message);
+
+        // If the message is from the other user and not yet read by current user, mark as read
+        if (message.senderId !== currentUser.uid && !message.readAt) {
+          const messageRef = doc(db, 'chatMessages', docSnap.id);
+          updates.push(updateDoc(messageRef, { readAt: serverTimestamp() }));
+        }
       });
+
       setMessages(fetchedMessages);
+
+      if (updates.length > 0) {
+        Promise.all(updates).catch(error => {
+          console.error("Error marking messages as read:", error);
+        });
+      }
     }, (error) => {
       console.error("Error fetching messages: ", error);
-      // Potentially set an error state here to display to the user
     });
+
     return () => unsubscribe();
-  }, [conversationId]);
+  }, [conversationId, currentUser]);
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -113,7 +130,6 @@ export default function ChatInterface({
     }
     if (state?.errors?._form) {
       console.error("Form error:", state.errors._form.join(', '));
-      // Optionally: show toast notification for form errors
     }
   }, [state]);
 
@@ -130,7 +146,7 @@ export default function ChatInterface({
     return (
       <Card className="w-full h-full flex flex-col items-center justify-center shadow-xl rounded-lg">
         <MessageSquare className="h-16 w-16 text-muted-foreground mb-4" />
-        <p className="text-muted-foreground">Select a user to start chatting.</p>
+        <p className="text-muted-foreground">Select a user or conversation to start chatting.</p>
       </Card>
     );
   }
@@ -140,7 +156,6 @@ export default function ChatInterface({
       <Card className="w-full h-full flex flex-col shadow-xl rounded-lg">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>{localEffectiveChatTitle}</CardTitle>
-          {/* Removed back button, handled by parent layout if necessary */}
         </CardHeader>
         <CardContent className="flex-grow overflow-hidden p-0">
           <ScrollArea ref={scrollAreaRef} className="h-full p-4">
@@ -183,9 +198,25 @@ export default function ChatInterface({
                        <p className="text-xs font-semibold mb-0.5">{msg.senderName || 'Anonymous'}</p>
                     )}
                     <p className="whitespace-pre-wrap">{msg.text}</p>
-                    <p className={`text-xs mt-1 ${msg.senderId === currentUser?.uid ? 'text-primary-foreground/70' : 'text-muted-foreground/70'}`}>
-                      {msg.createdAt ? format(msg.createdAt.toDate(), 'p') : 'Sending...'}
-                    </p>
+                    <div className={`text-xs mt-1 flex items-center gap-1 ${msg.senderId === currentUser?.uid ? 'text-primary-foreground/70 justify-end' : 'text-muted-foreground/70 justify-start'}`}>
+                      <span>{msg.createdAt ? format(msg.createdAt.toDate(), 'p') : 'Sending...'}</span>
+                      {msg.senderId === currentUser?.uid && (
+                        <>
+                          {msg.readAt ? (
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <CheckCheck className="h-3.5 w-3.5 text-blue-400" />
+                              </TooltipTrigger>
+                              <TooltipContent side="bottom" className="text-xs p-1">
+                                <p>Seen at {format(msg.readAt.toDate(), 'p')}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <Check className="h-3.5 w-3.5" /> // Delivered
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
                    {msg.senderId === currentUser?.uid && currentUser && (
                     <Tooltip>
@@ -216,7 +247,7 @@ export default function ChatInterface({
             }}
             className="flex w-full items-center gap-2"
           >
-            <input type="hidden" name="conversationId" value={conversationId} />
+            <input type="hidden" name="conversationId" value={conversationId || ''} />
             <input type="hidden" name="senderId" value={currentUser.uid} />
             <input type="hidden" name="senderName" value={currentUser.displayName || 'Anonymous User'} />
             <Textarea

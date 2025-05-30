@@ -62,18 +62,20 @@ export type LeaveRequest = {
 
 export type ChatMessage = {
   id: string;
-  conversationId: string; 
+  conversationId: string;
   senderId: string;
   senderName: string;
   text: string;
-  createdAt: Timestamp; 
+  createdAt: Timestamp;
+  readAt?: Timestamp | null; // Field for read receipt
 };
 
 export type Team = {
   id: string;
   name: string;
   description?: string;
-  memberIds: string[]; 
-  memberNames?: string[]; 
+  memberIds: string[];
+  memberNames?: string[];
   createdAt: Timestamp | string;
 };
+
