@@ -1,6 +1,5 @@
 
 // src/lib/chatUtils.ts
-'use server'; // Can be used in server components/actions if needed, but also fine for client
 
 export function getOneToOneConversationId(uid1: string, uid2: string): string {
   if (!uid1 || !uid2) {
@@ -18,3 +17,4 @@ export function getOneToOneConversationId(uid1: string, uid2: string): string {
   }
   return uid1 < uid2 ? `${uid1}_${uid2}` : `${uid2}_${uid1}`;
 }
+
