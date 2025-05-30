@@ -11,6 +11,7 @@ import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
   signInWithPopup,
+  updateProfile, // Import updateProfile
   type AuthError,
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -25,7 +26,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   loginWithEmailPassword: (email: string, password: string) => Promise<AuthResult>;
-  signUpWithEmailPassword: (email: string, password: string) => Promise<AuthResult>;
+  signUpWithEmailPassword: (email: string, password: string, displayName: string) => Promise<AuthResult>; // Added displayName
   loginWithGoogle: () => Promise<AuthResult>;
   logout: () => Promise<void>;
 }
@@ -42,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
-      if (!currentUser && pathname !== '/login' && !pathname.startsWith('/_next/')) { // Added /_next/ check for HMR
+      if (!currentUser && pathname !== '/login' && !pathname.startsWith('/_next/')) {
         router.push('/login');
       } else if (currentUser && pathname === '/login') {
         router.push('/dashboard');
@@ -55,7 +56,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      setLoading(false);
+      // onAuthStateChanged will handle setting user and redirecting
+      // setLoading(false) will be handled by onAuthStateChanged or error
       return { success: true };
     } catch (error) {
       console.error("Error signing in with Email/Password:", error);
@@ -64,11 +66,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signUpWithEmailPassword = async (email: string, password: string): Promise<AuthResult> => {
+  const signUpWithEmailPassword = async (email: string, password: string, displayName: string): Promise<AuthResult> => {
     setLoading(true);
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
-      setLoading(false);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      if (userCredential.user) {
+        await updateProfile(userCredential.user, { displayName: displayName });
+        // To ensure the user object in context gets the displayName immediately,
+        // we can manually set it here or rely on onAuthStateChanged to pick it up.
+        // For simplicity, onAuthStateChanged should eventually reflect this.
+        // If immediate reflection is needed, consider re-fetching user or manually updating context user.
+      }
+      // onAuthStateChanged will handle setting user and redirecting
+      // setLoading(false) will be handled by onAuthStateChanged or error
       return { success: true };
     } catch (error) {
       console.error("Error signing up with Email/Password:", error);
@@ -82,7 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-      setLoading(false);
+      // onAuthStateChanged will handle setting user and redirecting
       return { success: true };
     } catch (error) {
       console.error("Error signing in with Google:", error);
@@ -96,10 +106,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await signOut(auth);
       // onAuthStateChanged will handle redirect to /login
+      // setUser(null) is handled by onAuthStateChanged
     } catch (error) {
       console.error("Error signing out:", error);
     } finally {
-      setLoading(false); // Ensure loading is set to false even if signOut fails to prevent UI lock
+       // setLoading(false) is handled by onAuthStateChanged after user becomes null
+       // If user is not null due to some error, then ensure loading is false
+      if (auth.currentUser) {
+        setLoading(false);
+      }
     }
   };
 

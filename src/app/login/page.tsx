@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { AppLogo } from '@/components/icons';
-import { Loader2, Eye, EyeOff, UserPlus, LogIn } from 'lucide-react';
+import { Loader2, Eye, EyeOff, UserPlus, LogIn, User as UserIconLucide } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -22,6 +22,7 @@ export default function LoginPage() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoginLoading, setIsLoginLoading] = useState(false);
 
+  const [signUpDisplayName, setSignUpDisplayName] = useState('');
   const [signUpEmail, setSignUpEmail] = useState('');
   const [signUpPassword, setSignUpPassword] = useState('');
   const [showSignUpPassword, setShowSignUpPassword] = useState(false);
@@ -71,22 +72,33 @@ export default function LoginPage() {
     if (!result.success && result.error) {
       setLoginError(getFriendlyErrorMessage(result.error));
     }
-    setIsLoginLoading(false);
+    // Loading state will be reset by AuthProvider or if an error occurs
+    // No need to manually setIsLoginLoading(false) here if redirect happens
+    if (result.success === false) { // Explicitly check for false if redirect doesn't happen
+      setIsLoginLoading(false);
+    }
   };
 
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSignUpError(null);
+    if (!signUpDisplayName.trim()) {
+      setSignUpError("Display Name is required.");
+      return;
+    }
     if (signUpPassword !== signUpConfirmPassword) {
       setSignUpError("Passwords do not match.");
       return;
     }
     setIsSignUpLoading(true);
-    const result = await signUpWithEmailPassword(signUpEmail, signUpPassword);
+    const result = await signUpWithEmailPassword(signUpEmail, signUpPassword, signUpDisplayName);
     if (!result.success && result.error) {
       setSignUpError(getFriendlyErrorMessage(result.error));
     }
-    setIsSignUpLoading(false);
+     // Loading state will be reset by AuthProvider or if an error occurs
+    if (result.success === false) {
+      setIsSignUpLoading(false);
+    }
   };
 
   const handleGoogleSignIn = async () => {
@@ -95,12 +107,18 @@ export default function LoginPage() {
     setIsGoogleLoading(true);
     const result = await loginWithGoogle();
     if (!result.success && result.error) {
+      // Show error on login tab as Google sign-in is an alternative login method
       setLoginError(getFriendlyErrorMessage(result.error)); 
     }
-    setIsGoogleLoading(false);
+    if(result.success === false) {
+        setIsGoogleLoading(false);
+    }
   };
 
-  if (authLoading || (user && !authLoading)) { // Keep user check for initial redirect if already logged in
+  // AuthProvider handles redirection if user is already logged in or after successful login/signup
+  // So, no explicit router.push('/') here is needed as onAuthStateChanged in AuthContext handles it.
+
+  if (authLoading) { 
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -108,6 +126,8 @@ export default function LoginPage() {
       </div>
     );
   }
+  // If user is already logged in, AuthProvider should redirect.
+  // This page should only be visible if there's no user and not loading.
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-background to-background p-4">
@@ -184,6 +204,18 @@ export default function LoginPage() {
             </TabsContent>
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4 pt-4">
+                <div>
+                  <Label htmlFor="signup-displayName">Display Name</Label>
+                  <Input
+                    id="signup-displayName"
+                    type="text"
+                    value={signUpDisplayName}
+                    onChange={(e) => setSignUpDisplayName(e.target.value)}
+                    placeholder="Your Name"
+                    required
+                    className="mt-1"
+                  />
+                </div>
                 <div>
                   <Label htmlFor="signup-email">Email</Label>
                   <Input
