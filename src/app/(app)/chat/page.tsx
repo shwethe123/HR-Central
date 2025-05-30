@@ -2,7 +2,8 @@
 // src/app/(app)/chat/page.tsx
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useActionState } from 'react'; // useActionState from react
+import { useFormStatus } from 'react-dom'; // useFormStatus from react-dom
 import { useAuth } from '@/contexts/auth-context';
 import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
@@ -15,7 +16,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { format } from 'date-fns';
 import { Send, Loader2 } from 'lucide-react';
-import { useFormStatus, useActionState } from 'react-dom'; // useActionState from react-dom
 import {
   Tooltip,
   TooltipContent,
