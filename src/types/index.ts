@@ -13,7 +13,7 @@ export type Employee = {
   status: "Active" | "Inactive";
   avatar?: string;
   salary?: number;
-  company?: string; 
+  company?: string;
   gender?: "Male" | "Female" | "Other" | "Prefer not to say";
 };
 
@@ -39,19 +39,20 @@ export type FeedbackAnalysisResult = {
 export type LeaveRequest = {
   id: string;
   employeeId: string;
-  employeeName: string; 
-  startDate: string; 
-  endDate: string;   
+  employeeName: string;
+  startDate: string;
+  endDate: string;
   reason: string;
   status: "Pending" | "Approved" | "Rejected";
-  requestedDate: Timestamp | string; 
-  processedBy?: string; 
+  requestedDate: Timestamp | string;
+  processedBy?: string;
   processedDate?: Timestamp | string;
-  rejectionReason?: string; 
+  rejectionReason?: string;
 };
 
 export type ChatMessage = {
   id: string;
+  conversationId: string; // Added to distinguish conversations
   senderId: string;
   senderName: string;
   text: string;

@@ -2,10 +2,10 @@
 // src/app/(app)/chat/page.tsx
 'use client';
 
-import React, { useState, useEffect, useRef, useActionState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { db } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
 import type { ChatMessage } from '@/types';
 import { sendMessage, type SendMessageFormState } from './actions';
 import { Button } from '@/components/ui/button';
@@ -15,13 +15,15 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { format } from 'date-fns';
 import { Send, Loader2 } from 'lucide-react';
-import { useFormStatus } from 'react-dom';
+import { useFormStatus, useActionState } from 'react-dom'; // useActionState from react-dom
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+
+const GENERAL_CHAT_CONVERSATION_ID = "general_company_chat";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -34,7 +36,7 @@ function SubmitButton() {
 }
 
 export default function ChatPage() {
-  const { user, loading: authLoading } = useAuth(); 
+  const { user, loading: authLoading } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -44,7 +46,12 @@ export default function ChatPage() {
   const [state, formAction] = useActionState(sendMessage, initialState);
 
   useEffect(() => {
-    const q = query(collection(db, 'generalChatMessages'), orderBy('createdAt', 'asc'));
+    // Query messages for the general company chat conversation
+    const q = query(
+      collection(db, 'chatMessages'), // Changed collection name to 'chatMessages'
+      where('conversationId', '==', GENERAL_CHAT_CONVERSATION_ID),
+      orderBy('createdAt', 'asc')
+    );
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const fetchedMessages: ChatMessage[] = [];
       querySnapshot.forEach((doc) => {
@@ -74,7 +81,7 @@ export default function ChatPage() {
       console.error("Form error:", state.errors._form.join(', '));
     }
   }, [state]);
-  
+
   if (authLoading) {
     return (
       <div className="flex h-[calc(100vh-120px)] items-center justify-center">
@@ -149,14 +156,15 @@ export default function ChatPage() {
           {user ? (
             <form
               ref={formRef}
-              action={formAction} 
-              onSubmit={(e) => { 
+              action={formAction}
+              onSubmit={(e) => {
                 if (!newMessage.trim()) {
-                  e.preventDefault(); 
+                  e.preventDefault();
                 }
               }}
               className="flex w-full items-center gap-2"
             >
+              <input type="hidden" name="conversationId" value={GENERAL_CHAT_CONVERSATION_ID} />
               <input type="hidden" name="senderId" value={user.uid} />
               <input type="hidden" name="senderName" value={user.displayName || 'Anonymous User'} />
               <Textarea

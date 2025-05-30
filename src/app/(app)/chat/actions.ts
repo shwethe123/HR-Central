@@ -8,6 +8,7 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
 
 const SendMessageSchema = z.object({
+  conversationId: z.string().min(1, { message: "Conversation ID is required." }),
   text: z.string().min(1, { message: "Message cannot be empty." }).max(1000, { message: "Message is too long." }),
   senderId: z.string().min(1, { message: "Sender ID is required." }),
   senderName: z.string().min(1, { message: "Sender name is required." }),
@@ -16,6 +17,7 @@ const SendMessageSchema = z.object({
 export type SendMessageFormState = {
   message: string | null;
   errors?: {
+    conversationId?: string[];
     text?: string[];
     senderId?: string[];
     senderName?: string[];
@@ -29,6 +31,7 @@ export async function sendMessage(
   formData: FormData
 ): Promise<SendMessageFormState> {
   const validatedFields = SendMessageSchema.safeParse({
+    conversationId: formData.get('conversationId'),
     text: formData.get('text'),
     senderId: formData.get('senderId'),
     senderName: formData.get('senderName'),
@@ -42,19 +45,23 @@ export async function sendMessage(
     };
   }
 
-  const { text, senderId, senderName } = validatedFields.data;
+  const { conversationId, text, senderId, senderName } = validatedFields.data;
 
   try {
-    await addDoc(collection(db, 'generalChatMessages'), {
+    // Note: The collection name 'generalChatMessages' might be misleading now.
+    // Consider renaming to 'chatMessages' if this collection will hold all messages.
+    // For now, we'll keep it as is to minimize breaking changes, but it's a good point for future refactor.
+    await addDoc(collection(db, 'chatMessages'), { // Changed collection name to 'chatMessages'
+      conversationId,
       senderId,
       senderName,
       text,
       createdAt: serverTimestamp(),
     });
 
-    // Revalidation might not be strictly necessary if client uses onSnapshot,
-    // but can be useful if there are other ways the chat page data is fetched.
-    revalidatePath('/chat'); 
+    // Revalidate the specific chat path if dynamic paths are used later for conversations
+    // For now, revalidating the general chat path is fine.
+    revalidatePath('/chat');
 
     return {
       message: "Message sent successfully.",
