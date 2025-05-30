@@ -16,6 +16,12 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { format } from 'date-fns';
 import { Send, Loader2 } from 'lucide-react';
 import { useFormStatus } from 'react-dom';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -68,14 +74,6 @@ export default function ChatPage() {
       console.error("Form error:", state.errors._form.join(', '));
     }
   }, [state]);
-
-  const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!newMessage.trim() || !user) return;
-
-    const formData = new FormData(event.currentTarget);
-    formAction(formData);
-  };
   
   if (authLoading) {
     return (
@@ -86,92 +84,106 @@ export default function ChatPage() {
   }
 
   return (
-    <Card className="w-full h-[calc(100vh-120px)] flex flex-col shadow-xl rounded-lg">
-      <CardHeader>
-        <CardTitle>Company General Chat</CardTitle>
-      </CardHeader>
-      <CardContent className="flex-grow overflow-hidden p-0">
-        <ScrollArea ref={scrollAreaRef} className="h-full p-4">
-          <div className="space-y-4">
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex items-end gap-2 ${
-                  msg.senderId === user?.uid ? 'justify-end' : 'justify-start'
-                }`}
-              >
-                {msg.senderId !== user?.uid && (
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={undefined} alt={msg.senderName} data-ai-hint="person avatar"/>
-                    <AvatarFallback>{msg.senderName?.substring(0, 1).toUpperCase() || 'U'}</AvatarFallback>
-                  </Avatar>
-                )}
+    <TooltipProvider delayDuration={100}>
+      <Card className="w-full h-[calc(100vh-120px)] flex flex-col shadow-xl rounded-lg">
+        <CardHeader>
+          <CardTitle>Company General Chat</CardTitle>
+        </CardHeader>
+        <CardContent className="flex-grow overflow-hidden p-0">
+          <ScrollArea ref={scrollAreaRef} className="h-full p-4">
+            <div className="space-y-4">
+              {messages.map((msg) => (
                 <div
-                  className={`max-w-[70%] rounded-lg px-3 py-2 text-sm ${
-                    msg.senderId === user?.uid
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted'
+                  key={msg.id}
+                  className={`flex items-end gap-2 ${
+                    msg.senderId === user?.uid ? 'justify-end' : 'justify-start'
                   }`}
                 >
                   {msg.senderId !== user?.uid && (
-                     <p className="text-xs font-semibold mb-0.5">{msg.senderName || 'Anonymous'}</p>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={undefined} alt={msg.senderName} data-ai-hint="person avatar"/>
+                          <AvatarFallback>{msg.senderName?.substring(0, 1).toUpperCase() || 'U'}</AvatarFallback>
+                        </Avatar>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{msg.senderName || 'Unknown User'}</p>
+                      </TooltipContent>
+                    </Tooltip>
                   )}
-                  <p className="whitespace-pre-wrap">{msg.text}</p>
-                  <p className={`text-xs mt-1 ${msg.senderId === user?.uid ? 'text-primary-foreground/70' : 'text-muted-foreground/70'}`}>
-                    {msg.createdAt ? format(msg.createdAt.toDate(), 'p') : 'Sending...'}
-                  </p>
+                  <div
+                    className={`max-w-[70%] rounded-lg px-3 py-2 text-sm ${
+                      msg.senderId === user?.uid
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted'
+                    }`}
+                  >
+                    {msg.senderId !== user?.uid && (
+                       <p className="text-xs font-semibold mb-0.5">{msg.senderName || 'Anonymous'}</p>
+                    )}
+                    <p className="whitespace-pre-wrap">{msg.text}</p>
+                    <p className={`text-xs mt-1 ${msg.senderId === user?.uid ? 'text-primary-foreground/70' : 'text-muted-foreground/70'}`}>
+                      {msg.createdAt ? format(msg.createdAt.toDate(), 'p') : 'Sending...'}
+                    </p>
+                  </div>
+                   {msg.senderId === user?.uid && user && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={user.photoURL || undefined} alt={user.displayName || 'Me'} data-ai-hint="person avatar" />
+                          <AvatarFallback>{user.displayName?.substring(0, 1).toUpperCase() || 'M'}</AvatarFallback>
+                        </Avatar>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{user.displayName || 'You'}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                 </div>
-                 {msg.senderId === user?.uid && user && (
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={user.photoURL || undefined} alt={user.displayName || 'Me'} data-ai-hint="person avatar" />
-                    <AvatarFallback>{user.displayName?.substring(0, 1).toUpperCase() || 'M'}</AvatarFallback>
-                  </Avatar>
-                )}
-              </div>
-            ))}
-          </div>
-        </ScrollArea>
-      </CardContent>
-      <CardFooter className="p-4 border-t">
-        {user ? (
-          <form
-            ref={formRef}
-            action={formAction} // Using Server Action
-            onSubmit={(e) => { // Client-side onSubmit for effects like clearing input or preventing empty submission
-              if (!newMessage.trim()) {
-                e.preventDefault(); // Prevent submitting empty messages if not handled by server action validation
-              }
-              // The actual submission is handled by the form's 'action' prop.
-              // We don't call formAction(formData) here directly if we're using the native form submission for the server action.
-            }}
-            className="flex w-full items-center gap-2"
-          >
-            <input type="hidden" name="senderId" value={user.uid} />
-            <input type="hidden" name="senderName" value={user.displayName || 'Anonymous User'} />
-            <Textarea
-              name="text"
-              placeholder="Type your message..."
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              rows={1}
-              className="flex-grow resize-none min-h-[40px]"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  if (newMessage.trim()) {
-                    formRef.current?.requestSubmit();
-                  }
+              ))}
+            </div>
+          </ScrollArea>
+        </CardContent>
+        <CardFooter className="p-4 border-t">
+          {user ? (
+            <form
+              ref={formRef}
+              action={formAction} 
+              onSubmit={(e) => { 
+                if (!newMessage.trim()) {
+                  e.preventDefault(); 
                 }
               }}
-            />
-            <SubmitButton />
-          </form>
-        ) : (
-          <p className="text-sm text-muted-foreground text-center w-full">
-            Please log in to send messages.
-          </p>
-        )}
-      </CardFooter>
-    </Card>
+              className="flex w-full items-center gap-2"
+            >
+              <input type="hidden" name="senderId" value={user.uid} />
+              <input type="hidden" name="senderName" value={user.displayName || 'Anonymous User'} />
+              <Textarea
+                name="text"
+                placeholder="Type your message..."
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                rows={1}
+                className="flex-grow resize-none min-h-[40px]"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (newMessage.trim()) {
+                      formRef.current?.requestSubmit();
+                    }
+                  }
+                }}
+              />
+              <SubmitButton />
+            </form>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center w-full">
+              Please log in to send messages.
+            </p>
+          )}
+        </CardFooter>
+      </Card>
+    </TooltipProvider>
   );
 }
