@@ -47,6 +47,8 @@ export async function sendMessage(
 
   const { conversationId, text, senderId, senderName } = validatedFields.data;
 
+  console.log(`Attempting to send message. Conversation ID: ${conversationId}, Sender ID: ${senderId}, Sender Name: ${senderName}, Text: "${text}"`);
+
   try {
     await addDoc(collection(db, 'chatMessages'), {
       conversationId,
@@ -70,7 +72,12 @@ export async function sendMessage(
     console.error("Error sending message to Firestore:", error);
     let errorMessage = "An unexpected error occurred while sending the message.";
     if (error instanceof Error) {
-      errorMessage = error.message;
+      // Check if it's a FirebaseError and has a code
+      if ('code' in error) {
+        errorMessage = `Firestore Error (${(error as any).code}): ${(error as Error).message}`;
+      } else {
+        errorMessage = error.message;
+      }
     }
     return {
       message: `Sending message failed: ${errorMessage}`,
