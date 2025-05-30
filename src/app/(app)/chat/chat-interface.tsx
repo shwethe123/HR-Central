@@ -90,25 +90,52 @@ export default function ChatInterface({
       const updates: Promise<void>[] = [];
 
       querySnapshot.forEach((docSnap) => {
-        const message = { id: docSnap.id, ...docSnap.data() } as ChatMessage;
+        const data = docSnap.data();
+        const message: ChatMessage = {
+          id: docSnap.id,
+          conversationId: data.conversationId,
+          senderId: data.senderId,
+          senderName: data.senderName,
+          text: data.text,
+          createdAt: data.createdAt, // Firestore Timestamps are directly usable
+          readAt: data.readAt || null, // Ensure readAt is Timestamp or null
+        };
         fetchedMessages.push(message);
 
         // If the message is from the other user and not yet read by current user, mark as read
         if (message.senderId !== currentUser.uid && !message.readAt) {
           const messageRef = doc(db, 'chatMessages', docSnap.id);
-          updates.push(updateDoc(messageRef, { readAt: serverTimestamp() }));
+        //   console.log(`Attempting to mark message ${docSnap.id} as read by ${currentUser.uid}`);
+          updates.push(
+            updateDoc(messageRef, { readAt: serverTimestamp() }).catch(err => {
+              console.error(`Failed to mark message ${docSnap.id} as read:`, err);
+            })
+          );
         }
       });
 
       setMessages(fetchedMessages);
 
       if (updates.length > 0) {
-        Promise.all(updates).catch(error => {
-          console.error("Error marking messages as read:", error);
-        });
+        Promise.all(updates)
+          .then(() => {
+            if (updates.length > 0) {
+                // console.log(`${updates.length} messages processed for read status.`);
+            }
+          })
+          .catch(error => {
+            // This catch is for Promise.all, individual errors are caught above
+            console.error("Error in batch processing message read status updates:", error);
+          });
       }
     }, (error) => {
       console.error("Error fetching messages: ", error);
+      // Handle query errors, e.g., missing index or permission denied on read
+       if (error.code === 'permission-denied') {
+        console.error("Firestore permission denied while fetching messages. Check security rules for read access to 'chatMessages'.");
+      } else if (error.code === 'failed-precondition') {
+        console.error("Firestore query for messages failed. This often means a required index is missing:", error.message);
+      }
     });
 
     return () => unsubscribe();
@@ -129,7 +156,7 @@ export default function ChatInterface({
       formRef.current?.reset();
     }
     if (state?.errors?._form) {
-      console.error("Form error:", state.errors._form.join(', '));
+      console.error("Form error from sendMessage action:", state.errors._form.join(', '));
     }
   }, [state]);
 
@@ -150,6 +177,19 @@ export default function ChatInterface({
       </Card>
     );
   }
+
+  const getFormattedTimestamp = (timestamp: Timestamp | undefined | null): string => {
+    if (timestamp && typeof timestamp.toDate === 'function') {
+      try {
+        return format(timestamp.toDate(), 'p');
+      } catch (e) {
+        console.error("Error formatting timestamp:", timestamp, e);
+        return "Time Error";
+      }
+    }
+    return 'Sending...';
+  };
+
 
   return (
     <TooltipProvider delayDuration={100}>
@@ -199,7 +239,7 @@ export default function ChatInterface({
                     )}
                     <p className="whitespace-pre-wrap">{msg.text}</p>
                     <div className={`text-xs mt-1 flex items-center gap-1 ${msg.senderId === currentUser?.uid ? 'text-primary-foreground/70 justify-end' : 'text-muted-foreground/70 justify-start'}`}>
-                      <span>{msg.createdAt ? format(msg.createdAt.toDate(), 'p') : 'Sending...'}</span>
+                      <span>{getFormattedTimestamp(msg.createdAt)}</span>
                       {msg.senderId === currentUser?.uid && (
                         <>
                           {msg.readAt ? (
@@ -208,11 +248,11 @@ export default function ChatInterface({
                                 <CheckCheck className="h-3.5 w-3.5 text-blue-400" />
                               </TooltipTrigger>
                               <TooltipContent side="bottom" className="text-xs p-1">
-                                <p>Seen at {format(msg.readAt.toDate(), 'p')}</p>
+                                <p>Seen at {getFormattedTimestamp(msg.readAt)}</p>
                               </TooltipContent>
                             </Tooltip>
                           ) : (
-                            <Check className="h-3.5 w-3.5" /> // Delivered
+                            <Check className="h-3.5 w-3.5" />
                           )}
                         </>
                       )}
@@ -273,3 +313,4 @@ export default function ChatInterface({
     </TooltipProvider>
   );
 }
+
