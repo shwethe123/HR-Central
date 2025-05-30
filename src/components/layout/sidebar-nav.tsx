@@ -25,7 +25,7 @@ const navItems = [
   { href: "/leave-requests", label: "Leave Requests", icon: CalendarClock },
   // Updated Chat Links
   { href: `/chat/${GENERAL_CHAT_CONVERSATION_ID}?name=Company%20General%20Chat`, label: "General Chat", icon: MessageCircle },
-  { href: "/chat/users", label: "1-on-1 Chat", icon: MessageSquarePlus }, 
+  { href: "/chat/users", label: "Direct Chats", icon: MessageSquarePlus }, 
   { href: "/feedback", label: "Feedback Analysis", icon: MessageSquareText },
   { href: "/company-departments", label: "Company Depts.", icon: Building2 },
 ];
@@ -68,8 +68,12 @@ export function SidebarNav() {
                 asChild
                 isActive={
                   pathname === item.href || 
-                  (item.href.startsWith("/chat/") && pathname.startsWith("/chat/")) || // Make chat links active if in any chat
-                  (item.href !== "/dashboard" && !item.href.startsWith("/chat/") && pathname.startsWith(item.href))
+                  (item.label === "Direct Chats" && pathname.startsWith("/chat/users")) || // Special case for main chat page
+                  (item.label === "General Chat" && pathname.startsWith(`/chat/${GENERAL_CHAT_CONVERSATION_ID}`)) || // Special case for general chat
+                  (item.href !== "/dashboard" && 
+                   !item.href.startsWith("/chat/users") && 
+                   !item.href.startsWith(`/chat/${GENERAL_CHAT_CONVERSATION_ID}`) && 
+                   pathname.startsWith(item.href))
                 }
                 tooltip={item.label}
               >
