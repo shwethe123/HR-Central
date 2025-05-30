@@ -18,6 +18,7 @@ export type Employee = {
 };
 
 // New type for app users, mirroring essential Firebase Auth user info
+// and adding lastSeen for presence.
 export type AppUser = {
   uid: string; // Corresponds to Firebase Auth UID
   displayName: string | null;
@@ -76,4 +77,3 @@ export type Team = {
   memberNames?: string[]; 
   createdAt: Timestamp | string;
 };
-

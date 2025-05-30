@@ -32,7 +32,15 @@ export default function SelectUserForChatPage() {
       const querySnapshot = await getDocs(q);
       const fetchedAppUsers: AppUser[] = [];
       querySnapshot.forEach(doc => {
-        fetchedAppUsers.push({ uid: doc.id, ...doc.data() } as AppUser);
+        // Ensure all AppUser fields are mapped, providing defaults if necessary
+        const data = doc.data();
+        fetchedAppUsers.push({ 
+          uid: doc.id, 
+          displayName: data.displayName || "Unnamed User",
+          email: data.email || "No email",
+          photoURL: data.photoURL || null,
+          // lastSeen: data.lastSeen, // if you want to use lastSeen
+        });
       });
       setAppUsers(fetchedAppUsers);
     } catch (error) {
@@ -54,11 +62,14 @@ export default function SelectUserForChatPage() {
       return;
     }
     const conversationId = getOneToOneConversationId(user.uid, selectedUser.uid);
+    // Use selectedUser.displayName, fall back to email if displayName is null or empty
     const chatTargetName = encodeURIComponent(selectedUser.displayName || selectedUser.email || "User");
     router.push(`/chat/${conversationId}?name=${chatTargetName}`);
   };
 
-  if (authLoading || isLoadingAppUsers) {
+  const isLoading = authLoading || isLoadingAppUsers;
+
+  if (isLoading) {
     return (
       <div className="flex h-[calc(100vh-120px)] items-center justify-center">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -93,25 +104,24 @@ export default function SelectUserForChatPage() {
           ) : (
             <ScrollArea className="h-[calc(100vh-280px)]">
               <div className="space-y-3 pr-4">
-                {appUsers.map((appUser) => (
+                {appUsers.map((appUserItem) => ( // Renamed to avoid conflict with AppUser type
                   <Card 
-                    key={appUser.uid} 
+                    key={appUserItem.uid} 
                     className="hover:shadow-md transition-shadow cursor-pointer"
-                    onClick={() => handleStartChat(appUser)}
+                    onClick={() => handleStartChat(appUserItem)}
                   >
                     <CardContent className="p-3 flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <Avatar className="h-10 w-10">
-                          <AvatarImage src={appUser.photoURL || undefined} alt={appUser.displayName || appUser.email || "User"} data-ai-hint="person avatar" />
-                          <AvatarFallback>{(appUser.displayName || appUser.email || "U").substring(0, 1).toUpperCase()}</AvatarFallback>
+                          <AvatarImage src={appUserItem.photoURL || undefined} alt={appUserItem.displayName || appUserItem.email || "User"} data-ai-hint="person avatar" />
+                          <AvatarFallback>{(appUserItem.displayName || appUserItem.email || "U").substring(0, 1).toUpperCase()}</AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="font-semibold">{appUser.displayName || appUser.email}</p>
-                          {/* You can add other info here if available in AppUser type, e.g., email as secondary */}
-                           <p className="text-xs text-muted-foreground">{appUser.displayName ? appUser.email : "App User"}</p>
+                          <p className="font-semibold">{appUserItem.displayName || appUserItem.email}</p>
+                           <p className="text-xs text-muted-foreground">{appUserItem.displayName ? appUserItem.email : "App User"}</p>
                         </div>
                       </div>
-                      <Button variant="ghost" size="icon" aria-label={`Chat with ${appUser.displayName || appUser.email}`}>
+                      <Button variant="ghost" size="icon" aria-label={`Chat with ${appUserItem.displayName || appUserItem.email}`}>
                         <MessageSquare className="h-5 w-5 text-primary" />
                       </Button>
                     </CardContent>
