@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Users, MessageSquareText, Settings, LifeBuoy, LogOut, Building2, Loader2, CalendarClock, MessageCircle, User as UserIconLucide } from "lucide-react";
+import { Home, Users, MessageSquareText, Settings, LifeBuoy, LogOut, Building2, Loader2, CalendarClock, MessageCircle, User as UserIconLucide, Users2 } from "lucide-react"; // Added Users2
 import { cn } from "@/lib/utils";
 import {
   SidebarMenu,
@@ -18,11 +18,12 @@ import { useState } from "react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
-  { href: "/employees", label: "Employees", icon: Users },
+  { href: "/employees", label: "Employees", icon: UserIconLucide }, // Changed icon for distinction
+  { href: "/teams", label: "Teams", icon: Users2 }, // New Teams link with Users2 icon
   { href: "/leave-requests", label: "Leave Requests", icon: CalendarClock },
   { href: "/chat", label: "Chat", icon: MessageCircle },
   { href: "/feedback", label: "Feedback Analysis", icon: MessageSquareText },
-  { href: "/company-departments", label: "Company Depts.", icon: Building2 }, // Shortened for sidebar
+  { href: "/company-departments", label: "Company Depts.", icon: Building2 },
 ];
 
 const accountNavItems = [
@@ -48,13 +49,14 @@ export function SidebarNav() {
     }
   };
   
-  if (authLoading) { 
+  if (authLoading && !user) { // Show loader only if auth is loading AND user is not yet available
     return (
         <div className="flex flex-col items-center justify-center h-full p-4">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
     );
   }
+
 
   return (
     <>

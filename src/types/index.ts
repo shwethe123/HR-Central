@@ -57,3 +57,12 @@ export type ChatMessage = {
   text: string;
   createdAt: Timestamp; // Always store as Timestamp, convert to Date on client
 };
+
+export type Team = {
+  id: string;
+  name: string;
+  description?: string;
+  memberIds: string[]; // Array of Employee IDs
+  memberNames?: string[]; // For easier display, denormalized
+  createdAt: Timestamp | string;
+};
