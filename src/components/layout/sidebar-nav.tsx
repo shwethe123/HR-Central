@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Users, MessageSquareText, Settings, LifeBuoy, LogOut, Building2, Loader2, CalendarClock, MessageCircle } from "lucide-react";
+import { Home, Users, MessageSquareText, Settings, LifeBuoy, LogOut, Building2, Loader2, CalendarClock, MessageCircle, User as UserIconLucide } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   SidebarMenu,
@@ -22,10 +22,11 @@ const navItems = [
   { href: "/leave-requests", label: "Leave Requests", icon: CalendarClock },
   { href: "/chat", label: "Chat", icon: MessageCircle },
   { href: "/feedback", label: "Feedback Analysis", icon: MessageSquareText },
-  { href: "/company-departments", label: "Company Departments", icon: Building2 },
+  { href: "/company-departments", label: "Company Depts.", icon: Building2 }, // Shortened for sidebar
 ];
 
-const secondaryNavItems = [
+const accountNavItems = [
+  { href: "/profile", label: "Profile", icon: UserIconLucide },
   { href: "/settings", label: "Settings", icon: Settings },
   // { href: "/support", label: "Support", icon: LifeBuoy }, // Support page not yet created
 ];
@@ -46,9 +47,7 @@ export function SidebarNav() {
       setIsLoggingOut(false); 
     }
   };
-
-  // Don't render sidebar content if auth is loading initially.
-  // Once loading is false, sidebar should render based on user state (which might be null if not logged in, but AuthProvider handles redirect)
+  
   if (authLoading) { 
     return (
         <div className="flex flex-col items-center justify-center h-full p-4">
@@ -81,9 +80,9 @@ export function SidebarNav() {
       <Separator className="my-2" />
 
       <SidebarGroup>
-        <SidebarGroupLabel>Other</SidebarGroupLabel>
+        <SidebarGroupLabel>Account</SidebarGroupLabel>
         <SidebarMenu>
-          {secondaryNavItems.map((item) => (
+          {accountNavItems.map((item) => (
             <SidebarMenuItem key={item.href}>
               <SidebarMenuButton
                 asChild
