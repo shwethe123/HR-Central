@@ -11,27 +11,47 @@ import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
   signInWithPopup,
-  updateProfile, // Import updateProfile
+  updateProfile,
   type AuthError,
 } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase'; // Import db
+import { doc, setDoc, serverTimestamp, type Timestamp } from 'firebase/firestore'; // Import Firestore functions
 import { useRouter, usePathname } from 'next/navigation';
 
 interface AuthResult {
   success: boolean;
   error?: AuthError | null;
+  user?: User | null;
 }
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   loginWithEmailPassword: (email: string, password: string) => Promise<AuthResult>;
-  signUpWithEmailPassword: (email: string, password: string, displayName: string) => Promise<AuthResult>; // Added displayName
+  signUpWithEmailPassword: (email: string, password: string, displayName: string) => Promise<AuthResult>;
   loginWithGoogle: () => Promise<AuthResult>;
   logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Helper function to create or update user profile in Firestore
+async function upsertUserProfile(authUser: User) {
+  if (!authUser) return;
+  const userDocRef = doc(db, 'users', authUser.uid);
+  try {
+    await setDoc(userDocRef, {
+      uid: authUser.uid,
+      displayName: authUser.displayName || authUser.email?.split('@')[0] || "Anonymous User", // Fallback for displayName
+      email: authUser.email,
+      photoURL: authUser.photoURL,
+      lastSeen: serverTimestamp(),
+    }, { merge: true });
+    console.log("User profile upserted in Firestore:", authUser.uid);
+  } catch (error) {
+    console.error("Error upserting user profile in Firestore:", error);
+  }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -40,14 +60,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
-      setLoading(false);
-      if (!currentUser && pathname !== '/login' && !pathname.startsWith('/_next/')) {
-        router.push('/login');
-      } else if (currentUser && pathname === '/login') {
-        router.push('/dashboard');
+      if (currentUser) {
+        await upsertUserProfile(currentUser); // Upsert profile on auth state change
+        if (pathname === '/login') {
+          router.push('/dashboard');
+        }
+      } else {
+        if (pathname !== '/login' && !pathname.startsWith('/_next/')) {
+          router.push('/login');
+        }
       }
+      setLoading(false);
     });
     return () => unsubscribe();
   }, [router, pathname]);
@@ -55,10 +80,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginWithEmailPassword = async (email: string, password: string): Promise<AuthResult> => {
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      // onAuthStateChanged will handle setting user and redirecting
-      // setLoading(false) will be handled by onAuthStateChanged or error
-      return { success: true };
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      if (userCredential.user) {
+        await upsertUserProfile(userCredential.user);
+      }
+      return { success: true, user: userCredential.user };
     } catch (error) {
       console.error("Error signing in with Email/Password:", error);
       setLoading(false);
@@ -72,14 +98,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       if (userCredential.user) {
         await updateProfile(userCredential.user, { displayName: displayName });
-        // To ensure the user object in context gets the displayName immediately,
-        // we can manually set it here or rely on onAuthStateChanged to pick it up.
-        // For simplicity, onAuthStateChanged should eventually reflect this.
-        // If immediate reflection is needed, consider re-fetching user or manually updating context user.
+        // Create a new user object with the updated display name for immediate upsert
+        const updatedUser = {
+            ...userCredential.user,
+            displayName: displayName 
+        } as User; // Cast because displayName might not be immediately reflected
+        await upsertUserProfile(updatedUser); 
       }
-      // onAuthStateChanged will handle setting user and redirecting
-      // setLoading(false) will be handled by onAuthStateChanged or error
-      return { success: true };
+      return { success: true, user: userCredential.user };
     } catch (error) {
       console.error("Error signing up with Email/Password:", error);
       setLoading(false);
@@ -91,9 +117,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
-      // onAuthStateChanged will handle setting user and redirecting
-      return { success: true };
+      const userCredential = await signInWithPopup(auth, provider);
+      if (userCredential.user) {
+        await upsertUserProfile(userCredential.user);
+      }
+      return { success: true, user: userCredential.user };
     } catch (error) {
       console.error("Error signing in with Google:", error);
       setLoading(false);
@@ -102,20 +130,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    setLoading(true);
+    setLoading(true); // Technically, loading is true until user becomes null via onAuthStateChanged
     try {
       await signOut(auth);
-      // onAuthStateChanged will handle redirect to /login
-      // setUser(null) is handled by onAuthStateChanged
     } catch (error) {
       console.error("Error signing out:", error);
-    } finally {
-       // setLoading(false) is handled by onAuthStateChanged after user becomes null
-       // If user is not null due to some error, then ensure loading is false
+       // If sign out fails, reset loading state if user is still present
       if (auth.currentUser) {
         setLoading(false);
       }
     }
+    // onAuthStateChanged will handle setting user to null and further loading state.
   };
 
   return (

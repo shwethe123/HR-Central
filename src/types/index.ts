@@ -17,6 +17,15 @@ export type Employee = {
   gender?: "Male" | "Female" | "Other" | "Prefer not to say";
 };
 
+// New type for app users, mirroring essential Firebase Auth user info
+export type AppUser = {
+  uid: string; // Corresponds to Firebase Auth UID
+  displayName: string | null;
+  email: string | null;
+  photoURL: string | null;
+  lastSeen?: Timestamp; // Optional: to track user presence
+};
+
 export type Metric = {
   title: string;
   value: string;
@@ -52,18 +61,19 @@ export type LeaveRequest = {
 
 export type ChatMessage = {
   id: string;
-  conversationId: string; // Added to distinguish conversations
+  conversationId: string; 
   senderId: string;
   senderName: string;
   text: string;
-  createdAt: Timestamp; // Always store as Timestamp, convert to Date on client
+  createdAt: Timestamp; 
 };
 
 export type Team = {
   id: string;
   name: string;
   description?: string;
-  memberIds: string[]; // Array of Employee IDs
-  memberNames?: string[]; // For easier display, denormalized
+  memberIds: string[]; 
+  memberNames?: string[]; 
   createdAt: Timestamp | string;
 };
+

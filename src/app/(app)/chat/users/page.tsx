@@ -5,9 +5,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { db } from '@/lib/firebase';
-import { collection, query, getDocs, orderBy } from 'firebase/firestore';
-import type { Employee } from '@/types';
-import Link from 'next/link';
+import { collection, query, getDocs, orderBy, where } from 'firebase/firestore'; // Added where
+import type { AppUser } from '@/types'; // Changed Employee to AppUser
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -18,51 +17,48 @@ import { useRouter } from 'next/navigation';
 
 export default function SelectUserForChatPage() {
   const { user, loading: authLoading } = useAuth();
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [isLoadingEmployees, setIsLoadingEmployees] = useState(true);
+  const [appUsers, setAppUsers] = useState<AppUser[]>([]); // Changed employees to appUsers
+  const [isLoadingAppUsers, setIsLoadingAppUsers] = useState(true); // Changed isLoadingEmployees
   const router = useRouter();
 
-  const fetchEmployees = useCallback(async () => {
-    if (!user) return; // Don't fetch if user is not logged in
-    setIsLoadingEmployees(true);
+  const fetchAppUsers = useCallback(async () => {
+    if (!user) return; 
+    setIsLoadingAppUsers(true);
     try {
-      const employeesCollectionRef = collection(db, "employees");
-      const q = query(employeesCollectionRef, orderBy("name", "asc"));
+      // Query the 'users' collection instead of 'employees'
+      const usersCollectionRef = collection(db, "users"); 
+      // Exclude the current user from the list
+      const q = query(usersCollectionRef, where("uid", "!=", user.uid), orderBy("displayName", "asc"));
       const querySnapshot = await getDocs(q);
-      const fetchedEmployees: Employee[] = [];
+      const fetchedAppUsers: AppUser[] = [];
       querySnapshot.forEach(doc => {
-        // Exclude the current user from the list
-        if (doc.id !== user.uid) {
-          fetchedEmployees.push({ id: doc.id, ...doc.data() } as Employee);
-        }
+        fetchedAppUsers.push({ uid: doc.id, ...doc.data() } as AppUser);
       });
-      setEmployees(fetchedEmployees);
+      setAppUsers(fetchedAppUsers);
     } catch (error) {
-      console.error("Error fetching employees for chat selection:", error);
-      // Optionally, show a toast message
+      console.error("Error fetching app users for chat selection:", error);
     } finally {
-      setIsLoadingEmployees(false);
+      setIsLoadingAppUsers(false);
     }
   }, [user]);
 
   useEffect(() => {
     if (!authLoading && user) {
-      fetchEmployees();
+      fetchAppUsers();
     }
-  }, [authLoading, user, fetchEmployees]);
+  }, [authLoading, user, fetchAppUsers]);
 
-  const handleStartChat = (selectedEmployee: Employee) => {
-    if (!user || !selectedEmployee.id) {
-      console.error("Current user or selected employee ID is missing.");
+  const handleStartChat = (selectedUser: AppUser) => {
+    if (!user || !selectedUser.uid) {
+      console.error("Current user or selected user UID is missing.");
       return;
     }
-    const conversationId = getOneToOneConversationId(user.uid, selectedEmployee.id);
-    // Encode the name for the URL query parameter
-    const chatTargetName = encodeURIComponent(selectedEmployee.name);
+    const conversationId = getOneToOneConversationId(user.uid, selectedUser.uid);
+    const chatTargetName = encodeURIComponent(selectedUser.displayName || selectedUser.email || "User");
     router.push(`/chat/${conversationId}?name=${chatTargetName}`);
   };
 
-  if (authLoading || isLoadingEmployees) {
+  if (authLoading || isLoadingAppUsers) {
     return (
       <div className="flex h-[calc(100vh-120px)] items-center justify-center">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -89,32 +85,33 @@ export default function SelectUserForChatPage() {
             <Users className="mr-3 h-8 w-8 text-primary" />
             Start a New Chat
           </CardTitle>
-          <CardDescription>Select an employee to start a one-on-one conversation.</CardDescription>
+          <CardDescription>Select a user to start a one-on-one conversation.</CardDescription>
         </CardHeader>
         <CardContent>
-          {employees.length === 0 && !isLoadingEmployees ? (
-            <p className="text-center text-muted-foreground py-8">No other employees found to chat with.</p>
+          {appUsers.length === 0 && !isLoadingAppUsers ? (
+            <p className="text-center text-muted-foreground py-8">No other users found to chat with.</p>
           ) : (
             <ScrollArea className="h-[calc(100vh-280px)]">
               <div className="space-y-3 pr-4">
-                {employees.map((emp) => (
+                {appUsers.map((appUser) => (
                   <Card 
-                    key={emp.id} 
+                    key={appUser.uid} 
                     className="hover:shadow-md transition-shadow cursor-pointer"
-                    onClick={() => handleStartChat(emp)}
+                    onClick={() => handleStartChat(appUser)}
                   >
                     <CardContent className="p-3 flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <Avatar className="h-10 w-10">
-                          <AvatarImage src={emp.avatar || undefined} alt={emp.name} data-ai-hint="person avatar" />
-                          <AvatarFallback>{emp.name?.substring(0, 1).toUpperCase() || 'E'}</AvatarFallback>
+                          <AvatarImage src={appUser.photoURL || undefined} alt={appUser.displayName || appUser.email || "User"} data-ai-hint="person avatar" />
+                          <AvatarFallback>{(appUser.displayName || appUser.email || "U").substring(0, 1).toUpperCase()}</AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="font-semibold">{emp.name}</p>
-                          <p className="text-xs text-muted-foreground">{emp.role || 'Employee'}</p>
+                          <p className="font-semibold">{appUser.displayName || appUser.email}</p>
+                          {/* You can add other info here if available in AppUser type, e.g., email as secondary */}
+                           <p className="text-xs text-muted-foreground">{appUser.displayName ? appUser.email : "App User"}</p>
                         </div>
                       </div>
-                      <Button variant="ghost" size="icon" aria-label={`Chat with ${emp.name}`}>
+                      <Button variant="ghost" size="icon" aria-label={`Chat with ${appUser.displayName || appUser.email}`}>
                         <MessageSquare className="h-5 w-5 text-primary" />
                       </Button>
                     </CardContent>
