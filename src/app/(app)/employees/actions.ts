@@ -74,10 +74,12 @@ export async function addEmployee(
   }
 
   const newEmployeeData = validatedFields.data;
+  console.log("Attempting to add employee to Firestore with data:", newEmployeeData);
 
   try {
     const employeesCollectionRef = collection(db, "employees");
     
+    // Explicitly define the structure for Firestore, omitting 'id' as it's auto-generated
     const employeeToSave: Omit<Employee, 'id'> = {
         name: newEmployeeData.name,
         employeeId: newEmployeeData.employeeId,
@@ -85,12 +87,12 @@ export async function addEmployee(
         department: newEmployeeData.department,
         role: newEmployeeData.role,
         email: newEmployeeData.email,
-        phone: newEmployeeData.phone || '',
+        phone: newEmployeeData.phone || '', // Ensure phone is a string, even if empty
         startDate: newEmployeeData.startDate,
         status: newEmployeeData.status,
         gender: newEmployeeData.gender,
-        avatar: newEmployeeData.avatar || '',
-        salary: newEmployeeData.salary, 
+        avatar: newEmployeeData.avatar || '', // Ensure avatar is a string, even if empty
+        salary: newEmployeeData.salary, // Salary is optional
     };
 
     const docRef = await addDoc(employeesCollectionRef, employeeToSave);
@@ -103,12 +105,19 @@ export async function addEmployee(
       success: true,
       newEmployeeId: docRef.id,
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error adding employee to Firestore:", error);
     let errorMessage = "An unexpected error occurred while adding the employee.";
     if (error instanceof Error) {
       errorMessage = error.message;
+       // Check if it's a FirebaseError and has a code for permission denied
+      if ('code' in error && (error as any).code === 'permission-denied') {
+        errorMessage = `Firestore Permission Denied: ${error.message}. Please check your Firestore Security Rules.`;
+      }
+    } else if (typeof error === 'string') {
+      errorMessage = error;
     }
+    
     return {
       message: `Adding employee failed: ${errorMessage}`,
       errors: { _form: [errorMessage] },
