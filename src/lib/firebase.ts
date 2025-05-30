@@ -1,4 +1,5 @@
 
+// Import the functions you need from the SDKs you need
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, type Auth } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
@@ -65,15 +66,20 @@ if (!getApps().length) {
     console.error(
         "Firebase Initialization Error: Firebase configuration is incomplete in firebaseConfig object (likely due to missing env vars). Critical values (apiKey, projectId, authDomain) are missing. Check .env.local and restart server."
     );
-  }
-  try {
-    app = initializeApp(firebaseConfig);
-    if (typeof window !== 'undefined') {
-        console.log('%cFirebase App Initialized Successfully. Using actual config: Project ID ->', 'color: green; font-weight: bold;', app.options.projectId, '; Auth Domain ->', app.options.authDomain);
+    // @ts-ignore
+    app = undefined; // Ensure app is undefined if config is bad
+  } else {
+    try {
+        app = initializeApp(firebaseConfig);
+        if (typeof window !== 'undefined') {
+            console.log('%cFirebase App Initialized Successfully. Using actual config: Project ID ->', 'color: green; font-weight: bold;', app.options.projectId, '; Auth Domain ->', app.options.authDomain);
+        }
+    } catch (e: any) {
+        console.error("CRITICAL Firebase Initialization Error in firebase.ts during initializeApp(firebaseConfig):", e.message || e);
+        console.error("Firebase config object used for initialization attempt:", firebaseConfig);
+        // @ts-ignore
+        app = undefined; // Ensure app is undefined on error
     }
-  } catch (e: any) {
-    console.error("CRITICAL Firebase Initialization Error in firebase.ts during initializeApp(firebaseConfig):", e.message || e);
-    console.error("Firebase config object used for initialization attempt:", firebaseConfig);
   }
 } else {
   app = getApps()[0];
@@ -84,12 +90,12 @@ if (!getApps().length) {
 
 // Ensure app is initialized before getting other services
 // @ts-ignore
-if (app) {
+if (app && app.options && app.options.apiKey) { // Check if app is a valid FirebaseApp object
   authInstance = getAuth(app);
   dbInstance = getFirestore(app);
   storageInstance = getStorage(app);
 } else {
-  console.error("Firebase app object is not initialized. Firebase services (Auth, Firestore, Storage) cannot be loaded.");
+  console.error("Firebase app object is not properly initialized. Firebase services (Auth, Firestore, Storage) cannot be loaded. Check previous errors.");
   // @ts-ignore
   authInstance = undefined; 
   // @ts-ignore
