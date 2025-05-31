@@ -67,100 +67,102 @@ export default function OneOnOneChatPage() {
     }
   }, [user, toast]);
 
-  // const fetchUnreadCounts = useCallback(async () => {
-  //   if (!user) {
-  //     // setIsLoadingCounts(false); // Uncomment if re-enabling
-  //     return;
-  //   }
-  //   if (appUsers.length === 0 && !isLoadingAppUsers && !isLoadingCounts) { 
-  //       console.log("[ChatUsersPage] No other app users to fetch counts for, or already attempted. Skipping individual counts, will try general chat if applicable.");
-  //   }
+  /*
+  const fetchUnreadCounts = useCallback(async () => {
+    if (!user) {
+      setIsLoadingCounts(false); 
+      return;
+    }
+    // if (appUsers.length === 0 && !isLoadingAppUsers && !isLoadingCounts) { 
+    //     console.log("[ChatUsersPage] No other app users to fetch counts for, or already attempted. Skipping individual counts, will try general chat if applicable.");
+    // }
 
-  //   console.warn(`[ChatUsersPage] UNREAD COUNT FETCH: User: ${user.uid}, App Users count: ${appUsers.length}. This will perform approx ${appUsers.length + 1} Firestore read operations (getCountFromServer). If you hit quota limits, consider optimizing or disabling this feature.`);
-  //   // setIsLoadingCounts(true); // Uncomment if re-enabling
-  //   const counts: Record<string, number> = {};
-  //   const promises = [];
+    console.warn(`[ChatUsersPage] UNREAD COUNT FETCH: User: ${user.uid}, App Users count: ${appUsers.length}. This will perform approx ${appUsers.length + 1} Firestore read operations (getCountFromServer). If you hit quota limits, consider optimizing or disabling this feature.`);
+    setIsLoadingCounts(true); 
+    const counts: Record<string, number> = {};
+    const promises = [];
 
-  //   const generalChatConvId = GENERAL_CHAT_CONVERSATION_ID;
-  //   const generalChatQuery = query(
-  //     collection(db, 'chatMessages'),
-  //     where('conversationId', '==', generalChatConvId),
-  //     where('senderId', '!=', user.uid),
-  //     where('readAt', '==', null)
-  //   );
-  //   promises.push(
-  //     getCountFromServer(generalChatQuery)
-  //       .then(snapshot => {
-  //         counts[generalChatConvId] = snapshot.data().count;
-  //       })
-  //       .catch(err => {
-  //         console.error(`[ChatUsersPage] Error fetching unread count for General Chat (${generalChatConvId}):`, err);
-  //         if ((err as any)?.code === 'resource-exhausted') {
-  //           toast({
-  //             title: "Firestore Quota Issue (General Chat)",
-  //             description: "Could not fetch unread counts for General Chat due to Firestore quota limits. Please check your Firebase project usage or upgrade your plan.",
-  //             variant: "destructive",
-  //           });
-  //         } else if ((err as any)?.code === 'failed-precondition') {
-  //             toast({
-  //                 title: "Firestore Index Missing (General Chat)",
-  //                 description: `An index might be required for fetching unread counts for General Chat. Check browser console for a link to create it.`,
-  //                 variant: "destructive",
-  //             });
-  //         }
-  //         counts[generalChatConvId] = 0; 
-  //       })
-  //   );
+    const generalChatConvId = GENERAL_CHAT_CONVERSATION_ID;
+    const generalChatQuery = query(
+      collection(db, 'chatMessages'),
+      where('conversationId', '==', generalChatConvId),
+      where('senderId', '!=', user.uid),
+      where('readAt', '==', null)
+    );
+    promises.push(
+      getCountFromServer(generalChatQuery)
+        .then(snapshot => {
+          counts[generalChatConvId] = snapshot.data().count;
+        })
+        .catch(err => {
+          console.error(`[ChatUsersPage] Error fetching unread count for General Chat (${generalChatConvId}):`, err);
+          if ((err as any)?.code === 'resource-exhausted') {
+            toast({
+              title: "Firestore Quota Issue (General Chat)",
+              description: "Could not fetch unread counts for General Chat due to Firestore quota limits. Please check your Firebase project usage or upgrade your plan.",
+              variant: "destructive",
+            });
+          } else if ((err as any)?.code === 'failed-precondition') {
+              toast({
+                  title: "Firestore Index Missing (General Chat)",
+                  description: `An index might be required for fetching unread counts for General Chat. Check browser console for a link to create it. Error: ${(err as any).message}`,
+                  variant: "destructive",
+              });
+          }
+          counts[generalChatConvId] = 0; 
+        })
+    );
 
-  //   for (const appUserItem of appUsers) {
-  //     const convId = getOneToOneConversationId(user.uid, appUserItem.uid);
-  //     const q = query(
-  //       collection(db, 'chatMessages'),
-  //       where('conversationId', '==', convId),
-  //       where('senderId', '!=', user.uid),
-  //       where('readAt', '==', null)
-  //     );
-  //     promises.push(
-  //       getCountFromServer(q)
-  //         .then(snapshot => {
-  //           counts[convId] = snapshot.data().count;
-  //         })
-  //         .catch(err => {
-  //           console.error(`[ChatUsersPage] Error fetching unread count for conversation ${convId} with ${appUserItem.displayName}:`, err);
-  //            if ((err as any)?.code === 'failed-precondition') {
-  //               toast({
-  //                   title: "Firestore Index Missing",
-  //                   description: `An index might be required for fetching unread counts for chat with ${appUserItem.displayName}. Check browser console for a link to create it. Conv ID: ${convId}`,
-  //                   variant: "destructive",
-  //               });
-  //           } else if ((err as any)?.code === 'resource-exhausted') {
-  //             toast({
-  //               title: "Firestore Quota Issue (User Chat)",
-  //               description: `Could not fetch unread counts for chat with ${appUserItem.displayName} due to Firestore quota limits.`,
-  //               variant: "destructive",
-  //             });
-  //           }
-  //           counts[convId] = 0; 
-  //         })
-  //     );
-  //   }
+    for (const appUserItem of appUsers) {
+      const convId = getOneToOneConversationId(user.uid, appUserItem.uid);
+      const q = query(
+        collection(db, 'chatMessages'),
+        where('conversationId', '==', convId),
+        where('senderId', '!=', user.uid),
+        where('readAt', '==', null)
+      );
+      promises.push(
+        getCountFromServer(q)
+          .then(snapshot => {
+            counts[convId] = snapshot.data().count;
+          })
+          .catch(err => {
+            console.error(`[ChatUsersPage] Error fetching unread count for conversation ${convId} with ${appUserItem.displayName}:`, err);
+             if ((err as any)?.code === 'failed-precondition') {
+                toast({
+                    title: "Firestore Index Missing",
+                    description: `An index might be required for fetching unread counts for chat with ${appUserItem.displayName}. Check browser console for a link to create it. Conv ID: ${convId}. Error: ${(err as any).message}`,
+                    variant: "destructive",
+                });
+            } else if ((err as any)?.code === 'resource-exhausted') {
+              toast({
+                title: "Firestore Quota Issue (User Chat)",
+                description: `Could not fetch unread counts for chat with ${appUserItem.displayName} due to Firestore quota limits.`,
+                variant: "destructive",
+              });
+            }
+            counts[convId] = 0; 
+          })
+      );
+    }
 
-  //   try {
-  //     await Promise.all(promises);
-  //     // setUnreadCounts(prevCounts => ({ ...prevCounts, ...counts })); // Uncomment if re-enabling
-  //   } catch (error) {
-  //     console.error("[ChatUsersPage] Error processing unread count promises bundle:", error);
-  //     toast({
-  //       title: "Error Updating Some Counts",
-  //       description: "Some unread message counts might not have updated correctly.",
-  //       variant: "destructive"
-  //     });
-  //   } finally {
-  //     // setIsLoadingCounts(false); // Uncomment if re-enabling
-  //     console.log("[ChatUsersPage] Finished fetching unread counts (currently disabled). Current counts:", counts);
-  //   }
-  // // }, [user, appUsers, toast, isLoadingAppUsers, isLoadingCounts]); // Adjust dependencies if re-enabling
-  // }, [user, appUsers, toast, isLoadingAppUsers]); // isLoadingCounts removed
+    try {
+      await Promise.all(promises);
+      setUnreadCounts(prevCounts => ({ ...prevCounts, ...counts })); 
+    } catch (error) {
+      console.error("[ChatUsersPage] Error processing unread count promises bundle:", error);
+      toast({
+        title: "Error Updating Some Counts",
+        description: "Some unread message counts might not have updated correctly.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingCounts(false); 
+      console.log("[ChatUsersPage] Finished fetching unread counts. Current counts:", counts);
+    }
+  }, [user, appUsers, toast]); 
+  */
+
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -168,13 +170,13 @@ export default function OneOnOneChatPage() {
     }
   }, [authLoading, user, fetchAppUsers]);
 
-  // useEffect(() => {
-  //   // if (user && !isLoadingAppUsers && !isLoadingCounts) { // Uncomment if re-enabling
-  //   if (user && !isLoadingAppUsers ) { // isLoadingCounts check removed
-  //     // fetchUnreadCounts(); // Uncomment if re-enabling
-  //   }
-  // // }, [user, appUsers, isLoadingAppUsers, isLoadingCounts, fetchUnreadCounts]); // Adjust dependencies if re-enabling
-  // }, [user, appUsers, isLoadingAppUsers, fetchUnreadCounts]); // isLoadingCounts and fetchUnreadCounts removed from dependencies
+  /*
+  useEffect(() => {
+    if (user && !isLoadingAppUsers && !isLoadingCounts) { 
+      // fetchUnreadCounts(); 
+    }
+  }, [user, appUsers, isLoadingAppUsers, isLoadingCounts, fetchUnreadCounts]);
+  */
 
   const handleSelectConversation = (targetUser: AppUser | 'general') => {
     if (!user) return;
@@ -196,9 +198,11 @@ export default function OneOnOneChatPage() {
     setActiveChatTargetName(chatTargetName);
     setActiveChatTitle(chatTitle);
 
-    // if (conversationId) {
-    //   // setUnreadCounts(prev => ({ ...prev, [conversationId!]: 0 })); // Uncomment if re-enabling
-    // }
+    /*
+    if (conversationId) {
+      setUnreadCounts(prev => ({ ...prev, [conversationId!]: 0 })); 
+    }
+    */
     if (window.innerWidth < 768) { 
         setIsChatListOpen(false);
     }
@@ -209,7 +213,7 @@ export default function OneOnOneChatPage() {
     (appUserItem.email?.toLowerCase() || '').includes(searchTerm.toLowerCase())
   );
 
-  // const isLoading = authLoading || isLoadingAppUsers || isLoadingCounts; // isLoadingCounts removed
+  // const isLoading = authLoading || isLoadingAppUsers || isLoadingCounts;
   const isLoading = authLoading || isLoadingAppUsers;
 
   if (authLoading && !user) { 
@@ -359,4 +363,5 @@ export default function OneOnOneChatPage() {
     
 
     
+
 
