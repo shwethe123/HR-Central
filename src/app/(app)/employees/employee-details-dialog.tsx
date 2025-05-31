@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -10,7 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { Employee } from '@/types';
-import { format } from 'date-fns';
+import { format, isValid, parseISO } from 'date-fns';
 import { Printer } from 'lucide-react';
 import jsPDF from 'jspdf';
 
@@ -30,7 +31,26 @@ export function EmployeeDetailsDialog({
 
   const nameFallback = employee.name.substring(0, 2).toUpperCase();
 
-  const handlePrintToPdf = (currentEmployee: Employee) => {
+  const formatDateSafe = (dateString: string | undefined) => {
+    if (!dateString) return 'N/A';
+    try {
+      // Try parsing as ISO string first (common format)
+      let dateObj = parseISO(dateString);
+      if (!isValid(dateObj)) {
+        // If ISO fails, try direct Date constructor (less reliable but fallback)
+        dateObj = new Date(dateString);
+      }
+      if (isValid(dateObj)) {
+        return format(dateObj, 'MMMM d, yyyy');
+      }
+      return 'Invalid Date';
+    } catch (e) {
+      return 'Invalid Date';
+    }
+  };
+
+
+  const handlePrintToPdf = async (currentEmployee: Employee) => {
     const doc = new jsPDF({
       orientation: 'landscape',
       unit: 'mm',
@@ -39,85 +59,123 @@ export function EmployeeDetailsDialog({
 
     const cardWidth = 85;
     const cardHeight = 55;
-    const margin = 6;
+    const margin = 5; // Adjusted margin
 
     // Define colors (RGB arrays)
-    const darkBlue = [10, 34, 64]; // Example: A deep navy blue
-    const accentBlue = [0, 174, 239]; // Example: A bright, vibrant blue
+    const darkBlue = [10, 34, 64];
+    const accentBlue = [0, 174, 239];
     const white = [255, 255, 255];
-    const lightGray = [224, 224, 224]; // For less prominent text
+    const lightGray = [200, 200, 200]; // Lighter gray for subtle text
 
     // Background
     doc.setFillColor(darkBlue[0], darkBlue[1], darkBlue[2]);
     doc.rect(0, 0, cardWidth, cardHeight, 'F');
 
-    // Left Accent Bar (e.g., where a logo or initials might go)
-    const accentWidth = 30; // Width of the accent bar
+    // Left Accent Bar
+    const accentWidth = 28; // Width of the accent bar
     doc.setFillColor(accentBlue[0], accentBlue[1], accentBlue[2]);
-    doc.roundedRect(0, 0, accentWidth, cardHeight, 0, 0, 'F'); // No rounded corners for a bar
+    doc.rect(0, 0, accentWidth, cardHeight, 'F');
 
-    // Placeholder for "Logo" or Initials in the accent bar
-    const initials = currentEmployee.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
-    const circleRadius = 10;
-    const circleX = accentWidth / 2;
-    const circleY = cardHeight / 2;
+    // Avatar / Initials in Accent Bar
+    const avatarSize = 20; // Size of the avatar square/circle
+    const avatarX = (accentWidth - avatarSize) / 2;
+    const avatarY = margin + 2;
 
-    // Draw a white circle for initials background
-    doc.setFillColor(white[0], white[1], white[2]);
-    doc.circle(circleX, circleY, circleRadius, 'F');
+    let avatarAdded = false;
+    if (currentEmployee.avatar) {
+      try {
+        // Add image directly from URL. jsPDF attempts to fetch it.
+        // This works if the image is CORS-enabled or from the same origin.
+        // For placehold.co, it usually works.
+        // Note: Image format (JPEG/PNG) detection is automatic for common types.
+        doc.addImage(currentEmployee.avatar, 'PNG', avatarX, avatarY, avatarSize, avatarSize);
+        avatarAdded = true;
+      } catch (e) {
+        console.error("Error adding image to PDF, falling back to initials:", e);
+        // Fallback to initials if image fails
+      }
+    }
+
+    if (!avatarAdded) {
+      // Fallback: Initials in a circle
+      const initials = currentEmployee.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
+      const circleRadius = avatarSize / 2;
+      const circleX = accentWidth / 2;
+      const circleYFallback = avatarY + circleRadius;
+
+      doc.setFillColor(white[0], white[1], white[2]);
+      doc.circle(circleX, circleYFallback, circleRadius, 'F');
+      
+      doc.setTextColor(accentBlue[0], accentBlue[1], accentBlue[2]);
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'bold');
+      const initialsTextWidth = doc.getTextWidth(initials);
+      doc.text(initials, circleX - initialsTextWidth / 2, circleYFallback + 3); // Adjust Y for vertical centering
+    }
     
-    // Add Initials
-    doc.setTextColor(accentBlue[0], accentBlue[1], accentBlue[2]); // Text color for initials
-    doc.setFontSize(12);
-    doc.setFont(undefined, 'bold');
-    const textWidth = doc.getTextWidth(initials);
-    doc.text(initials, circleX - textWidth / 2, circleY + 3); // Adjust Y for vertical centering
+    // Company Name in Accent Bar (below avatar/initials)
+    if (currentEmployee.company) {
+      doc.setTextColor(white[0], white[1], white[2]);
+      doc.setFontSize(6);
+      doc.setFont(undefined, 'bold');
+      const companyText = currentEmployee.company;
+      const companyTextWidth = doc.getTextWidth(companyText);
+      // Center company text horizontally in accent bar
+      const companyTextX = (accentWidth - companyTextWidth) / 2; 
+      doc.text(companyText, companyTextX, avatarY + avatarSize + 6); // Position below avatar
+    }
 
 
-    // Text Section (to the right of the accent bar)
+    // --- Right Text Section ---
     let textX = accentWidth + margin;
-    let textY = margin + 2; // Start a bit from the top
+    let textY = margin + 5;
 
     // Employee Name (Prominent)
     doc.setTextColor(white[0], white[1], white[2]);
     doc.setFontSize(13);
     doc.setFont(undefined, 'bold');
-    doc.text(currentEmployee.name, textX, textY);
+    doc.text(currentEmployee.name, textX, textY, { maxWidth: cardWidth - accentWidth - (margin * 2) });
     
-    textY += 6; // Space below name
+    textY += 6;
 
     // Role/Title
     doc.setFontSize(9);
     doc.setFont(undefined, 'normal');
     doc.setTextColor(lightGray[0], lightGray[1], lightGray[2]);
-    doc.text(currentEmployee.role, textX, textY);
+    doc.text(currentEmployee.role, textX, textY, { maxWidth: cardWidth - accentWidth - (margin * 2) });
 
-    textY += 3; // Space
+    textY += 4; 
     // Divider line
-    doc.setDrawColor(accentBlue[0], accentBlue[1], accentBlue[2]);
-    doc.setLineWidth(0.4);
-    doc.line(textX, textY, cardWidth - margin, textY); // Line from textX to right margin
+    doc.setDrawColor(accentBlue[0], accentBlue[1], accentBlue[2]); // Use accent color for divider
+    doc.setLineWidth(0.3);
+    doc.line(textX, textY, cardWidth - margin, textY);
 
-    textY += 5; // Space below divider
+    textY += 5;
 
     // Contact Details
-    doc.setFontSize(8);
+    doc.setFontSize(7.5); // Smaller font for contact details
     doc.setTextColor(white[0], white[1], white[2]);
+    const iconTextGap = 1.5; // Gap between icon and text
+    const lineHeight = 4.5;
 
-    const contactLines = [
-      { icon: '📞', text: currentEmployee.phone },
-      { icon: '✉️', text: currentEmployee.email },
-      { icon: '🏢', text: currentEmployee.company },
-      { icon: '💼', text: currentEmployee.department },
-    ];
+    if (currentEmployee.phone) {
+      doc.text('📱', textX, textY); // Phone icon
+      doc.text(currentEmployee.phone, textX + doc.getTextWidth('📱') + iconTextGap, textY);
+      textY += lineHeight;
+    }
+    if (currentEmployee.email) {
+      doc.text('📧', textX, textY); // Email icon
+      doc.text(currentEmployee.email, textX + doc.getTextWidth('📧') + iconTextGap, textY, { maxWidth: cardWidth - accentWidth - (margin * 2) - doc.getTextWidth('📧') - iconTextGap });
+      textY += lineHeight;
+    }
+    // Department
+    if (currentEmployee.department) {
+      doc.text('💼', textX, textY); // Department/Work Icon
+      doc.text(currentEmployee.department, textX + doc.getTextWidth('💼') + iconTextGap, textY);
+      textY += lineHeight;
+    }
 
-    contactLines.forEach(line => {
-      if (line.text) {
-        doc.text(`${line.icon}  ${line.text}`, textX, textY);
-        textY += 5; // Space for next line
-      }
-    });
-    
+
     doc.save(`Employee_Card_${currentEmployee.name.replace(/\s+/g, '_')}.pdf`);
   };
 
@@ -175,7 +233,7 @@ export function EmployeeDetailsDialog({
           </div>
           <div className="flex items-center">
             <span className="w-[130px] font-medium text-muted-foreground">Start Date:</span>
-            <span>{format(new Date(employee.startDate), 'MMMM d, yyyy')}</span>
+            <span>{formatDateSafe(employee.startDate)}</span>
           </div>
           <div className="flex items-center">
             <span className="w-[130px] font-medium text-muted-foreground">Status:</span>
@@ -193,7 +251,7 @@ export function EmployeeDetailsDialog({
           <div className="flex items-center">
             <span className="w-[130px] font-medium text-muted-foreground">Salary:</span>
             <span>
-              {employee.salary
+              {employee.salary != null // Check for null or undefined
                 ? employee.salary.toLocaleString('en-US', {
                     style: 'currency',
                     currency: 'USD',
@@ -218,5 +276,3 @@ export function EmployeeDetailsDialog({
     </Dialog>
   );
 }
-// Removed default export if it existed previously
-// export default EmployeeDetailsDialog; // This line should not be present if using named export
