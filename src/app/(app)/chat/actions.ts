@@ -12,6 +12,7 @@ const SendMessageSchema = z.object({
   text: z.string().min(1, { message: "Message cannot be empty." }).max(1000, { message: "Message is too long." }),
   senderId: z.string().min(1, { message: "Sender ID is required." }),
   senderName: z.string().min(1, { message: "Sender name is required." }),
+  senderPhotoURL: z.string().url({ message: "Invalid sender photo URL." }).or(z.literal('')).optional(),
 });
 
 export type SendMessageFormState = {
@@ -21,6 +22,7 @@ export type SendMessageFormState = {
     text?: string[];
     senderId?: string[];
     senderName?: string[];
+    senderPhotoURL?: string[];
     _form?: string[];
   };
   success?: boolean;
@@ -35,6 +37,7 @@ export async function sendMessage(
     text: formData.get('text'),
     senderId: formData.get('senderId'),
     senderName: formData.get('senderName'),
+    senderPhotoURL: formData.get('senderPhotoURL'),
   });
 
   if (!validatedFields.success) {
@@ -46,21 +49,20 @@ export async function sendMessage(
     };
   }
 
-  const { conversationId, text, senderId, senderName } = validatedFields.data;
+  const { conversationId, text, senderId, senderName, senderPhotoURL } = validatedFields.data;
 
   // Server-side log to show what is being attempted
-  console.log(`[sendMessage Action] Attempting to send message. Passed senderId: ${senderId}, Passed senderName: ${senderName}, For conversationId: ${conversationId}`);
+  console.log(`[sendMessage Action] Attempting to send message. Passed senderId: ${senderId}, Passed senderName: ${senderName}, Passed senderPhotoURL: ${senderPhotoURL || 'N/A'}, For conversationId: ${conversationId}`);
   console.log(`[sendMessage Action] Message text: "${text}"`);
-  // Note: auth.currentUser from client-side Firebase JS SDK import might not represent the calling user in a Server Action.
-  // Firestore rules rely on `request.auth` which is derived from the client's Firebase ID token.
 
   const messageData = {
     conversationId,
-    senderId, // This MUST match request.auth.uid in Firestore rules
+    senderId, 
     senderName,
+    senderPhotoURL: senderPhotoURL || null, // Store null if empty string
     text,
-    createdAt: serverTimestamp(), // Ensure createdAt is always set
-    readAt: null, // Initialize readAt as null
+    createdAt: serverTimestamp(), 
+    readAt: null, 
   };
 
   console.log("[sendMessage Action] Data to be sent to Firestore:", JSON.stringify(messageData, null, 2));

@@ -65,6 +65,7 @@ export type ChatMessage = {
   conversationId: string;
   senderId: string;
   senderName: string;
+  senderPhotoURL?: string | null; // Added sender's photo URL
   text: string;
   createdAt: Timestamp;
   readAt?: Timestamp | null; // Field for read receipt

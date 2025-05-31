@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { format, isValid } from 'date-fns';
-import { Send, Loader2, MessageSquare, AlertTriangle, Check, CheckCheck, PanelRightClose } from 'lucide-react';
+import { Send, Loader2, MessageSquare, AlertTriangle, Check, CheckCheck, PanelRightClose, PanelLeftClose } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -29,8 +29,8 @@ interface ChatInterfaceProps {
   currentUser: User | null;
   isGeneralChat?: boolean;
   effectiveChatTitle?: string;
-  isChatListCollapsed?: boolean;
-  onToggleChatList?: () => void;
+  isChatListCollapsed?: boolean; // From users/page.tsx
+  onToggleChatList?: () => void; // From users/page.tsx
 }
 
 function SubmitButton() {
@@ -100,6 +100,7 @@ export default function ChatInterface({
           conversationId: data.conversationId,
           senderId: data.senderId,
           senderName: data.senderName,
+          senderPhotoURL: data.senderPhotoURL || null,
           text: data.text,
           createdAt: data.createdAt, 
           readAt: data.readAt || null, 
@@ -108,10 +109,8 @@ export default function ChatInterface({
 
         if (message.senderId !== currentUser.uid && !message.readAt) {
           const messageRef = doc(db, 'chatMessages', docSnap.id);
-          // console.log(`[ChatInterface] Attempting to mark message ${docSnap.id} (from ${message.senderId}) as read by ${currentUser.uid}`);
           updates.push(
             updateDoc(messageRef, { readAt: serverTimestamp() })
-              .then(() => { /* console.log(`[ChatInterface] Successfully marked message ${docSnap.id} as read.`) */ })
               .catch(err => {
                 console.error(`[ChatInterface] Failed to mark message ${docSnap.id} as read:`, err.code, err.message);
               })
@@ -123,11 +122,6 @@ export default function ChatInterface({
 
       if (updates.length > 0) {
         Promise.all(updates)
-          .then(() => {
-            if (updates.length > 0) {
-                // console.log(`[ChatInterface] ${updates.length} messages processed for read status.`);
-            }
-          })
           .catch(error => {
             console.error("[ChatInterface] Error in batch processing message read status updates:", error);
           });
@@ -151,7 +145,7 @@ export default function ChatInterface({
         scrollViewport.scrollTop = scrollViewport.scrollHeight;
       }
     }
-  }, [messages.length]); // Trigger on message count change for better reliability
+  }, [messages.length]); 
 
   useEffect(() => {
     if (state?.success) {
@@ -159,6 +153,7 @@ export default function ChatInterface({
       formRef.current?.reset();
     }
     if (state?.errors?._form) {
+      // This console.error is what you're seeing in the error report
       console.error("Form error from sendMessage action:", state.errors._form.join(', '));
     }
   }, [state]);
@@ -178,7 +173,8 @@ export default function ChatInterface({
         {isChatListCollapsed && onToggleChatList && (
            <div className="absolute top-4 left-4">
              <Button variant="ghost" size="icon" onClick={onToggleChatList}>
-                <PanelRightClose className="h-5 w-5" />
+                {/* Changed icon based on context from users/page.tsx */}
+                {isChatListCollapsed ? <PanelRightClose className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
              </Button>
            </div>
         )}
@@ -234,7 +230,7 @@ export default function ChatInterface({
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Avatar className="h-8 w-8">
-                          <AvatarImage src={undefined} alt={msg.senderName} data-ai-hint="person avatar"/>
+                          <AvatarImage src={msg.senderPhotoURL || undefined} alt={msg.senderName} data-ai-hint="person avatar"/>
                           <AvatarFallback>{msg.senderName?.substring(0, 1).toUpperCase() || 'U'}</AvatarFallback>
                         </Avatar>
                       </TooltipTrigger>
@@ -309,9 +305,9 @@ export default function ChatInterface({
                 return;
               }
               if (currentUser && currentUser.uid) {
-                // console.log(`[ChatInterface] Attempting to send message. Client-side currentUser.uid: ${currentUser.uid}, displayName: ${currentUser.displayName}`);
+                console.log(`[ChatInterface onSubmit] Client currentUser.uid: ${currentUser.uid}, displayName: ${currentUser.displayName}, photoURL: ${currentUser.photoURL}`);
               } else {
-                console.error("[ChatInterface] Cannot send message: currentUser or currentUser.uid is missing.");
+                console.error("[ChatInterface onSubmit] Cannot send message: currentUser or currentUser.uid is missing.");
                 e.preventDefault();
                 return;
               }
@@ -321,6 +317,7 @@ export default function ChatInterface({
             <input type="hidden" name="conversationId" value={conversationId || ''} />
             <input type="hidden" name="senderId" value={currentUser.uid} />
             <input type="hidden" name="senderName" value={currentUser.displayName || 'Anonymous User'} />
+            <input type="hidden" name="senderPhotoURL" value={currentUser.photoURL || ''} />
             <Textarea
               name="text"
               placeholder="Type your message..."
