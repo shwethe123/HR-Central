@@ -14,8 +14,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { format } from 'date-fns';
-import { Send, Loader2, MessageSquare, AlertTriangle, Check, CheckCheck } from 'lucide-react';
+import { format, isValid } from 'date-fns';
+import { Send, Loader2, MessageSquare, AlertTriangle, Check, CheckCheck, PanelRightClose } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -27,8 +27,10 @@ interface ChatInterfaceProps {
   conversationId: string | null;
   chatTargetName: string | null;
   currentUser: User | null;
-  isGeneralChat?: boolean; // To slightly alter UI for general chat if needed
+  isGeneralChat?: boolean;
   effectiveChatTitle?: string;
+  isChatListCollapsed?: boolean;
+  onToggleChatList?: () => void;
 }
 
 function SubmitButton() {
@@ -46,7 +48,9 @@ export default function ChatInterface({
   chatTargetName,
   currentUser,
   isGeneralChat = false,
-  effectiveChatTitle: propEffectiveChatTitle
+  effectiveChatTitle: propEffectiveChatTitle,
+  isChatListCollapsed,
+  onToggleChatList,
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -97,17 +101,17 @@ export default function ChatInterface({
           senderId: data.senderId,
           senderName: data.senderName,
           text: data.text,
-          createdAt: data.createdAt, // Firestore Timestamps are directly usable
-          readAt: data.readAt || null, // Ensure readAt is Timestamp or null
+          createdAt: data.createdAt, 
+          readAt: data.readAt || null, 
         };
         fetchedMessages.push(message);
 
         if (message.senderId !== currentUser.uid && !message.readAt) {
           const messageRef = doc(db, 'chatMessages', docSnap.id);
-          console.log(`[ChatInterface] Attempting to mark message ${docSnap.id} (from ${message.senderId}) as read by ${currentUser.uid}`);
+          // console.log(`[ChatInterface] Attempting to mark message ${docSnap.id} (from ${message.senderId}) as read by ${currentUser.uid}`);
           updates.push(
             updateDoc(messageRef, { readAt: serverTimestamp() })
-              .then(() => console.log(`[ChatInterface] Successfully marked message ${docSnap.id} as read.`))
+              .then(() => { /* console.log(`[ChatInterface] Successfully marked message ${docSnap.id} as read.`) */ })
               .catch(err => {
                 console.error(`[ChatInterface] Failed to mark message ${docSnap.id} as read:`, err.code, err.message);
               })
@@ -121,7 +125,7 @@ export default function ChatInterface({
         Promise.all(updates)
           .then(() => {
             if (updates.length > 0) {
-                 console.log(`[ChatInterface] ${updates.length} messages processed for read status.`);
+                // console.log(`[ChatInterface] ${updates.length} messages processed for read status.`);
             }
           })
           .catch(error => {
@@ -147,7 +151,7 @@ export default function ChatInterface({
         scrollViewport.scrollTop = scrollViewport.scrollHeight;
       }
     }
-  }, [messages]);
+  }, [messages.length]); // Trigger on message count change for better reliability
 
   useEffect(() => {
     if (state?.success) {
@@ -161,7 +165,7 @@ export default function ChatInterface({
 
   if (!currentUser) {
      return (
-      <Card className="w-full h-full flex flex-col items-center justify-center shadow-xl rounded-lg">
+      <Card className="w-full h-full flex flex-col items-center justify-center shadow-xl rounded-lg border-0">
         <MessageSquare className="h-16 w-16 text-muted-foreground mb-4" />
         <p className="text-muted-foreground">Please log in to use chat.</p>
       </Card>
@@ -170,7 +174,14 @@ export default function ChatInterface({
 
   if (!conversationId) {
     return (
-      <Card className="w-full h-full flex flex-col items-center justify-center shadow-xl rounded-lg">
+      <Card className="w-full h-full flex flex-col items-center justify-center shadow-xl rounded-lg border-0">
+        {isChatListCollapsed && onToggleChatList && (
+           <div className="absolute top-4 left-4">
+             <Button variant="ghost" size="icon" onClick={onToggleChatList}>
+                <PanelRightClose className="h-5 w-5" />
+             </Button>
+           </div>
+        )}
         <MessageSquare className="h-16 w-16 text-muted-foreground mb-4" />
         <p className="text-muted-foreground">Select a user or conversation to start chatting.</p>
       </Card>
@@ -179,11 +190,9 @@ export default function ChatInterface({
 
   const getFormattedTimestamp = (timestamp: Timestamp | undefined | null): string => {
     if (timestamp && typeof timestamp.toDate === 'function') {
-      try {
-        return format(timestamp.toDate(), 'p'); // e.g., 4:30 PM
-      } catch (e) {
-        console.error("Error formatting timestamp:", timestamp, e);
-        return "Time Err";
+      const date = timestamp.toDate();
+      if (isValid(date)) {
+        return format(date, 'p'); // e.g., 4:30 PM
       }
     }
     return 'Sending...';
@@ -192,9 +201,17 @@ export default function ChatInterface({
 
   return (
     <TooltipProvider delayDuration={100}>
-      <Card className="w-full h-full flex flex-col shadow-xl rounded-lg">
+      <Card className="w-full h-full flex flex-col shadow-xl rounded-lg border-0">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>{localEffectiveChatTitle}</CardTitle>
+            <div className="flex items-center">
+                {isChatListCollapsed && onToggleChatList && (
+                    <Button variant="ghost" size="icon" onClick={onToggleChatList} className="mr-2 md:inline-flex">
+                        <PanelRightClose className="h-5 w-5" />
+                        <span className="sr-only">Show Chat List</span>
+                    </Button>
+                )}
+                <CardTitle>{localEffectiveChatTitle}</CardTitle>
+            </div>
         </CardHeader>
         <CardContent className="flex-grow overflow-hidden p-0">
           <ScrollArea ref={scrollAreaRef} className="h-full p-4">
@@ -227,17 +244,17 @@ export default function ChatInterface({
                     </Tooltip>
                   )}
                   <div
-                    className={`max-w-[70%] rounded-lg px-3 py-2 text-sm ${
+                    className={`max-w-[70%] rounded-lg px-3 py-2 text-sm shadow-md ${
                       msg.senderId === currentUser?.uid
                         ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted'
+                        : 'bg-card text-card-foreground border'
                     }`}
                   >
                     {msg.senderId !== currentUser?.uid && (
-                       <p className="text-xs font-semibold mb-0.5">{msg.senderName || 'Anonymous'}</p>
+                       <p className="text-xs font-semibold mb-0.5 text-primary">{msg.senderName || 'Anonymous'}</p>
                     )}
                     <p className="whitespace-pre-wrap">{msg.text}</p>
-                    <div className={`text-xs mt-1 flex items-center gap-1 ${msg.senderId === currentUser?.uid ? 'text-primary-foreground/70 justify-end' : 'text-muted-foreground/70 justify-start'}`}>
+                    <div className={`text-xs mt-1 flex items-center gap-1 ${msg.senderId === currentUser?.uid ? 'text-primary-foreground/70 justify-end' : 'text-muted-foreground/80 justify-start'}`}>
                       <span>{getFormattedTimestamp(msg.createdAt)}</span>
                       {msg.senderId === currentUser?.uid && (
                         <>
@@ -251,7 +268,14 @@ export default function ChatInterface({
                               </TooltipContent>
                             </Tooltip>
                           ) : (
-                            <Check className="h-3.5 w-3.5" />
+                            <Tooltip>
+                                <TooltipTrigger>
+                                    <Check className="h-3.5 w-3.5" />
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom" className="text-xs p-1">
+                                    <p>Delivered</p>
+                                </TooltipContent>
+                            </Tooltip>
                           )}
                         </>
                       )}
@@ -285,7 +309,7 @@ export default function ChatInterface({
                 return;
               }
               if (currentUser && currentUser.uid) {
-                console.log(`[ChatInterface] Attempting to send message. Client-side currentUser.uid: ${currentUser.uid}, displayName: ${currentUser.displayName}`);
+                // console.log(`[ChatInterface] Attempting to send message. Client-side currentUser.uid: ${currentUser.uid}, displayName: ${currentUser.displayName}`);
               } else {
                 console.error("[ChatInterface] Cannot send message: currentUser or currentUser.uid is missing.");
                 e.preventDefault();
