@@ -7,18 +7,19 @@ import { getStorage, type FirebaseStorage } from 'firebase/storage';
 import { getAnalytics, type Analytics } from "firebase/analytics";
 
 // THIS IS THE TARGET PROJECT ID THE APP SHOULD BE USING.
-const TARGET_PROJECT_ID = "mobile-app-337f0"; // Updated to new project ID
+const TARGET_PROJECT_ID = "message-form-3031e"; // Updated to new project ID
 
 // Your web app's Firebase configuration (Hardcoded as per user request)
 const firebaseConfig = {
-  apiKey: "AIzaSyAYYglO8-a6MOonwRBjVaXtOcT2HV82r3s",
-  authDomain: "mobile-app-337f0.firebaseapp.com",
-  databaseURL: "https://mobile-app-337f0-default-rtdb.firebaseio.com",
-  projectId: "mobile-app-337f0",
-  storageBucket: "mobile-app-337f0.appspot.com", // Corrected common typo: .appspot.com usually
-  messagingSenderId: "566171676162",
-  appId: "1:566171676162:web:8f1091a75f5c73b3d5811b",
-  measurementId: "G-8MWB28ZYG0"
+  apiKey: "AIzaSyBC19tfWfWXnicL_3DerD44p1brft9QWoc",
+  authDomain: "message-form-3031e.firebaseapp.com",
+  projectId: "message-form-3031e",
+  storageBucket: "message-form-3031e.appspot.com",
+  messagingSenderId: "184429279604",
+  appId: "1:184429279604:web:bb9b926e17712d06c7d421"
+  // measurementId is optional for Firebase JS SDK v7.20.0 and later
+  // If you have one for this project and want to use Analytics fully, add it here.
+  // measurementId: "G-XXXXXXXXXX" 
 };
 
 if (typeof window !== 'undefined') {
@@ -87,8 +88,14 @@ if (app && app.options && app.options.apiKey) {
   dbInstance = getFirestore(app);
   storageInstance = getStorage(app);
   // Initialize Analytics only on the client side
-  if (typeof window !== 'undefined') {
-    analyticsInstance = getAnalytics(app);
+  if (typeof window !== 'undefined' && firebaseConfig.appId) { // Check if appId exists for Analytics
+    try {
+        analyticsInstance = getAnalytics(app);
+    } catch(e: any) {
+        console.warn("Firebase Analytics initialization failed:", e.message);
+        // @ts-ignore
+        analyticsInstance = undefined;
+    }
   }
 } else {
   if (typeof window !== 'undefined') { 
