@@ -34,8 +34,8 @@ export default function OneOnOneChatPage() {
   const [isChatListOpen, setIsChatListOpen] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
-  // const [isLoadingCounts, setIsLoadingCounts] = useState(false); 
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+  const [isLoadingCounts, setIsLoadingCounts] = useState(false); 
 
   const fetchAppUsers = useCallback(async () => {
     if (!user) return; 
@@ -67,15 +67,15 @@ export default function OneOnOneChatPage() {
     }
   }, [user, toast]);
 
-  /*
+
   const fetchUnreadCounts = useCallback(async () => {
     if (!user) {
       setIsLoadingCounts(false); 
       return;
     }
-    // if (appUsers.length === 0 && !isLoadingAppUsers && !isLoadingCounts) { 
-    //     console.log("[ChatUsersPage] No other app users to fetch counts for, or already attempted. Skipping individual counts, will try general chat if applicable.");
-    // }
+    if (appUsers.length === 0 && !isLoadingAppUsers && !isLoadingCounts) { 
+        console.log("[ChatUsersPage] No other app users to fetch counts for, or already attempted. Skipping individual counts, will try general chat if applicable.");
+    }
 
     console.warn(`[ChatUsersPage] UNREAD COUNT FETCH: User: ${user.uid}, App Users count: ${appUsers.length}. This will perform approx ${appUsers.length + 1} Firestore read operations (getCountFromServer). If you hit quota limits, consider optimizing or disabling this feature.`);
     setIsLoadingCounts(true); 
@@ -160,8 +160,8 @@ export default function OneOnOneChatPage() {
       setIsLoadingCounts(false); 
       console.log("[ChatUsersPage] Finished fetching unread counts. Current counts:", counts);
     }
-  }, [user, appUsers, toast]); 
-  */
+  }, [user, appUsers, toast, isLoadingAppUsers, isLoadingCounts]); 
+
 
 
   useEffect(() => {
@@ -170,13 +170,13 @@ export default function OneOnOneChatPage() {
     }
   }, [authLoading, user, fetchAppUsers]);
 
-  /*
+
   useEffect(() => {
     if (user && !isLoadingAppUsers && !isLoadingCounts) { 
-      // fetchUnreadCounts(); 
+      fetchUnreadCounts(); 
     }
   }, [user, appUsers, isLoadingAppUsers, isLoadingCounts, fetchUnreadCounts]);
-  */
+
 
   const handleSelectConversation = (targetUser: AppUser | 'general') => {
     if (!user) return;
@@ -198,11 +198,11 @@ export default function OneOnOneChatPage() {
     setActiveChatTargetName(chatTargetName);
     setActiveChatTitle(chatTitle);
 
-    /*
+
     if (conversationId) {
       setUnreadCounts(prev => ({ ...prev, [conversationId!]: 0 })); 
     }
-    */
+    
     if (window.innerWidth < 768) { 
         setIsChatListOpen(false);
     }
@@ -213,8 +213,8 @@ export default function OneOnOneChatPage() {
     (appUserItem.email?.toLowerCase() || '').includes(searchTerm.toLowerCase())
   );
 
-  // const isLoading = authLoading || isLoadingAppUsers || isLoadingCounts;
-  const isLoading = authLoading || isLoadingAppUsers;
+  const isLoading = authLoading || isLoadingAppUsers || isLoadingCounts;
+
 
   if (authLoading && !user) { 
     return (
@@ -287,11 +287,11 @@ export default function OneOnOneChatPage() {
                       <p className="text-xs text-muted-foreground">Talk with everyone</p>
                     </div>
                   </div>
-                  {/* {unreadCounts[GENERAL_CHAT_CONVERSATION_ID] > 0 && (
+                  {unreadCounts[GENERAL_CHAT_CONVERSATION_ID] > 0 && (
                     <Badge variant="destructive" className="h-5 min-w-[20px] px-1.5 rounded-full flex items-center justify-center text-xs">
                       {unreadCounts[GENERAL_CHAT_CONVERSATION_ID]}
                     </Badge>
-                  )} */}
+                  )}
                 </div>
 
                 {isLoadingAppUsers ? (
@@ -308,7 +308,7 @@ export default function OneOnOneChatPage() {
                     {filteredAppUsers.map((appUserItem) => {
                       const convId = getOneToOneConversationId(user.uid, appUserItem.uid);
                       const isActive = activeConversationId === convId;
-                      // const unreadCount = unreadCounts[convId] || 0; 
+                      const unreadCount = unreadCounts[convId] || 0; 
                       return (
                         <div 
                           key={appUserItem.uid} 
@@ -330,11 +330,11 @@ export default function OneOnOneChatPage() {
                               <p className="text-xs text-muted-foreground truncate">{appUserItem.displayName ? appUserItem.email : "App User"}</p>
                             </div>
                           </div>
-                           {/* {unreadCount > 0 && (
+                           {unreadCount > 0 && (
                             <Badge variant="destructive" className="h-5 min-w-[20px] px-1.5 rounded-full flex items-center justify-center text-xs shrink-0">
                               {unreadCount}
                             </Badge>
-                          )} */}
+                          )}
                         </div>
                       );
                     })}
@@ -363,5 +363,6 @@ export default function OneOnOneChatPage() {
     
 
     
+
 
 

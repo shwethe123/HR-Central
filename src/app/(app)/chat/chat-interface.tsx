@@ -87,7 +87,7 @@ export default function ChatInterface({
         }
       }
     }
-  }, [notificationPermission, toast]);
+  }, [notificationPermission]); // Removed toast from dependencies as it's stable
 
   const requestNotificationPermission = async () => {
     if (!('Notification' in window)) {
@@ -207,7 +207,7 @@ export default function ChatInterface({
     });
 
     return () => unsubscribe();
-  }, [conversationId, currentUser, notificationPermission]); // Removed showNotification, clearOldNotifiedMessageIds
+  }, [conversationId, currentUser, notificationPermission, showNotification, clearOldNotifiedMessageIds]);
 
   useEffect(() => {
     if (scrollAreaRef.current) {
