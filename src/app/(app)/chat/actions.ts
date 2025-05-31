@@ -38,7 +38,7 @@ export async function sendMessage(
   });
 
   if (!validatedFields.success) {
-    console.warn("sendMessage validation failed:", validatedFields.error.flatten().fieldErrors);
+    console.warn("[sendMessage Action] Validation failed:", validatedFields.error.flatten().fieldErrors);
     return {
       message: "Validation failed. Please check your input.",
       errors: validatedFields.error.flatten().fieldErrors,
@@ -48,17 +48,15 @@ export async function sendMessage(
 
   const { conversationId, text, senderId, senderName } = validatedFields.data;
 
-  // Server-side auth check (optional, but good for debugging rules)
-  // Note: In Server Actions, `auth.currentUser` might not be available directly like on client.
-  // Firebase Admin SDK would be more robust for server-side auth state if needed for complex scenarios.
-  // For client-driven actions, the UID passed from client (senderId) is what's primarily checked against `request.auth.uid` in rules.
-  console.log(`[sendMessage Action] Received data: convId=${conversationId}, senderId=${senderId}, senderName=${senderName}, text="${text}"`);
-  // console.log("[sendMessage Action] Current Firebase Auth state (server-side, if available):", auth.currentUser?.uid);
-
+  // Server-side log to show what is being attempted
+  console.log(`[sendMessage Action] Attempting to send message. Passed senderId: ${senderId}, Passed senderName: ${senderName}, For conversationId: ${conversationId}`);
+  console.log(`[sendMessage Action] Message text: "${text}"`);
+  // Note: auth.currentUser from client-side Firebase JS SDK import might not represent the calling user in a Server Action.
+  // Firestore rules rely on `request.auth` which is derived from the client's Firebase ID token.
 
   const messageData = {
     conversationId,
-    senderId,
+    senderId, // This MUST match request.auth.uid in Firestore rules
     senderName,
     text,
     createdAt: serverTimestamp(), // Ensure createdAt is always set
@@ -83,12 +81,14 @@ export async function sendMessage(
     console.error("[sendMessage Action] Error sending message to Firestore:", error);
     let errorMessage = "An unexpected error occurred while sending the message.";
     if (error instanceof Error) {
-      // Check if it's a FirebaseError and has a code
       if ('code' in error) {
-        const firebaseError = error as any; // Type assertion
+        const firebaseError = error as any; 
         errorMessage = `Firestore Error (${firebaseError.code}): ${firebaseError.message}`;
         if (firebaseError.code === 'permission-denied') {
-          errorMessage += " Please check Firestore Security Rules. Ensure the senderId in the message matches the authenticated user's UID and all required fields are present as per the rules.";
+          errorMessage = `Firestore PERMISSION_DENIED: Message sending failed.
+          1. Client-Side: Ensure you are properly logged in when trying to send a message. The senderId ('${senderId}') must be your authenticated User ID.
+          2. Firestore Rules: Verify your Firestore Security Rules in the Firebase Console. The rules must allow 'create' operations on the 'chatMessages' collection for authenticated users where 'request.auth.uid' matches the 'senderId' in the message, and all required fields are present.
+          Example rule: \`allow create: if request.auth != null && request.resource.data.senderId == request.auth.uid;\``;
         }
       } else {
         errorMessage = error.message;
