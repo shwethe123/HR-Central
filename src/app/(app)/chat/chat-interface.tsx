@@ -15,13 +15,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { format, isValid } from 'date-fns';
-import { Send, Loader2, MessageSquare, AlertTriangle, Check, CheckCheck, PanelRightClose, PanelLeftClose } from 'lucide-react';
+import { Send, Loader2, MessageSquare, AlertTriangle, Check, CheckCheck, PanelRightClose, PanelLeftClose, BellRing, BellOff } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useToast } from '@/hooks/use-toast';
 
 interface ChatInterfaceProps {
   conversationId: string | null;
@@ -29,8 +30,8 @@ interface ChatInterfaceProps {
   currentUser: User | null;
   isGeneralChat?: boolean;
   effectiveChatTitle?: string;
-  isChatListCollapsed?: boolean; // From users/page.tsx
-  onToggleChatList?: () => void; // From users/page.tsx
+  isChatListCollapsed?: boolean; 
+  onToggleChatList?: () => void; 
 }
 
 function SubmitButton() {
@@ -56,11 +57,67 @@ export default function ChatInterface({
   const [newMessage, setNewMessage] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const { toast } = useToast();
+
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'default'>('default');
+  // Using a ref for notifiedMessageIds to avoid re-renders when it changes.
+  const notifiedMessageIdsRef = useRef<Set<string>>(new Set());
+
 
   const initialState: SendMessageFormState = { message: null, errors: {}, success: false };
   const [state, formAction] = useActionState(sendMessage, initialState);
 
   const [localEffectiveChatTitle, setLocalEffectiveChatTitle] = useState("Chat");
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setNotificationPermission(Notification.permission);
+    }
+  }, []);
+
+  const requestNotificationPermission = async () => {
+    if (!('Notification' in window)) {
+      toast({ title: "Browser Notifications Not Supported", description: "Your browser does not support desktop notifications.", variant: "destructive" });
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    setNotificationPermission(permission);
+    if (permission === 'granted') {
+      toast({ title: "Notifications Enabled", description: "You will now receive notifications for new messages." });
+      showNotification("Notifications Enabled!", "You'll be notified of new messages when this tab isn't active.");
+    } else if (permission === 'denied') {
+      toast({ title: "Notifications Denied", description: "You have blocked notifications. Please enable them in your browser settings if you change your mind.", variant: "destructive" });
+    } else {
+      toast({ title: "Notifications Dismissed", description: "You can enable notifications later by clicking the bell icon.", variant: "default" });
+    }
+  };
+
+  const showNotification = (title: string, body: string, icon?: string) => {
+    if (notificationPermission === 'granted') {
+      const options: NotificationOptions = { body };
+      if (icon) options.icon = icon;
+      try {
+        new Notification(title, options);
+      } catch (err) {
+        console.error("Error showing notification:", err);
+        // This can happen if the site is not HTTPS or other security restrictions
+        if ((err as Error).name === 'TypeError' && (err as Error).message.includes('Notification constructor')) {
+            // Could be an issue with service worker or HTTPS.
+            console.warn("Notification constructor failed. Ensure site is HTTPS and service worker (if used) is correct.");
+        }
+      }
+    }
+  };
+  
+  const clearOldNotifiedMessageIds = () => {
+    // Keep only the last N message IDs to prevent the set from growing indefinitely
+    const MAX_KEPT_IDS = 50; 
+    if (notifiedMessageIdsRef.current.size > MAX_KEPT_IDS) {
+      const oldestIds = Array.from(notifiedMessageIdsRef.current).slice(0, notifiedMessageIdsRef.current.size - MAX_KEPT_IDS);
+      oldestIds.forEach(id => notifiedMessageIdsRef.current.delete(id));
+    }
+  };
+
 
   useEffect(() => {
     if (propEffectiveChatTitle) {
@@ -92,6 +149,7 @@ export default function ChatInterface({
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const fetchedMessages: ChatMessage[] = [];
       const updates: Promise<void>[] = [];
+      let newUnreadMessagesForNotification: ChatMessage[] = [];
 
       querySnapshot.forEach((docSnap) => {
         const data = docSnap.data();
@@ -115,10 +173,29 @@ export default function ChatInterface({
                 console.error(`[ChatInterface] Failed to mark message ${docSnap.id} as read:`, err.code, err.message);
               })
           );
+          
+          // Collect new unread messages for notification logic
+          if (!notifiedMessageIdsRef.current.has(message.id)) {
+            newUnreadMessagesForNotification.push(message);
+          }
         }
       });
 
       setMessages(fetchedMessages);
+      
+      // Handle notifications for new messages
+      if (newUnreadMessagesForNotification.length > 0 && notificationPermission === 'granted' && document.hidden) {
+        newUnreadMessagesForNotification.forEach(msg => {
+          if (!notifiedMessageIdsRef.current.has(msg.id)) {
+            const title = `New message from ${msg.senderName}`;
+            const body = msg.text.length > 100 ? msg.text.substring(0, 97) + "..." : msg.text;
+            showNotification(title, body, msg.senderPhotoURL || undefined);
+            notifiedMessageIdsRef.current.add(msg.id);
+          }
+        });
+        clearOldNotifiedMessageIds();
+      }
+
 
       if (updates.length > 0) {
         Promise.all(updates)
@@ -136,7 +213,7 @@ export default function ChatInterface({
     });
 
     return () => unsubscribe();
-  }, [conversationId, currentUser]);
+  }, [conversationId, currentUser, notificationPermission, showNotification]); // Added showNotification dependency
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -153,7 +230,6 @@ export default function ChatInterface({
       formRef.current?.reset();
     }
     if (state?.errors?._form) {
-      // This console.error is what you're seeing in the error report
       console.error("Form error from sendMessage action:", state.errors._form.join(', '));
     }
   }, [state]);
@@ -173,7 +249,6 @@ export default function ChatInterface({
         {isChatListCollapsed && onToggleChatList && (
            <div className="absolute top-4 left-4">
              <Button variant="ghost" size="icon" onClick={onToggleChatList}>
-                {/* Changed icon based on context from users/page.tsx */}
                 {isChatListCollapsed ? <PanelRightClose className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
              </Button>
            </div>
@@ -188,7 +263,7 @@ export default function ChatInterface({
     if (timestamp && typeof timestamp.toDate === 'function') {
       const date = timestamp.toDate();
       if (isValid(date)) {
-        return format(date, 'p'); // e.g., 4:30 PM
+        return format(date, 'p'); 
       }
     }
     return 'Sending...';
@@ -208,6 +283,32 @@ export default function ChatInterface({
                 )}
                 <CardTitle>{localEffectiveChatTitle}</CardTitle>
             </div>
+             {typeof window !== 'undefined' && 'Notification' in window && conversationId && (
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={requestNotificationPermission}
+                            className={notificationPermission === 'granted' ? "text-green-500 hover:text-green-600" : notificationPermission === 'denied' ? "text-red-500 hover:text-red-600" : ""}
+                        >
+                            {notificationPermission === 'granted' ? <BellRing className="h-5 w-5" /> : <BellOff className="h-5 w-5" />}
+                            <span className="sr-only">
+                                {notificationPermission === 'granted' ? "Notifications Enabled" :
+                                 notificationPermission === 'denied' ? "Notifications Denied" :
+                                 "Enable Notifications"}
+                            </span>
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>
+                            {notificationPermission === 'granted' ? "Desktop notifications are ON" :
+                             notificationPermission === 'denied' ? "Notifications are blocked by you" :
+                             "Click to enable desktop notifications"}
+                        </p>
+                    </TooltipContent>
+                </Tooltip>
+            )}
         </CardHeader>
         <CardContent className="flex-grow overflow-hidden p-0">
           <ScrollArea ref={scrollAreaRef} className="h-full p-4">
