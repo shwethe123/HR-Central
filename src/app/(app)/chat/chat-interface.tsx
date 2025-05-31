@@ -2,7 +2,7 @@
 // src/app/(app)/chat/chat-interface.tsx
 'use client';
 
-import React, { useState, useEffect, useRef, useActionState } from 'react';
+import React, { useState, useEffect, useRef, useActionState, useCallback } from 'react';
 import { useFormStatus } from 'react-dom';
 import type { User } from 'firebase/auth';
 import { db } from '@/lib/firebase';
@@ -30,8 +30,8 @@ interface ChatInterfaceProps {
   currentUser: User | null;
   isGeneralChat?: boolean;
   effectiveChatTitle?: string;
-  isChatListCollapsed?: boolean; 
-  onToggleChatList?: () => void; 
+  isChatListCollapsed?: boolean;
+  onToggleChatList?: () => void;
 }
 
 function SubmitButton() {
@@ -60,7 +60,6 @@ export default function ChatInterface({
   const { toast } = useToast();
 
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'default'>('default');
-  // Using a ref for notifiedMessageIds to avoid re-renders when it changes.
   const notifiedMessageIdsRef = useRef<Set<string>>(new Set());
 
 
@@ -74,6 +73,21 @@ export default function ChatInterface({
       setNotificationPermission(Notification.permission);
     }
   }, []);
+
+  const showNotification = useCallback((title: string, body: string, icon?: string) => {
+    if (notificationPermission === 'granted') {
+      const options: NotificationOptions = { body };
+      if (icon) options.icon = icon;
+      try {
+        new Notification(title, options);
+      } catch (err) {
+        console.error("Error showing notification:", err);
+        if ((err as Error).name === 'TypeError' && (err as Error).message.includes('Notification constructor')) {
+            console.warn("Notification constructor failed. Ensure site is HTTPS and service worker (if used) is correct.");
+        }
+      }
+    }
+  }, [notificationPermission]);
 
   const requestNotificationPermission = async () => {
     if (!('Notification' in window)) {
@@ -92,31 +106,13 @@ export default function ChatInterface({
     }
   };
 
-  const showNotification = (title: string, body: string, icon?: string) => {
-    if (notificationPermission === 'granted') {
-      const options: NotificationOptions = { body };
-      if (icon) options.icon = icon;
-      try {
-        new Notification(title, options);
-      } catch (err) {
-        console.error("Error showing notification:", err);
-        // This can happen if the site is not HTTPS or other security restrictions
-        if ((err as Error).name === 'TypeError' && (err as Error).message.includes('Notification constructor')) {
-            // Could be an issue with service worker or HTTPS.
-            console.warn("Notification constructor failed. Ensure site is HTTPS and service worker (if used) is correct.");
-        }
-      }
-    }
-  };
-  
-  const clearOldNotifiedMessageIds = () => {
-    // Keep only the last N message IDs to prevent the set from growing indefinitely
-    const MAX_KEPT_IDS = 50; 
+  const clearOldNotifiedMessageIds = useCallback(() => {
+    const MAX_KEPT_IDS = 50;
     if (notifiedMessageIdsRef.current.size > MAX_KEPT_IDS) {
       const oldestIds = Array.from(notifiedMessageIdsRef.current).slice(0, notifiedMessageIdsRef.current.size - MAX_KEPT_IDS);
       oldestIds.forEach(id => notifiedMessageIdsRef.current.delete(id));
     }
-  };
+  }, []);
 
 
   useEffect(() => {
@@ -160,8 +156,8 @@ export default function ChatInterface({
           senderName: data.senderName,
           senderPhotoURL: data.senderPhotoURL || null,
           text: data.text,
-          createdAt: data.createdAt, 
-          readAt: data.readAt || null, 
+          createdAt: data.createdAt,
+          readAt: data.readAt || null,
         };
         fetchedMessages.push(message);
 
@@ -173,8 +169,7 @@ export default function ChatInterface({
                 console.error(`[ChatInterface] Failed to mark message ${docSnap.id} as read:`, err.code, err.message);
               })
           );
-          
-          // Collect new unread messages for notification logic
+
           if (!notifiedMessageIdsRef.current.has(message.id)) {
             newUnreadMessagesForNotification.push(message);
           }
@@ -182,8 +177,7 @@ export default function ChatInterface({
       });
 
       setMessages(fetchedMessages);
-      
-      // Handle notifications for new messages
+
       if (newUnreadMessagesForNotification.length > 0 && notificationPermission === 'granted' && document.hidden) {
         newUnreadMessagesForNotification.forEach(msg => {
           if (!notifiedMessageIdsRef.current.has(msg.id)) {
@@ -213,7 +207,7 @@ export default function ChatInterface({
     });
 
     return () => unsubscribe();
-  }, [conversationId, currentUser, notificationPermission, showNotification]); // Added showNotification dependency
+  }, [conversationId, currentUser, notificationPermission, showNotification, clearOldNotifiedMessageIds]);
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -222,7 +216,7 @@ export default function ChatInterface({
         scrollViewport.scrollTop = scrollViewport.scrollHeight;
       }
     }
-  }, [messages.length]); 
+  }, [messages.length]);
 
   useEffect(() => {
     if (state?.success) {
@@ -263,7 +257,7 @@ export default function ChatInterface({
     if (timestamp && typeof timestamp.toDate === 'function') {
       const date = timestamp.toDate();
       if (isValid(date)) {
-        return format(date, 'p'); 
+        return format(date, 'p');
       }
     }
     return 'Sending...';
