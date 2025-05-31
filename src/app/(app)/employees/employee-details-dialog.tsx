@@ -34,10 +34,8 @@ export function EmployeeDetailsDialog({
   const formatDateSafe = (dateString: string | undefined) => {
     if (!dateString) return 'N/A';
     try {
-      // Try parsing as ISO string first (common format)
       let dateObj = parseISO(dateString);
       if (!isValid(dateObj)) {
-        // If ISO fails, try direct Date constructor (less reliable but fallback)
         dateObj = new Date(dateString);
       }
       if (isValid(dateObj)) {
@@ -59,45 +57,39 @@ export function EmployeeDetailsDialog({
 
     const cardWidth = 85;
     const cardHeight = 55;
-    const margin = 5; // Adjusted margin
+    const margin = 5; 
 
-    // Define colors (RGB arrays)
     const darkBlue = [10, 34, 64];
     const accentBlue = [0, 174, 239];
     const white = [255, 255, 255];
-    const lightGray = [200, 200, 200]; // Lighter gray for subtle text
+    const lightGray = [200, 200, 200]; 
 
-    // Background
     doc.setFillColor(darkBlue[0], darkBlue[1], darkBlue[2]);
     doc.rect(0, 0, cardWidth, cardHeight, 'F');
 
-    // Left Accent Bar
-    const accentWidth = 28; // Width of the accent bar
+    const accentWidth = 28; 
     doc.setFillColor(accentBlue[0], accentBlue[1], accentBlue[2]);
     doc.rect(0, 0, accentWidth, cardHeight, 'F');
 
-    // Avatar / Initials in Accent Bar
-    const avatarSize = 20; // Size of the avatar square/circle
+    const avatarSize = 20; 
     const avatarX = (accentWidth - avatarSize) / 2;
     const avatarY = margin + 2;
 
     let avatarAdded = false;
     if (currentEmployee.avatar) {
       try {
-        // Add image directly from URL. jsPDF attempts to fetch it.
-        // This works if the image is CORS-enabled or from the same origin.
-        // For placehold.co, it usually works.
-        // Note: Image format (JPEG/PNG) detection is automatic for common types.
-        doc.addImage(currentEmployee.avatar, 'PNG', avatarX, avatarY, avatarSize, avatarSize);
+        // Let jsPDF auto-detect the image format by passing undefined or omitting the format.
+        // It will attempt to infer from the data URI or file extension if it's a direct URL.
+        // Common formats supported: JPEG, PNG. For others, conversion might be needed.
+        doc.addImage(currentEmployee.avatar, undefined, avatarX, avatarY, avatarSize, avatarSize);
         avatarAdded = true;
-      } catch (e) {
-        console.error("Error adding image to PDF, falling back to initials:", e);
+      } catch (e: any) {
+        console.error(`Error adding image to PDF (URL: ${currentEmployee.avatar}):`, e.message || e);
         // Fallback to initials if image fails
       }
     }
 
     if (!avatarAdded) {
-      // Fallback: Initials in a circle
       const initials = currentEmployee.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
       const circleRadius = avatarSize / 2;
       const circleX = accentWidth / 2;
@@ -110,71 +102,68 @@ export function EmployeeDetailsDialog({
       doc.setFontSize(10);
       doc.setFont(undefined, 'bold');
       const initialsTextWidth = doc.getTextWidth(initials);
-      doc.text(initials, circleX - initialsTextWidth / 2, circleYFallback + 3); // Adjust Y for vertical centering
+      doc.text(initials, circleX - initialsTextWidth / 2, circleYFallback + 3.5); // Adjusted Y for better vertical centering
     }
     
-    // Company Name in Accent Bar (below avatar/initials)
     if (currentEmployee.company) {
       doc.setTextColor(white[0], white[1], white[2]);
       doc.setFontSize(6);
       doc.setFont(undefined, 'bold');
       const companyText = currentEmployee.company;
-      const companyTextWidth = doc.getTextWidth(companyText);
-      // Center company text horizontally in accent bar
-      const companyTextX = (accentWidth - companyTextWidth) / 2; 
-      doc.text(companyText, companyTextX, avatarY + avatarSize + 6); // Position below avatar
+      const companyTextMaxWidth = accentWidth - (margin / 2); // Max width for company text in accent bar
+      const companyWrappedText = doc.splitTextToSize(companyText, companyTextMaxWidth);
+      const companyTextX = (accentWidth - doc.getTextWidth(companyWrappedText[0])) / 2; // Center first line
+      doc.text(companyWrappedText, companyTextX, avatarY + avatarSize + 6, { align: 'center' });
     }
 
-
-    // --- Right Text Section ---
     let textX = accentWidth + margin;
     let textY = margin + 5;
 
-    // Employee Name (Prominent)
     doc.setTextColor(white[0], white[1], white[2]);
     doc.setFontSize(13);
     doc.setFont(undefined, 'bold');
-    doc.text(currentEmployee.name, textX, textY, { maxWidth: cardWidth - accentWidth - (margin * 2) });
+    const nameMaxWidth = cardWidth - accentWidth - (margin * 2);
+    const nameText = doc.splitTextToSize(currentEmployee.name, nameMaxWidth);
+    doc.text(nameText, textX, textY);
     
-    textY += 6;
+    textY += (nameText.length * 4.5); // Adjust based on number of lines for name
 
-    // Role/Title
     doc.setFontSize(9);
     doc.setFont(undefined, 'normal');
     doc.setTextColor(lightGray[0], lightGray[1], lightGray[2]);
-    doc.text(currentEmployee.role, textX, textY, { maxWidth: cardWidth - accentWidth - (margin * 2) });
+    const roleText = doc.splitTextToSize(currentEmployee.role, nameMaxWidth);
+    doc.text(roleText, textX, textY);
 
-    textY += 4; 
-    // Divider line
-    doc.setDrawColor(accentBlue[0], accentBlue[1], accentBlue[2]); // Use accent color for divider
+    textY += (roleText.length * 3.5) + 2; // Adjust based on number of lines for role, add small gap
+    
+    doc.setDrawColor(accentBlue[0], accentBlue[1], accentBlue[2]); 
     doc.setLineWidth(0.3);
     doc.line(textX, textY, cardWidth - margin, textY);
 
     textY += 5;
 
-    // Contact Details
-    doc.setFontSize(7.5); // Smaller font for contact details
+    doc.setFontSize(7.5); 
     doc.setTextColor(white[0], white[1], white[2]);
-    const iconTextGap = 1.5; // Gap between icon and text
+    const iconTextGap = 1.5; 
     const lineHeight = 4.5;
+    const contactMaxWidth = cardWidth - textX - margin - doc.getTextWidth('MM') - iconTextGap; // Reserve space for icons
 
     if (currentEmployee.phone) {
-      doc.text('📱', textX, textY); // Phone icon
-      doc.text(currentEmployee.phone, textX + doc.getTextWidth('📱') + iconTextGap, textY);
+      doc.text('📱', textX, textY); 
+      doc.text(doc.splitTextToSize(currentEmployee.phone, contactMaxWidth), textX + doc.getTextWidth('📱') + iconTextGap, textY);
       textY += lineHeight;
     }
     if (currentEmployee.email) {
-      doc.text('📧', textX, textY); // Email icon
-      doc.text(currentEmployee.email, textX + doc.getTextWidth('📧') + iconTextGap, textY, { maxWidth: cardWidth - accentWidth - (margin * 2) - doc.getTextWidth('📧') - iconTextGap });
+      doc.text('📧', textX, textY); 
+      doc.text(doc.splitTextToSize(currentEmployee.email, contactMaxWidth), textX + doc.getTextWidth('📧') + iconTextGap, textY);
       textY += lineHeight;
     }
-    // Department
-    if (currentEmployee.department) {
-      doc.text('💼', textX, textY); // Department/Work Icon
-      doc.text(currentEmployee.department, textX + doc.getTextWidth('💼') + iconTextGap, textY);
-      textY += lineHeight;
+    
+    if (currentEmployee.department && textY < (cardHeight - margin - 2)) { // Check if space allows
+      doc.text('💼', textX, textY); 
+      doc.text(doc.splitTextToSize(currentEmployee.department, contactMaxWidth), textX + doc.getTextWidth('💼') + iconTextGap, textY);
+      // textY += lineHeight; // No increment if it's the last item
     }
-
 
     doc.save(`Employee_Card_${currentEmployee.name.replace(/\s+/g, '_')}.pdf`);
   };
@@ -251,7 +240,7 @@ export function EmployeeDetailsDialog({
           <div className="flex items-center">
             <span className="w-[130px] font-medium text-muted-foreground">Salary:</span>
             <span>
-              {employee.salary != null // Check for null or undefined
+              {employee.salary != null 
                 ? employee.salary.toLocaleString('en-US', {
                     style: 'currency',
                     currency: 'USD',
