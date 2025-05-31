@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
+import Image from 'next/image'; // Import the Next.js Image component
 import { useAuth } from '@/contexts/auth-context';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -10,13 +11,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, UserCircle, Edit3, KeyRound, Mail, User as UserIconLucide, UploadCloud, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { storage, auth as firebaseAuth } from '@/lib/firebase'; // Import auth for updateProfile
+import { storage, auth as firebaseAuth } from '@/lib/firebase';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import { updateProfile, type User as FirebaseUser } from 'firebase/auth';
 import { updateUserFirestorePhoto, type UpdateUserPhotoResponseState } from './actions';
 
 export default function ProfilePage() {
-  const { user, loading: authLoading, setUser: setAuthUser } = useAuth(); // Get setUser to update context if needed
+  const { user, loading: authLoading, setUser: setAuthUser } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -56,7 +57,7 @@ export default function ProfilePage() {
     }
 
     setIsUploading(true);
-    const oldPhotoURL = firebaseAuth.currentUser.photoURL; // Store old URL to delete if new upload succeeds
+    const oldPhotoURL = firebaseAuth.currentUser.photoURL; 
 
     try {
       const timestamp = Date.now();
@@ -67,11 +68,10 @@ export default function ProfilePage() {
 
       uploadTask.on('state_changed',
         (snapshot) => {
-          // Optional: Handle progress (e.g., for a progress bar)
           // const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
           // console.log('Upload is ' + progress + '% done');
         },
-        (error) => { // Handle unsuccessful uploads
+        (error) => { 
           console.error("Storage Upload Error:", error);
           toast({
             title: "Image Upload Failed",
@@ -80,25 +80,21 @@ export default function ProfilePage() {
           });
           setIsUploading(false);
         },
-        async () => { // Handle successful uploads on complete
+        async () => { 
           try {
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
             console.log("File available at", downloadURL);
 
-            // 1. Update Firebase Auth profile
             if (firebaseAuth.currentUser) {
               await updateProfile(firebaseAuth.currentUser, { photoURL: downloadURL });
               console.log("Firebase Auth profile updated.");
-               // Manually update context to reflect change immediately if onAuthStateChanged is slow
-              // This is a bit of a hack, ideally onAuthStateChanged handles this.
-              if (setAuthUser) { // Check if setAuthUser is available from context
+              if (setAuthUser) { 
                   const updatedUserFromAuth = { ...firebaseAuth.currentUser, photoURL: downloadURL } as FirebaseUser;
                   setAuthUser(updatedUserFromAuth); 
               }
-              setCurrentPhotoURL(downloadURL); // Update local state for immediate preview change
+              setCurrentPhotoURL(downloadURL); 
             }
 
-            // 2. Update Firestore via Server Action
             const firestoreUpdateResult: UpdateUserPhotoResponseState = await updateUserFirestorePhoto({
               userId: firebaseAuth.currentUser.uid,
               newPhotoURL: downloadURL,
@@ -109,17 +105,15 @@ export default function ProfilePage() {
                 title: "Profile Photo Updated!",
                 description: "Your new profile photo has been saved.",
                 variant: "default",
-                className: "bg-green-500 text-white",
+                className: "bg-green-500 text-white", // Consider using theme colors
                 action: <CheckCircle className="text-white" />
               });
-              // If there was an old photo and it's different from the new one, delete it from Storage
               if (oldPhotoURL && oldPhotoURL !== downloadURL) {
                 try {
                   const oldImageRef = storageRef(storage, oldPhotoURL);
                   await deleteObject(oldImageRef);
                   console.log("Old profile picture deleted from storage.");
                 } catch (deleteError: any) {
-                  // Non-critical error, log it but don't fail the whole process
                   console.warn("Failed to delete old profile picture from storage:", deleteError.message);
                 }
               }
@@ -128,8 +122,8 @@ export default function ProfilePage() {
             }
 
             setSelectedFile(null);
-            setPreviewURL(null); // Clear preview
-            if (fileInputRef.current) fileInputRef.current.value = ""; // Reset file input
+            setPreviewURL(null); 
+            if (fileInputRef.current) fileInputRef.current.value = ""; 
 
           } catch (updateError: any) {
             console.error("Error during profile update (Auth/Firestore):", updateError);
@@ -138,7 +132,6 @@ export default function ProfilePage() {
               description: updateError.message || "Could not update profile photo.",
               variant: "destructive",
             });
-             // Potentially revert Auth photoURL if Firestore update failed? Or handle more gracefully.
           } finally {
             setIsUploading(false);
           }
@@ -265,3 +258,5 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+    
