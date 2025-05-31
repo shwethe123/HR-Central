@@ -25,10 +25,8 @@ export default function DynamicChatPage() {
 
   useEffect(() => {
     if (!conversationId) {
-        // This case should ideally not happen if IDs are always present for this page.
-        // Redirect to a safe place or show an error.
         console.warn("No conversation ID found in DynamicChatPage params.");
-        router.push('/chat/users'); // Redirect to user selection if no ID
+        router.push('/chat/users'); 
         return;
     }
 
@@ -37,12 +35,10 @@ export default function DynamicChatPage() {
     } else if (chatTargetNameQuery) {
       setEffectiveChatTitle(`Chat with ${decodeURIComponent(chatTargetNameQuery)}`);
     } else if (user && conversationId !== GENERAL_CHAT_CONVERSATION_ID) {
-      // If name is not in query params for a 1-on-1 chat, derive it (more complex, or show generic)
-      // For now, a generic title. Ideally, name is always passed or fetched.
       const uids = conversationId.split('_');
       const otherUid = uids.find(uid => uid !== user.uid);
       if (otherUid) {
-        setEffectiveChatTitle(`Direct Chat`); // Placeholder - name should be fetched or passed
+        setEffectiveChatTitle(`Direct Chat`); 
       } else {
         setEffectiveChatTitle("Direct Chat");
       }
@@ -60,7 +56,6 @@ export default function DynamicChatPage() {
 
   return (
     <div className="h-[calc(100vh-88px)] flex flex-col">
-        {/* Header for this specific page, if needed, or integrate into ChatInterface */}
         {conversationId !== GENERAL_CHAT_CONVERSATION_ID && (
           <div className="p-2 border-b bg-card">
             <Link href="/chat/users" passHref legacyBehavior>
