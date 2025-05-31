@@ -14,7 +14,7 @@ import type { Employee } from '@/types';
 import { format } from 'date-fns';
 import { Printer } from 'lucide-react';
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+// jspdf-autotable is no longer used for the card design
 
 interface EmployeeDetailsDialogProps {
   employee: Employee | null;
@@ -32,40 +32,100 @@ export function EmployeeDetailsDialog({ employee, isOpen, onOpenChange }: Employ
   const handlePrintToPdf = (currentEmployee: Employee) => {
     if (!currentEmployee) return;
 
-    const doc = new jsPDF();
-
-    doc.setFontSize(20);
-    doc.text("Employee Details", 14, 22);
-
-    doc.setFontSize(16);
-    doc.text(currentEmployee.name, 14, 32);
-
-    const tableData = [
-      { label: "Employee ID", value: currentEmployee.employeeId },
-      { label: "Company", value: currentEmployee.company || 'N/A' },
-      { label: "Department", value: currentEmployee.department },
-      { label: "Role", value: currentEmployee.role },
-      { label: "Gender", value: currentEmployee.gender || 'N/A' },
-      { label: "Email", value: currentEmployee.email },
-      { label: "Phone", value: currentEmployee.phone || 'N/A' },
-      { label: "Start Date", value: format(new Date(currentEmployee.startDate), 'MMMM d, yyyy') },
-      { label: "Status", value: currentEmployee.status },
-      { label: "Salary", value: currentEmployee.salary ? currentEmployee.salary.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }) : 'N/A' },
-    ];
-
-    autoTable(doc, {
-      startY: 40,
-      head: [['Field', 'Information']],
-      body: tableData.map(row => [row.label, row.value]),
-      theme: 'striped',
-      styles: { fontSize: 10, cellPadding: 2 },
-      headStyles: { fillColor: [22, 160, 133], textColor: 255, fontStyle: 'bold' }, // Using a teal color for header
-      alternateRowStyles: { fillColor: [245, 245, 245] },
-      tableLineColor: [200, 200, 200],
-      tableLineWidth: 0.1,
+    const doc = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: [85, 55] // Standard business card size W x H
     });
 
-    doc.save(`Employee_Details_${currentEmployee.name.replace(/\s+/g, '_')}.pdf`);
+    const cardWidth = 85;
+    const cardHeight = 55;
+    const margin = 5;
+
+    // Colors (approximated)
+    const darkBlueR = 10, darkBlueG = 34, darkBlueB = 64;     // #0A2240
+    const lightBlueR = 0, lightBlueG = 174, lightBlueB = 239; // #00AEEF
+    const whiteR = 255, whiteG = 255, whiteB = 255;
+    const greyTextR = 224, greyTextG = 224, greyTextB = 224; // #E0E0E0
+
+    // Main dark blue background
+    doc.setFillColor(darkBlueR, darkBlueG, darkBlueB);
+    doc.rect(0, 0, cardWidth, cardHeight, 'F');
+
+    // Light blue accent area on the left
+    const accentWidth = cardWidth * 0.38; // Adjusted for balance
+    doc.setFillColor(lightBlueR, lightBlueG, lightBlueB);
+    doc.rect(0, 0, accentWidth, cardHeight, 'F');
+
+    // Placeholder for "logo" - employee initials in a square
+    const logoSquareSize = accentWidth * 0.5;
+    const logoX = (accentWidth - logoSquareSize) / 2;
+    const logoY = margin * 1.5; // Position it a bit down from the top
+    doc.setFillColor(darkBlueR + 10, darkBlueG + 10, darkBlueB + 10); // Slightly lighter dark blue
+    doc.rect(logoX, logoY, logoSquareSize, logoSquareSize, 'F');
+
+    doc.setFontSize(16);
+    doc.setTextColor(whiteR, whiteG, whiteB);
+    doc.setFont(undefined, 'bold');
+    const initials = currentEmployee.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
+    const initialsWidth = doc.getTextWidth(initials);
+    const textMetrics = doc.getTextDimensions(initials);
+    doc.text(initials, logoX + (logoSquareSize - initialsWidth) / 2, logoY + logoSquareSize / 2 + (textMetrics.h / 3));
+
+
+    // Text content area - starting X and Y
+    let currentX = accentWidth + margin;
+    let currentY = margin + 7; // Initial Y position for name
+
+    // Employee Name
+    doc.setFontSize(14);
+    doc.setTextColor(whiteR, whiteG, whiteB);
+    doc.setFont(undefined, 'bold');
+    doc.text(currentEmployee.name, currentX, currentY, { maxWidth: cardWidth - accentWidth - margin * 2 });
+
+    // Employee Role
+    currentY += 6;
+    doc.setFontSize(9);
+    doc.setTextColor(greyTextR, greyTextG, greyTextB);
+    doc.setFont(undefined, 'normal');
+    doc.text(currentEmployee.role, currentX, currentY, { maxWidth: cardWidth - accentWidth - margin * 2 });
+
+    // Separator line (optional)
+    currentY += 3;
+    doc.setDrawColor(lightBlueR, lightBlueG, lightBlueB); // Use light blue for line
+    doc.setLineWidth(0.3);
+    doc.line(currentX, currentY, cardWidth - margin, currentY);
+
+    currentY += 6; // Space before contact details
+
+    // Contact Info
+    doc.setFontSize(8);
+    doc.setTextColor(whiteR, whiteG, whiteB);
+
+    const phoneIcon = "\u{1F4DE}"; // 📞
+    const emailIcon = "\u{2709}\u{FE0F}"; // ✉️
+    const companyIcon = "\u{1F3E2}"; // 🏢
+    const departmentIcon = "\u{1F4BC}"; // 💼 (Briefcase for department)
+    
+    const contactMaxWidth = cardWidth - accentWidth - margin * 1.5;
+
+    if (currentEmployee.phone) {
+        doc.text(`${phoneIcon} ${currentEmployee.phone}`, currentX, currentY, { maxWidth: contactMaxWidth });
+        currentY += 5;
+    }
+    if (currentEmployee.email) {
+        doc.text(`${emailIcon} ${currentEmployee.email}`, currentX, currentY, { maxWidth: contactMaxWidth });
+        currentY += 5;
+    }
+    if (currentEmployee.company) {
+        doc.text(`${companyIcon} ${currentEmployee.company}`, currentX, currentY, { maxWidth: contactMaxWidth });
+        currentY += 5;
+    }
+    if (currentEmployee.department) {
+        doc.text(`${departmentIcon} ${currentEmployee.department}`, currentX, currentY, { maxWidth: contactMaxWidth });
+    }
+
+    doc.save(`Employee_Card_${currentEmployee.name.replace(/\s+/g, '_')}.pdf`);
   };
 
   return (
