@@ -64,6 +64,7 @@ export async function sendMessage(
   };
 
   console.log("[sendMessage Action] Data to be sent to Firestore:", JSON.stringify(messageData, null, 2));
+  console.log(`[sendMessage Action] CRITICAL CHECK: The senderId in this data ('${messageData.senderId}') MUST match the authenticated user's UID in your Firestore Security Rules ('request.auth.uid').`);
 
 
   try {
@@ -102,3 +103,4 @@ export async function sendMessage(
     };
   }
 }
+
