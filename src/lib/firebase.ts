@@ -20,28 +20,29 @@ const TARGET_PROJECT_ID = "form-e0205"; // Based on user's latest confirmation
 
 if (typeof window !== 'undefined') {
   console.log(
-    `%cFirebase Config Initialization in firebase.ts (Attempting to use for project ${TARGET_PROJECT_ID}):`,
+    `%cFirebase Config Initialization in firebase.ts (EXPECTING project: ${TARGET_PROJECT_ID}):`,
     'color: orange; font-weight: bold;'
   );
   console.log(
-    'API Key (raw from .env.local):',
+    'API Key (from env):',
     currentApiKey ? currentApiKey.substring(0, 5) + '...' : 'MISSING_OR_NOT_LOADED_IN_ENV'
   );
-  console.log('Auth Domain (raw from .env.local):', currentAuthDomain || 'MISSING_OR_NOT_LOADED_IN_ENV');
-  console.log('Project ID (raw from .env.local):', currentProjectId || 'MISSING_OR_NOT_LOADED_IN_ENV');
-  console.log('Storage Bucket (raw from .env.local):', currentStorageBucket || 'MISSING_OR_NOT_LOADED_IN_ENV');
-  console.log('Messaging Sender ID (raw from .env.local):', currentMessagingSenderId || 'MISSING_OR_NOT_LOADED_IN_ENV');
-  console.log('App ID (raw from .env.local):', currentAppId || 'MISSING_OR_NOT_LOADED_IN_ENV');
-  console.log('Measurement ID (raw from .env.local):', currentMeasurementId || 'MISSING_OR_NOT_LOADED_IN_ENV (optional)');
+  console.log('Auth Domain (from env):', currentAuthDomain || 'MISSING_OR_NOT_LOADED_IN_ENV');
+  console.log('Project ID (from env):', currentProjectId || 'MISSING_OR_NOT_LOADED_IN_ENV');
+  // ... other logs ...
 
   if (!currentApiKey || !currentProjectId || !currentAuthDomain) {
     console.error(
-      '%cCRITICAL Firebase Config Error: One or more core Firebase configuration variables (API Key, Project ID, Auth Domain) are MISSING or NOT LOADED from your .env.local file. Please verify your .env.local file and ensure your Next.js server was restarted after changes.',
-      'color: red; font-weight: bold;'
+      '%cCRITICAL FIREBASE CONFIG ERROR: One or more core Firebase environment variables (NEXT_PUBLIC_FIREBASE_API_KEY, NEXT_PUBLIC_FIREBASE_PROJECT_ID, NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN) are MISSING. Please verify your .env.local file and ensure your Next.js server was RESTARTED after changes.',
+      'color: red; font-weight: bold; background-color: #fff0f0; padding: 5px; border: 1px solid red;'
     );
   } else if (currentProjectId !== TARGET_PROJECT_ID) {
-     console.warn(
-        `%cFirebase Config Alert: Your .env.local is configured for project '${currentProjectId}', BUT the target project ID should be '${TARGET_PROJECT_ID}'. Please ensure NEXT_PUBLIC_FIREBASE_PROJECT_ID in .env.local is '${TARGET_PROJECT_ID}'. This mismatch is likely the cause of 'auth/unauthorized-domain' or other auth errors if domains/OAuth are authorized for '${TARGET_PROJECT_ID}'.`, 'color: #FF8C00; font-weight: bold; background-color: #FFFBEA;'
+     console.error(
+        `%cCRITICAL FIREBASE CONFIG MISMATCH: Your .env.local is configured for project ID '${currentProjectId}', BUT THE APPLICATION EXPECTS PROJECT ID '${TARGET_PROJECT_ID}'.
+        ➡️➡️➡️ PLEASE ENSURE 'NEXT_PUBLIC_FIREBASE_PROJECT_ID=${TARGET_PROJECT_ID}' is in your .env.local file.
+        This mismatch is very likely the cause of 'auth/unauthorized-domain' or 'PERMISSION_DENIED' errors, as authentication tokens and Firestore rules will not align.
+        RESTART your Next.js server after correcting .env.local.`,
+        'color: red; font-weight: bold; background-color: #fff0f0; padding: 5px; border: 1px solid red;'
       );
   }
 }
@@ -53,7 +54,7 @@ const firebaseConfig = {
   storageBucket: currentStorageBucket,
   messagingSenderId: currentMessagingSenderId,
   appId: currentAppId,
-  measurementId: currentMeasurementId, // Can be undefined, SDK handles it
+  measurementId: currentMeasurementId,
 };
 
 let app: FirebaseApp;
@@ -64,40 +65,41 @@ let storageInstance: FirebaseStorage;
 if (!getApps().length) {
   if (!firebaseConfig.apiKey || !firebaseConfig.projectId || !firebaseConfig.authDomain) {
     console.error(
-        "Firebase Initialization Error: Firebase configuration is incomplete in firebaseConfig object (likely due to missing env vars). Critical values (apiKey, projectId, authDomain) are missing. Check .env.local and restart server."
+        "Firebase Initialization FAILED: Firebase configuration object is incomplete (likely due to missing env vars). Critical values (apiKey, projectId, authDomain) are missing. Firebase services will NOT be available."
     );
     // @ts-ignore
-    app = undefined; // Ensure app is undefined if config is bad
+    app = undefined; 
   } else {
     try {
         app = initializeApp(firebaseConfig);
         if (typeof window !== 'undefined') {
-            console.log('%cFirebase App Initialized Successfully. Using actual config: Project ID ->', 'color: green; font-weight: bold;', app.options.projectId, '; Auth Domain ->', app.options.authDomain);
+            console.log('%cFirebase App Initialized Successfully. Using Project ID:', 'color: green; font-weight: bold;', app.options.projectId, '; Auth Domain:', app.options.authDomain);
         }
     } catch (e: any) {
-        console.error("CRITICAL Firebase Initialization Error in firebase.ts during initializeApp(firebaseConfig):", e.message || e);
+        console.error("CRITICAL Firebase Initialization Error during initializeApp(firebaseConfig):", e.message || e);
         console.error("Firebase config object used for initialization attempt:", firebaseConfig);
         // @ts-ignore
-        app = undefined; // Ensure app is undefined on error
+        app = undefined;
     }
   }
 } else {
   app = getApps()[0];
    if (typeof window !== 'undefined') {
-        console.log('%cFirebase App Already Initialized (using existing instance). Actual config: Project ID ->', 'color: blue; font-weight: bold;', app.options.projectId, '; Auth Domain ->', app.options.authDomain);
+        console.log('%cFirebase App Already Initialized (using existing instance). Using Project ID:', 'color: blue; font-weight: bold;', app.options.projectId, '; Auth Domain:', app.options.authDomain);
     }
 }
 
-// Ensure app is initialized before getting other services
 // @ts-ignore
-if (app && app.options && app.options.apiKey) { // Check if app is a valid FirebaseApp object
+if (app && app.options && app.options.apiKey) {
   authInstance = getAuth(app);
   dbInstance = getFirestore(app);
   storageInstance = getStorage(app);
 } else {
-  console.error("Firebase app object is not properly initialized. Firebase services (Auth, Firestore, Storage) cannot be loaded. Check previous errors.");
+  if (typeof window !== 'undefined') { // Only log this in browser console
+    console.error("Firebase app object is not properly initialized. Firebase services (Auth, Firestore, Storage) will NOT be available. Check previous errors related to .env.local or Firebase configuration.");
+  }
   // @ts-ignore
-  authInstance = undefined; 
+  authInstance = undefined;
   // @ts-ignore
   dbInstance = undefined;
   // @ts-ignore

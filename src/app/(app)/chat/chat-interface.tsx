@@ -102,14 +102,15 @@ export default function ChatInterface({
         };
         fetchedMessages.push(message);
 
-        // If the message is from the other user and not yet read by current user, mark as read
         if (message.senderId !== currentUser.uid && !message.readAt) {
           const messageRef = doc(db, 'chatMessages', docSnap.id);
-        //   console.log(`Attempting to mark message ${docSnap.id} as read by ${currentUser.uid}`);
+          console.log(`[ChatInterface] Attempting to mark message ${docSnap.id} (from ${message.senderId}) as read by ${currentUser.uid}`);
           updates.push(
-            updateDoc(messageRef, { readAt: serverTimestamp() }).catch(err => {
-              console.error(`Failed to mark message ${docSnap.id} as read:`, err);
-            })
+            updateDoc(messageRef, { readAt: serverTimestamp() })
+              .then(() => console.log(`[ChatInterface] Successfully marked message ${docSnap.id} as read.`))
+              .catch(err => {
+                console.error(`[ChatInterface] Failed to mark message ${docSnap.id} as read:`, err.code, err.message);
+              })
           );
         }
       });
@@ -120,21 +121,19 @@ export default function ChatInterface({
         Promise.all(updates)
           .then(() => {
             if (updates.length > 0) {
-                // console.log(`${updates.length} messages processed for read status.`);
+                 console.log(`[ChatInterface] ${updates.length} messages processed for read status.`);
             }
           })
           .catch(error => {
-            // This catch is for Promise.all, individual errors are caught above
-            console.error("Error in batch processing message read status updates:", error);
+            console.error("[ChatInterface] Error in batch processing message read status updates:", error);
           });
       }
     }, (error) => {
-      console.error("Error fetching messages: ", error);
-      // Handle query errors, e.g., missing index or permission denied on read
+      console.error("[ChatInterface] Error fetching messages: ", error.code, error.message);
        if (error.code === 'permission-denied') {
-        console.error("Firestore permission denied while fetching messages. Check security rules for read access to 'chatMessages'.");
+        console.error("[ChatInterface] Firestore permission denied while fetching messages. Check security rules for read access to 'chatMessages'.");
       } else if (error.code === 'failed-precondition') {
-        console.error("Firestore query for messages failed. This often means a required index is missing:", error.message);
+        console.error("[ChatInterface] Firestore query for messages failed. This often means a required index is missing:", error.message);
       }
     });
 
@@ -181,10 +180,10 @@ export default function ChatInterface({
   const getFormattedTimestamp = (timestamp: Timestamp | undefined | null): string => {
     if (timestamp && typeof timestamp.toDate === 'function') {
       try {
-        return format(timestamp.toDate(), 'p');
+        return format(timestamp.toDate(), 'p'); // e.g., 4:30 PM
       } catch (e) {
         console.error("Error formatting timestamp:", timestamp, e);
-        return "Time Error";
+        return "Time Err";
       }
     }
     return 'Sending...';
@@ -283,6 +282,14 @@ export default function ChatInterface({
             onSubmit={(e) => {
               if (!newMessage.trim()) {
                 e.preventDefault();
+                return;
+              }
+              if (currentUser && currentUser.uid) {
+                console.log(`[ChatInterface] Attempting to send message. Client-side currentUser.uid: ${currentUser.uid}, displayName: ${currentUser.displayName}`);
+              } else {
+                console.error("[ChatInterface] Cannot send message: currentUser or currentUser.uid is missing.");
+                e.preventDefault();
+                return;
               }
             }}
             className="flex w-full items-center gap-2"
@@ -300,7 +307,7 @@ export default function ChatInterface({
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  if (newMessage.trim()) {
+                  if (newMessage.trim() && currentUser && currentUser.uid) {
                     formRef.current?.requestSubmit();
                   }
                 }
