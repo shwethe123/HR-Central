@@ -5,8 +5,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { db } from '@/lib/firebase';
-import { collection, query, getDocs, orderBy, where } from 'firebase/firestore';
-import type { AppUser } from '@/types';
+import { collection, query, getDocs, orderBy, where, getCountFromServer, Timestamp } from 'firebase/firestore';
+import type { AppUser, ChatMessage } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -16,11 +16,14 @@ import { getOneToOneConversationId } from '@/lib/chatUtils';
 import ChatInterface from '../chat-interface';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
 
 const GENERAL_CHAT_CONVERSATION_ID = "general_company_chat";
 
 export default function OneOnOneChatPage() {
   const { user, loading: authLoading } = useAuth();
+  const { toast } = useToast();
   const [appUsers, setAppUsers] = useState<AppUser[]>([]);
   const [isLoadingAppUsers, setIsLoadingAppUsers] = useState(true);
   
@@ -30,6 +33,9 @@ export default function OneOnOneChatPage() {
 
   const [isChatListOpen, setIsChatListOpen] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+  const [isLoadingCounts, setIsLoadingCounts] = useState(false);
 
   const fetchAppUsers = useCallback(async () => {
     if (!user) return; 
@@ -51,10 +57,111 @@ export default function OneOnOneChatPage() {
       setAppUsers(fetchedAppUsers);
     } catch (error) {
       console.error("Error fetching app users for chat selection:", error);
+      toast({
+        title: "Error Fetching Users",
+        description: "Could not load the list of users for chat.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoadingAppUsers(false);
     }
-  }, [user]);
+  }, [user, toast]);
+
+  const fetchUnreadCounts = useCallback(async () => {
+    if (!user) {
+      setIsLoadingCounts(false);
+      return;
+    }
+    // Only proceed if appUsers has been populated to avoid running with an empty list initially
+    if (appUsers.length === 0 && !isLoadingAppUsers) { 
+        setIsLoadingCounts(false);
+        return;
+    }
+
+
+    console.log(`[ChatUsersPage] Starting to fetch unread counts. User: ${user.uid}, App Users count: ${appUsers.length}. Will perform approx ${appUsers.length + 1} count queries.`);
+    setIsLoadingCounts(true);
+    const counts: Record<string, number> = {};
+    const promises = [];
+
+    // General Chat
+    const generalChatConvId = GENERAL_CHAT_CONVERSATION_ID;
+    const generalChatQuery = query(
+      collection(db, 'chatMessages'),
+      where('conversationId', '==', generalChatConvId),
+      where('senderId', '!=', user.uid),
+      where('readAt', '==', null)
+    );
+    promises.push(
+      getCountFromServer(generalChatQuery)
+        .then(snapshot => {
+          counts[generalChatConvId] = snapshot.data().count;
+        })
+        .catch(err => {
+          console.error(`[ChatUsersPage] Error fetching unread count for General Chat (${generalChatConvId}):`, err);
+          if ((err as any)?.code === 'resource-exhausted') {
+            toast({
+              title: "Firestore Quota Issue",
+              description: "Could not fetch unread counts for General Chat due to Firestore quota limits. Please check your Firebase project usage or upgrade your plan.",
+              variant: "destructive",
+            });
+          }
+          // Optionally set count to 0 or an error indicator if needed
+          counts[generalChatConvId] = 0; 
+        })
+    );
+
+    // 1-on-1 Chats
+    for (const appUserItem of appUsers) {
+      const convId = getOneToOneConversationId(user.uid, appUserItem.uid);
+      const q = query(
+        collection(db, 'chatMessages'),
+        where('conversationId', '==', convId),
+        where('senderId', '!=', user.uid), // Messages sent by others
+        where('readAt', '==', null)        // That are unread by current user
+      );
+      promises.push(
+        getCountFromServer(q)
+          .then(snapshot => {
+            counts[convId] = snapshot.data().count;
+          })
+          .catch(err => {
+            console.error(`[ChatUsersPage] Error fetching unread count for conversation ${convId}:`, err);
+             if ((err as any)?.code === 'failed-precondition') {
+                toast({
+                    title: "Firestore Index Missing",
+                    description: `An index might be required for fetching unread counts for chat. Check browser console for a link to create it. Conversation ID: ${convId}`,
+                    variant: "destructive",
+                });
+            } else if ((err as any)?.code === 'resource-exhausted') {
+              toast({
+                title: "Firestore Quota Issue",
+                description: `Could not fetch unread counts for chat with ${appUserItem.displayName} due to Firestore quota limits.`,
+                variant: "destructive",
+              });
+            }
+            counts[convId] = 0; // Default to 0 on error
+          })
+      );
+    }
+
+    try {
+      await Promise.all(promises);
+      // Merge with previous counts in case some promises failed, to not lose all counts
+      setUnreadCounts(prevCounts => ({ ...prevCounts, ...counts })); 
+    } catch (error) {
+      // This catch might not be strictly necessary if individual promises handle their errors
+      console.error("[ChatUsersPage] Error processing unread count promises bundle:", error);
+      toast({
+        title: "Error Updating Counts",
+        description: "Some unread message counts might not have updated correctly.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingCounts(false);
+      console.log("[ChatUsersPage] Finished fetching unread counts. Current counts:", counts);
+    }
+  }, [user, appUsers, toast, isLoadingAppUsers]);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -62,20 +169,45 @@ export default function OneOnOneChatPage() {
     }
   }, [authLoading, user, fetchAppUsers]);
 
+  // Fetch unread counts when the user is available AND appUsers list has been populated
+  useEffect(() => {
+    if (user && appUsers.length > 0 && !isLoadingAppUsers) {
+      fetchUnreadCounts();
+    } else if (user && !isLoadingAppUsers && appUsers.length === 0) {
+        // Case where user is loaded, appUsers fetch is done, and there are no other users.
+        // Still attempt for general chat.
+        // Or, if appUsers is empty, fetchUnreadCounts logic for general chat handles it.
+        fetchUnreadCounts(); // Will only process general chat if appUsers is empty.
+    }
+  }, [user, appUsers, isLoadingAppUsers, fetchUnreadCounts]);
+
+
   const handleSelectConversation = (targetUser: AppUser | 'general') => {
     if (!user) return;
+    let conversationId;
+    let chatTargetName;
+    let chatTitle;
 
     if (targetUser === 'general') {
-      setActiveConversationId(GENERAL_CHAT_CONVERSATION_ID);
-      const generalChatName = "Company General Chat";
-      setActiveChatTargetName(generalChatName);
-      setActiveChatTitle(generalChatName);
+      conversationId = GENERAL_CHAT_CONVERSATION_ID;
+      chatTargetName = "Company General Chat";
+      chatTitle = chatTargetName;
     } else {
-      const conversationId = getOneToOneConversationId(user.uid, targetUser.uid);
-      const chatTargetName = targetUser.displayName || targetUser.email || "User";
-      setActiveConversationId(conversationId);
-      setActiveChatTargetName(chatTargetName);
-      setActiveChatTitle(`Chat with ${chatTargetName}`);
+      conversationId = getOneToOneConversationId(user.uid, targetUser.uid);
+      chatTargetName = targetUser.displayName || targetUser.email || "User";
+      chatTitle = `Chat with ${chatTargetName}`;
+    }
+    
+    setActiveConversationId(conversationId);
+    setActiveChatTargetName(chatTargetName);
+    setActiveChatTitle(chatTitle);
+
+    // Optimistically mark as read for UI
+    if (conversationId) {
+      setUnreadCounts(prev => ({ ...prev, [conversationId!]: 0 }));
+    }
+    if (window.innerWidth < 768) { // md breakpoint
+        setIsChatListOpen(false);
     }
   };
 
@@ -84,9 +216,9 @@ export default function OneOnOneChatPage() {
     (appUserItem.email?.toLowerCase() || '').includes(searchTerm.toLowerCase())
   );
 
-  const isLoading = authLoading || isLoadingAppUsers;
+  const isLoading = authLoading || isLoadingAppUsers || (appUsers.length > 0 && isLoadingCounts);
 
-  if (isLoading && !user) { // Show loader only if auth is also loading and no user yet
+  if (authLoading && !user) { 
     return (
       <div className="flex h-[calc(100vh-120px)] items-center justify-center">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -107,7 +239,6 @@ export default function OneOnOneChatPage() {
 
   return (
     <div className="flex h-[calc(100vh-88px)] border rounded-lg shadow-xl overflow-hidden">
-      {/* Left Panel: User List */}
       <div 
         className={cn(
           "bg-card flex flex-col border-r transition-all duration-300 ease-in-out",
@@ -140,26 +271,31 @@ export default function OneOnOneChatPage() {
             </CardHeader>
             <ScrollArea className="flex-grow">
               <CardContent className="p-0">
-                {/* General Chat Option */}
                 <div
                   className={cn(
-                    "p-3 flex items-center gap-3 cursor-pointer hover:bg-muted/50 transition-colors border-b",
+                    "p-3 flex items-center justify-between gap-3 cursor-pointer hover:bg-muted/50 transition-colors border-b",
                     activeConversationId === GENERAL_CHAT_CONVERSATION_ID && "bg-primary/10 border-l-4 border-primary"
                   )}
                   onClick={() => handleSelectConversation('general')}
                 >
-                  <Avatar className="h-10 w-10">
-                    <AvatarFallback><MessageCircle className="h-5 w-5 text-primary"/></AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className={cn("font-semibold", activeConversationId === GENERAL_CHAT_CONVERSATION_ID && "text-primary")}>
-                        Company General Chat
-                    </p>
-                    <p className="text-xs text-muted-foreground">Talk with everyone in the company</p>
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-10 w-10">
+                      <AvatarFallback><MessageCircle className="h-5 w-5 text-primary"/></AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className={cn("font-semibold", activeConversationId === GENERAL_CHAT_CONVERSATION_ID && "text-primary")}>
+                          Company General Chat
+                      </p>
+                      <p className="text-xs text-muted-foreground">Talk with everyone</p>
+                    </div>
                   </div>
+                  {unreadCounts[GENERAL_CHAT_CONVERSATION_ID] > 0 && (
+                    <Badge variant="destructive" className="h-5 min-w-[20px] px-1.5 rounded-full flex items-center justify-center text-xs">
+                      {unreadCounts[GENERAL_CHAT_CONVERSATION_ID]}
+                    </Badge>
+                  )}
                 </div>
 
-                {/* 1-on-1 Chat User List */}
                 {isLoadingAppUsers ? (
                     <div className="p-4 text-center">
                         <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" />
@@ -168,31 +304,39 @@ export default function OneOnOneChatPage() {
                 ) : filteredAppUsers.length === 0 && appUsers.length > 0 ? (
                     <p className="text-center text-muted-foreground py-8 px-3 text-sm">No users match your search.</p>
                 ) : filteredAppUsers.length === 0 && appUsers.length === 0 ? (
-                     <p className="text-center text-muted-foreground py-8 px-3 text-sm">No other users found to chat with.</p>
+                     <p className="text-center text-muted-foreground py-8 px-3 text-sm">No other users to chat with.</p>
                 ) : (
                   <div className="space-y-0">
                     {filteredAppUsers.map((appUserItem) => {
                       const convId = getOneToOneConversationId(user.uid, appUserItem.uid);
                       const isActive = activeConversationId === convId;
+                      const unreadCount = unreadCounts[convId] || 0;
                       return (
                         <div 
                           key={appUserItem.uid} 
                           className={cn(
-                            "p-3 flex items-center gap-3 cursor-pointer hover:bg-muted/50 transition-colors border-b last:border-b-0",
+                            "p-3 flex items-center justify-between gap-3 cursor-pointer hover:bg-muted/50 transition-colors border-b last:border-b-0",
                             isActive && "bg-primary/10 border-l-4 border-primary"
                           )}
                           onClick={() => handleSelectConversation(appUserItem)}
                         >
-                          <Avatar className="h-10 w-10">
-                            <AvatarImage src={appUserItem.photoURL || undefined} alt={appUserItem.displayName || appUserItem.email || "User"} data-ai-hint="person avatar"/>
-                            <AvatarFallback>{(appUserItem.displayName || appUserItem.email || "U").substring(0, 1).toUpperCase()}</AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className={cn("font-semibold", isActive && "text-primary")}>
-                                {appUserItem.displayName || appUserItem.email}
-                            </p>
-                            <p className="text-xs text-muted-foreground">{appUserItem.displayName ? appUserItem.email : "App User"}</p>
+                          <div className="flex items-center gap-3 overflow-hidden">
+                            <Avatar className="h-10 w-10">
+                              <AvatarImage src={appUserItem.photoURL || undefined} alt={appUserItem.displayName || appUserItem.email || "User"} data-ai-hint="person avatar"/>
+                              <AvatarFallback>{(appUserItem.displayName || appUserItem.email || "U").substring(0, 1).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            <div className="overflow-hidden">
+                              <p className={cn("font-semibold truncate", isActive && "text-primary")}>
+                                  {appUserItem.displayName || appUserItem.email}
+                              </p>
+                              <p className="text-xs text-muted-foreground truncate">{appUserItem.displayName ? appUserItem.email : "App User"}</p>
+                            </div>
                           </div>
+                           {unreadCount > 0 && (
+                            <Badge variant="destructive" className="h-5 min-w-[20px] px-1.5 rounded-full flex items-center justify-center text-xs shrink-0">
+                              {unreadCount}
+                            </Badge>
+                          )}
                         </div>
                       );
                     })}
@@ -204,7 +348,6 @@ export default function OneOnOneChatPage() {
         )}
       </div>
 
-      {/* Right Panel: Chat Interface */}
       <div className="flex-grow h-full">
         <ChatInterface
           conversationId={activeConversationId}
@@ -220,3 +363,4 @@ export default function OneOnOneChatPage() {
   );
 }
 
+    
