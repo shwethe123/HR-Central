@@ -87,7 +87,7 @@ export default function ChatInterface({
         }
       }
     }
-  }, [notificationPermission]);
+  }, [notificationPermission, toast]);
 
   const requestNotificationPermission = async () => {
     if (!('Notification' in window)) {
@@ -207,7 +207,7 @@ export default function ChatInterface({
     });
 
     return () => unsubscribe();
-  }, [conversationId, currentUser, notificationPermission, showNotification, clearOldNotifiedMessageIds]);
+  }, [conversationId, currentUser, notificationPermission]); // Removed showNotification, clearOldNotifiedMessageIds
 
   useEffect(() => {
     if (scrollAreaRef.current) {
