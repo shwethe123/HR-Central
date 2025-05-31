@@ -120,7 +120,7 @@ export default function LoginPage() {
 
   if (authLoading) { 
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+      <div className="flex min-h-screen w-full flex-col items-center justify-center bg-background p-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="mt-4 text-muted-foreground">Loading...</p>
       </div>
@@ -130,7 +130,7 @@ export default function LoginPage() {
   // This page should only be visible if there's no user and not loading.
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-background to-background p-4">
+    <div className="flex min-h-screen w-full flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-background to-background p-4">
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
           <div className="mb-4 flex justify-center">
