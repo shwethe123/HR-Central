@@ -6,9 +6,11 @@ import type { Employee } from "@/types";
 import { getColumns } from "./columns";
 import { DataTable } from "./data-table";
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore'; // Added limit
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+
+const EMPLOYEES_FETCH_LIMIT = 30; // Limit for initial fetch
 
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -19,7 +21,8 @@ export default function EmployeesPage() {
     setIsLoading(true);
     try {
       const employeesCollectionRef = collection(db, "employees");
-      const q = query(employeesCollectionRef, orderBy("name", "asc"));
+      // Apply limit to the query
+      const q = query(employeesCollectionRef, orderBy("name", "asc"), limit(EMPLOYEES_FETCH_LIMIT));
       const querySnapshot = await getDocs(q);
       const fetchedEmployees: Employee[] = querySnapshot.docs.map(doc => {
         const data = doc.data();
@@ -37,10 +40,19 @@ export default function EmployeesPage() {
           avatar: data.avatar || "",
           company: data.company || "",
           salary: data.salary === undefined ? undefined : Number(data.salary),
-          gender: data.gender || "Prefer not to say", // Added gender mapping
+          gender: data.gender || "Prefer not to say",
         } as Employee;
       });
       setEmployees(fetchedEmployees);
+
+      if (querySnapshot.docs.length >= EMPLOYEES_FETCH_LIMIT) {
+        toast({
+          title: "Employee List Truncated",
+          description: `Showing the first ${EMPLOYEES_FETCH_LIMIT} employees. Full list view requires pagination or 'load more'.`,
+          variant: "default",
+        });
+      }
+
     } catch (error) {
       console.error("Error fetching employees:", error);
       toast({
@@ -92,3 +104,6 @@ export default function EmployeesPage() {
     </div>
   );
 }
+
+
+    

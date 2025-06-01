@@ -20,8 +20,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Users, PlusCircle, Loader2, User, Edit, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, orderBy, Timestamp, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, Timestamp, doc, getDoc, limit } from 'firebase/firestore'; // Added limit
 import { format } from 'date-fns';
+
+const TEAMS_FETCH_LIMIT = 20; // Limit for initial fetch
+const EMPLOYEES_FOR_FORM_FETCH_LIMIT = 100; // Limit for employees in the form dropdown
+
 
 const formatDateFromTimestamp = (timestamp: Timestamp | string | undefined): string => {
   if (!timestamp) return 'N/A';
@@ -52,7 +56,8 @@ export default function TeamsPage() {
     setIsLoadingTeams(true);
     try {
       const teamsCollectionRef = collection(db, "teams");
-      const q = query(teamsCollectionRef, orderBy("createdAt", "desc"));
+      // Apply limit to the query
+      const q = query(teamsCollectionRef, orderBy("createdAt", "desc"), limit(TEAMS_FETCH_LIMIT));
       const querySnapshot = await getDocs(q);
       const fetchedTeams: Team[] = querySnapshot.docs.map(doc => {
         const data = doc.data();
@@ -61,11 +66,18 @@ export default function TeamsPage() {
           name: data.name || "Unnamed Team",
           description: data.description || "",
           memberIds: data.memberIds || [],
-          memberNames: data.memberNames || [], // Get pre-fetched names
-          createdAt: data.createdAt, // Keep as Timestamp or string
+          memberNames: data.memberNames || [],
+          createdAt: data.createdAt,
         } as Team;
       });
       setTeams(fetchedTeams);
+      if (querySnapshot.docs.length >= TEAMS_FETCH_LIMIT) {
+        toast({
+          title: "Team List Truncated",
+          description: `Showing the first ${TEAMS_FETCH_LIMIT} teams. Full list view requires pagination or 'load more'.`,
+          variant: "default",
+        });
+      }
     } catch (error) {
       console.error("Error fetching teams:", error);
       toast({
@@ -82,10 +94,18 @@ export default function TeamsPage() {
     setIsLoadingEmployees(true);
     try {
       const employeesCollectionRef = collection(db, "employees");
-      const q = query(employeesCollectionRef, orderBy("name", "asc"));
+      // Limit employees fetched for the form dropdown
+      const q = query(employeesCollectionRef, orderBy("name", "asc"), limit(EMPLOYEES_FOR_FORM_FETCH_LIMIT));
       const querySnapshot = await getDocs(q);
       const fetchedEmployees: Employee[] = querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Employee));
       setEmployees(fetchedEmployees);
+       if (querySnapshot.docs.length >= EMPLOYEES_FOR_FORM_FETCH_LIMIT) {
+          toast({
+            title: "Employee Dropdown Truncated",
+            description: `Employee selection for new teams shows the first ${EMPLOYEES_FOR_FORM_FETCH_LIMIT} employees.`,
+            variant: "default",
+          });
+      }
     } catch (error) {
       console.error("Error fetching employees for teams form:", error);
       toast({
@@ -230,3 +250,6 @@ export default function TeamsPage() {
     </div>
   );
 }
+
+
+    

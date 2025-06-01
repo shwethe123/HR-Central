@@ -5,7 +5,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { db } from '@/lib/firebase';
-import { collection, query, getDocs, orderBy, where, getCountFromServer, Timestamp } from 'firebase/firestore';
+import { collection, query, getDocs, orderBy, where, getCountFromServer, Timestamp, limit } from 'firebase/firestore'; // Added limit
 import type { AppUser, ChatMessage } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 
 const GENERAL_CHAT_CONVERSATION_ID = "general_company_chat";
+const USER_LIST_FETCH_LIMIT = 50; // Limit for fetching app users initially
 
 export default function OneOnOneChatPage() {
   const { user, loading: authLoading } = useAuth();
@@ -34,7 +35,7 @@ export default function OneOnOneChatPage() {
   const [isChatListOpen, setIsChatListOpen] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({}); // Will only store general chat unread count
   const [isLoadingCounts, setIsLoadingCounts] = useState(false); 
 
   const fetchAppUsers = useCallback(async () => {
@@ -42,7 +43,8 @@ export default function OneOnOneChatPage() {
     setIsLoadingAppUsers(true);
     try {
       const usersCollectionRef = collection(db, "users"); 
-      const q = query(usersCollectionRef, where("uid", "!=", user.uid), orderBy("displayName", "asc"));
+      // Limit the number of users fetched for the list initially to reduce reads
+      const q = query(usersCollectionRef, where("uid", "!=", user.uid), orderBy("displayName", "asc"), limit(USER_LIST_FETCH_LIMIT));
       const querySnapshot = await getDocs(q);
       const fetchedAppUsers: AppUser[] = [];
       querySnapshot.forEach(doc => {
@@ -55,6 +57,13 @@ export default function OneOnOneChatPage() {
         });
       });
       setAppUsers(fetchedAppUsers);
+      if (querySnapshot.docs.length >= USER_LIST_FETCH_LIMIT) {
+        toast({
+          title: "User List Truncated",
+          description: `Showing the first ${USER_LIST_FETCH_LIMIT} users. Implement search or pagination for more.`,
+          variant: "default",
+        });
+      }
     } catch (error) {
       console.error("Error fetching app users for chat selection:", error);
       toast({
@@ -68,20 +77,16 @@ export default function OneOnOneChatPage() {
   }, [user, toast]);
 
 
-  const fetchUnreadCounts = useCallback(async () => {
+  const fetchGeneralChatUnreadCount = useCallback(async () => {
     if (!user) {
       setIsLoadingCounts(false); 
       return;
     }
-    if (appUsers.length === 0 && !isLoadingAppUsers && !isLoadingCounts) { 
-        console.log("[ChatUsersPage] No other app users to fetch counts for, or already attempted. Skipping individual counts, will try general chat if applicable.");
-    }
-
-    console.warn(`[ChatUsersPage] UNREAD COUNT FETCH: User: ${user.uid}, App Users count: ${appUsers.length}. This will perform approx ${appUsers.length + 1} Firestore read operations (getCountFromServer). If you hit quota limits, consider optimizing or disabling this feature.`);
+    
+    console.log(`[ChatUsersPage] Fetching unread count for General Chat. User: ${user.uid}`);
     setIsLoadingCounts(true); 
     const counts: Record<string, number> = {};
-    const promises = [];
-
+    
     const generalChatConvId = GENERAL_CHAT_CONVERSATION_ID;
     const generalChatQuery = query(
       collection(db, 'chatMessages'),
@@ -89,79 +94,33 @@ export default function OneOnOneChatPage() {
       where('senderId', '!=', user.uid),
       where('readAt', '==', null)
     );
-    promises.push(
-      getCountFromServer(generalChatQuery)
-        .then(snapshot => {
-          counts[generalChatConvId] = snapshot.data().count;
-        })
-        .catch(err => {
-          console.error(`[ChatUsersPage] Error fetching unread count for General Chat (${generalChatConvId}):`, err);
-          if ((err as any)?.code === 'resource-exhausted') {
-            toast({
-              title: "Firestore Quota Issue (General Chat)",
-              description: "Could not fetch unread counts for General Chat due to Firestore quota limits. Please check your Firebase project usage or upgrade your plan.",
-              variant: "destructive",
-            });
-          } else if ((err as any)?.code === 'failed-precondition') {
-              toast({
-                  title: "Firestore Index Missing (General Chat)",
-                  description: `An index might be required for fetching unread counts for General Chat. Check browser console for a link to create it. Error: ${(err as any).message}`,
-                  variant: "destructive",
-              });
-          }
-          counts[generalChatConvId] = 0; 
-        })
-    );
-
-    for (const appUserItem of appUsers) {
-      const convId = getOneToOneConversationId(user.uid, appUserItem.uid);
-      const q = query(
-        collection(db, 'chatMessages'),
-        where('conversationId', '==', convId),
-        where('senderId', '!=', user.uid),
-        where('readAt', '==', null)
-      );
-      promises.push(
-        getCountFromServer(q)
-          .then(snapshot => {
-            counts[convId] = snapshot.data().count;
-          })
-          .catch(err => {
-            console.error(`[ChatUsersPage] Error fetching unread count for conversation ${convId} with ${appUserItem.displayName}:`, err);
-             if ((err as any)?.code === 'failed-precondition') {
-                toast({
-                    title: "Firestore Index Missing",
-                    description: `An index might be required for fetching unread counts for chat with ${appUserItem.displayName}. Check browser console for a link to create it. Conv ID: ${convId}. Error: ${(err as any).message}`,
-                    variant: "destructive",
-                });
-            } else if ((err as any)?.code === 'resource-exhausted') {
-              toast({
-                title: "Firestore Quota Issue (User Chat)",
-                description: `Could not fetch unread counts for chat with ${appUserItem.displayName} due to Firestore quota limits.`,
-                variant: "destructive",
-              });
-            }
-            counts[convId] = 0; 
-          })
-      );
-    }
 
     try {
-      await Promise.all(promises);
-      setUnreadCounts(prevCounts => ({ ...prevCounts, ...counts })); 
-    } catch (error) {
-      console.error("[ChatUsersPage] Error processing unread count promises bundle:", error);
-      toast({
-        title: "Error Updating Some Counts",
-        description: "Some unread message counts might not have updated correctly.",
-        variant: "destructive"
-      });
+      const snapshot = await getCountFromServer(generalChatQuery);
+      counts[generalChatConvId] = snapshot.data().count;
+      setUnreadCounts(counts);
+    } catch (err) {
+      console.error(`[ChatUsersPage] Error fetching unread count for General Chat (${generalChatConvId}):`, err);
+      if ((err as any)?.code === 'resource-exhausted') {
+        toast({
+          title: "Firestore Quota Issue (General Chat)",
+          description: "Could not fetch unread counts for General Chat due to Firestore quota limits.",
+          variant: "destructive",
+        });
+      } else if ((err as any)?.code === 'failed-precondition') {
+          toast({
+              title: "Firestore Index Missing (General Chat)",
+              description: `An index might be required for fetching unread counts. Check browser console for a link to create it. Error: ${(err as any).message}`,
+              variant: "destructive",
+          });
+      }
+      counts[generalChatConvId] = 0; // Set to 0 on error
+      setUnreadCounts(counts);
     } finally {
       setIsLoadingCounts(false); 
-      console.log("[ChatUsersPage] Finished fetching unread counts. Current counts:", counts);
+      console.log("[ChatUsersPage] Finished fetching general chat unread count. Current counts:", counts);
     }
-  }, [user, appUsers, toast, isLoadingAppUsers, isLoadingCounts]); 
-
+  }, [user, toast]); 
 
 
   useEffect(() => {
@@ -173,9 +132,9 @@ export default function OneOnOneChatPage() {
 
   useEffect(() => {
     if (user && !isLoadingAppUsers && !isLoadingCounts) { 
-      fetchUnreadCounts(); 
+      fetchGeneralChatUnreadCount(); 
     }
-  }, [user, appUsers, isLoadingAppUsers, isLoadingCounts, fetchUnreadCounts]);
+  }, [user, isLoadingAppUsers, isLoadingCounts, fetchGeneralChatUnreadCount]); // appUsers removed as dependency
 
 
   const handleSelectConversation = (targetUser: AppUser | 'general') => {
@@ -188,20 +147,20 @@ export default function OneOnOneChatPage() {
       conversationId = GENERAL_CHAT_CONVERSATION_ID;
       chatTargetName = "Company General Chat";
       chatTitle = chatTargetName;
+      // If general chat is selected, potentially clear its unread count visually
+      if (conversationId) {
+        setUnreadCounts(prev => ({ ...prev, [conversationId!]: 0 })); 
+      }
     } else {
       conversationId = getOneToOneConversationId(user.uid, targetUser.uid);
       chatTargetName = targetUser.displayName || targetUser.email || "User";
       chatTitle = `Chat with ${chatTargetName}`;
+      // Unread counts for 1-on-1 chats are no longer fetched/displayed here
     }
     
     setActiveConversationId(conversationId);
     setActiveChatTargetName(chatTargetName);
     setActiveChatTitle(chatTitle);
-
-
-    if (conversationId) {
-      setUnreadCounts(prev => ({ ...prev, [conversationId!]: 0 })); 
-    }
     
     if (window.innerWidth < 768) { 
         setIsChatListOpen(false);
@@ -308,7 +267,7 @@ export default function OneOnOneChatPage() {
                     {filteredAppUsers.map((appUserItem) => {
                       const convId = getOneToOneConversationId(user.uid, appUserItem.uid);
                       const isActive = activeConversationId === convId;
-                      const unreadCount = unreadCounts[convId] || 0; 
+                      // Individual unread counts are no longer displayed here
                       return (
                         <div 
                           key={appUserItem.uid} 
@@ -330,11 +289,7 @@ export default function OneOnOneChatPage() {
                               <p className="text-xs text-muted-foreground truncate">{appUserItem.displayName ? appUserItem.email : "App User"}</p>
                             </div>
                           </div>
-                           {unreadCount > 0 && (
-                            <Badge variant="destructive" className="h-5 min-w-[20px] px-1.5 rounded-full flex items-center justify-center text-xs shrink-0">
-                              {unreadCount}
-                            </Badge>
-                          )}
+                           {/* Removed individual unread count badge */}
                         </div>
                       );
                     })}
@@ -363,6 +318,3 @@ export default function OneOnOneChatPage() {
     
 
     
-
-
-

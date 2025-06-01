@@ -14,7 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; // Import Tabs
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LeaveRequestForm } from "./leave-request-form";
 import { CalendarPlus, FileText, Loader2, User, ListChecks } from 'lucide-react';
 import { updateLeaveRequestStatus, type UpdateLeaveStatusFormState } from './actions';
@@ -23,8 +23,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { format as formatDateFns } from 'date-fns';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, orderBy, Timestamp } from 'firebase/firestore';
-import { useAuth } from '@/contexts/auth-context'; // Import useAuth
+import { collection, getDocs, query, orderBy, Timestamp, limit } from 'firebase/firestore'; // Added limit
+import { useAuth } from '@/contexts/auth-context';
+
+const LEAVE_REQUESTS_FETCH_LIMIT = 30; // Limit for initial fetch
+const EMPLOYEES_FOR_FORM_FETCH_LIMIT = 100; // Limit for employees in the form dropdown
 
 // Helper to format dates, handling both string and Firestore Timestamp
 const formatDate = (dateInput: string | Timestamp | undefined): string => {
@@ -56,7 +59,7 @@ const formatDate = (dateInput: string | Timestamp | undefined): string => {
 type ViewMode = "myRequests" | "allRequests";
 
 export default function LeaveRequestsPage() {
-  const { user, loading: authLoading } = useAuth(); // Get current user
+  const { user, loading: authLoading } = useAuth();
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
@@ -72,7 +75,8 @@ export default function LeaveRequestsPage() {
     setIsLoadingRequests(true);
     try {
       const leaveRequestsCollectionRef = collection(db, "leaveRequests");
-      const q = query(leaveRequestsCollectionRef, orderBy("requestedDate", "desc"));
+      // Apply limit to the query
+      const q = query(leaveRequestsCollectionRef, orderBy("requestedDate", "desc"), limit(LEAVE_REQUESTS_FETCH_LIMIT));
       const querySnapshot = await getDocs(q);
       const fetchedRequests: LeaveRequest[] = querySnapshot.docs.map(doc => {
         const data = doc.data();
@@ -89,6 +93,13 @@ export default function LeaveRequestsPage() {
         } as LeaveRequest;
       });
       setLeaveRequests(fetchedRequests);
+      if (querySnapshot.docs.length >= LEAVE_REQUESTS_FETCH_LIMIT) {
+        toast({
+          title: "Leave Request List Truncated",
+          description: `Showing the first ${LEAVE_REQUESTS_FETCH_LIMIT} requests. Full list view requires pagination or 'load more'.`,
+          variant: "default",
+        });
+      }
     } catch (error) {
       console.error("Error fetching leave requests:", error);
       toast({
@@ -105,7 +116,8 @@ export default function LeaveRequestsPage() {
     setIsLoadingEmployees(true);
     try {
       const employeesCollectionRef = collection(db, "employees");
-      const q = query(employeesCollectionRef, orderBy("name", "asc"));
+      // Limit employees fetched for the form dropdown
+      const q = query(employeesCollectionRef, orderBy("name", "asc"), limit(EMPLOYEES_FOR_FORM_FETCH_LIMIT));
       const querySnapshot = await getDocs(q);
       const fetchedEmployees: Employee[] = querySnapshot.docs.map(doc => {
         const data = doc.data();
@@ -113,7 +125,7 @@ export default function LeaveRequestsPage() {
           id: doc.id,
           ...data,
           name: data.name || "",
-          employeeId: data.employeeId || "", // This is the custom EMP001 style ID
+          employeeId: data.employeeId || "",
           department: data.department || "",
           role: data.role || "",
           email: data.email || "",
@@ -126,6 +138,13 @@ export default function LeaveRequestsPage() {
         } as Employee;
       });
       setEmployees(fetchedEmployees);
+      if (querySnapshot.docs.length >= EMPLOYEES_FOR_FORM_FETCH_LIMIT) {
+          toast({
+            title: "Employee Dropdown Truncated",
+            description: `Employee selection for new requests shows the first ${EMPLOYEES_FOR_FORM_FETCH_LIMIT} employees.`,
+            variant: "default",
+          });
+      }
     } catch (error) {
       console.error("Error fetching employees for leave request form:", error);
       toast({
@@ -150,7 +169,7 @@ export default function LeaveRequestsPage() {
     if (user && employees.length > 0) {
       const loggedInEmployee = employees.find(emp => emp.email === user.email);
       if (loggedInEmployee) {
-        setCurrentUserEmployeeId(loggedInEmployee.id); // This is the Firestore document ID of the employee
+        setCurrentUserEmployeeId(loggedInEmployee.id);
       } else {
         setCurrentUserEmployeeId(null);
       }
@@ -190,7 +209,7 @@ export default function LeaveRequestsPage() {
     setIsDetailsDialogOpen(true);
   };
   
-  const columns = useMemo(() => getLeaveRequestColumns(handleUpdateRequestStatus, handleViewDetails), []); // Removed dependencies as they cause re-render issues with memo
+  const columns = useMemo(() => getLeaveRequestColumns(handleUpdateRequestStatus, handleViewDetails), [handleUpdateRequestStatus, handleViewDetails]);
 
   const filteredLeaveRequests = useMemo(() => {
     if (activeView === "myRequests") {
