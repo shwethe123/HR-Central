@@ -6,6 +6,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription, // Added DialogDescription for consistency
 } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -21,7 +22,6 @@ interface EmployeeDetailsDialogProps {
   onOpenChange: (isOpen: boolean) => void;
 }
 
-// Ensure this is a named export
 export function EmployeeDetailsDialog({
   employee,
   isOpen,
@@ -47,7 +47,6 @@ export function EmployeeDetailsDialog({
     }
   };
 
-
   const handlePrintToPdf = async (currentEmployee: Employee) => {
     const doc = new jsPDF({
       orientation: 'landscape',
@@ -57,13 +56,12 @@ export function EmployeeDetailsDialog({
 
     const cardWidth = 85;
     const cardHeight = 55;
-    const margin = 4; // Reduced margin slightly for more content space
+    const margin = 4;
 
-    // Colors
-    const darkBlue = '#0A2240'; // Hex for [10, 34, 64]
-    const accentBlue = '#00AEEF'; // Hex for [0, 174, 239]
+    const darkBlue = '#0A2240';
+    const accentBlue = '#00AEEF';
     const white = '#FFFFFF';
-    const lightGray = '#CCCCCC';
+    const lightGray = '#CCCCCC'; // For role text or subtle text
     const textColorOnDark = white;
     const roleColor = lightGray;
 
@@ -71,24 +69,25 @@ export function EmployeeDetailsDialog({
     doc.setFillColor(darkBlue);
     doc.rect(0, 0, cardWidth, cardHeight, 'F');
 
-    // Draw accent bar
-    const accentWidth = 26; // Adjusted accent width
+    // Draw accent bar (left side)
+    const accentWidth = 26;
     doc.setFillColor(accentBlue);
     doc.rect(0, 0, accentWidth, cardHeight, 'F');
 
     // --- Left Accent Bar Content ---
-    const avatarSize = 18; // Slightly smaller avatar
+    const avatarSize = 18;
     const avatarX = (accentWidth - avatarSize) / 2;
     const avatarY = margin + 3;
     let avatarAdded = false;
 
     if (currentEmployee.avatar) {
       try {
-        doc.addImage(currentEmployee.avatar, undefined, avatarX, avatarY, avatarSize, avatarSize);
+        // Explicitly specify 'JPEG' for .jpg files from Firebase Storage
+        doc.addImage(currentEmployee.avatar, 'JPEG', avatarX, avatarY, avatarSize, avatarSize);
         avatarAdded = true;
       } catch (e: any) {
         console.error(`Error adding image to PDF (URL: ${currentEmployee.avatar}). Error: ${e.message || e}. Falling back to initials.`);
-        // Fallback to initials will happen outside this try-catch
+        // Fallback to initials will happen below
       }
     }
 
@@ -101,74 +100,71 @@ export function EmployeeDetailsDialog({
       doc.setFillColor(white);
       doc.circle(circleX, circleYFallback, circleRadius, 'F');
       
-      doc.setTextColor(darkBlue); // Dark blue initials on white circle
-      doc.setFontSize(9); // Adjusted font size for initials
+      doc.setTextColor(darkBlue);
+      doc.setFontSize(9);
       doc.setFont(undefined, 'bold');
       const initialsTextWidth = doc.getTextWidth(initials);
-      doc.text(initials, circleX - initialsTextWidth / 2, circleYFallback + 3); // Adjusted Y for better vertical centering
+      doc.text(initials, circleX - initialsTextWidth / 2, circleYFallback + 3); // Adjust Y for vertical centering
     }
     
-    // Company Name in Accent Bar
-    let currentYAccent = avatarY + avatarSize + 5; // Start Y below avatar
+    let currentYAccent = avatarY + avatarSize + 5;
     if (currentEmployee.company) {
       doc.setTextColor(white);
-      doc.setFontSize(6.5); // Slightly smaller font for company
+      doc.setFontSize(6.5);
       doc.setFont(undefined, 'bold');
       const companyText = currentEmployee.company;
-      const companyTextMaxWidth = accentWidth - (margin / 2); 
+      const companyTextMaxWidth = accentWidth - (margin / 2);
       const companyWrappedText = doc.splitTextToSize(companyText, companyTextMaxWidth);
       
-      // Calculate X to center each line of company text
       companyWrappedText.forEach((line: string, index: number) => {
         const lineWidth = doc.getTextWidth(line);
-        const lineX = (accentWidth - lineWidth) / 2;
-        doc.text(line, lineX, currentYAccent + (index * 3)); // 3mm line height
+        const lineX = (accentWidth - lineWidth) / 2; // Center each line
+        doc.text(line, lineX, currentYAccent + (index * 3));
       });
       currentYAccent += companyWrappedText.length * 3;
     }
 
-
     // --- Right Main Content Area ---
     let textX = accentWidth + margin;
-    let textY = margin + 7; // Initial Y for the name
-    const contentWidth = cardWidth - accentWidth - (margin * 1.5); // Max width for content on the right
+    let textY = margin + 7;
+    const contentWidth = cardWidth - accentWidth - (margin * 1.5);
 
     // Employee Name
     doc.setTextColor(textColorOnDark);
-    doc.setFontSize(12); // Larger font for name
+    doc.setFontSize(12);
     doc.setFont(undefined, 'bold');
     const nameLines = doc.splitTextToSize(currentEmployee.name, contentWidth);
     nameLines.forEach((line: string, index: number) => {
-        doc.text(line, textX, textY + (index * 5)); // 5mm line height for name
+        doc.text(line, textX, textY + (index * 5));
     });
     textY += nameLines.length * 5;
 
     // Role
-    doc.setFontSize(8.5); // Slightly smaller font for role
+    doc.setFontSize(8.5);
     doc.setFont(undefined, 'normal');
     doc.setTextColor(roleColor);
     const roleLines = doc.splitTextToSize(currentEmployee.role || 'N/A', contentWidth);
     roleLines.forEach((line: string, index: number) => {
-        doc.text(line, textX, textY + (index * 3.5)); // 3.5mm line height
+        doc.text(line, textX, textY + (index * 3.5));
     });
-    textY += (roleLines.length * 3.5) + 2; // Add a small gap after role
+    textY += (roleLines.length * 3.5) + 2;
 
     // Separator Line
     doc.setDrawColor(accentBlue); 
     doc.setLineWidth(0.2);
     doc.line(textX, textY, cardWidth - margin, textY);
-    textY += 3.5; // Space after separator
+    textY += 3.5;
 
     // Contact Details
     doc.setFontSize(7);
     doc.setTextColor(textColorOnDark);
     const iconTextGap = 1.5; 
     const detailLineHeight = 3.5;
-    const contactMaxWidth = contentWidth - doc.getTextWidth('MM') - iconTextGap; // Reserve space for icons
+    const contactMaxWidth = contentWidth - doc.getTextWidth('MM') - iconTextGap; // Reserve space for potential icons
 
     const addDetailLine = (icon: string, detailText: string | undefined | null) => {
-        if (detailText && textY < (cardHeight - margin - 2)) { // Check if space allows
-            doc.text(icon, textX, textY, { charSpace: 0.5 }); // Added charSpace for emoji rendering
+        if (detailText && textY < (cardHeight - margin - 2)) {
+            doc.text(icon, textX, textY, { charSpace: 0.5 });
             const detailLines = doc.splitTextToSize(detailText, contactMaxWidth);
             detailLines.forEach((line: string, index: number) => {
                 if (textY + (index * detailLineHeight) < (cardHeight - margin - 1)) {
@@ -181,12 +177,13 @@ export function EmployeeDetailsDialog({
     
     addDetailLine('📱', currentEmployee.phone);
     addDetailLine('📧', currentEmployee.email);
-    addDetailLine('🏢', currentEmployee.department);
-    // Add more details if needed and space permits
-    // e.g., addDetailLine('💼', currentEmployee.company); // if company not in accent bar
-
+    if (currentEmployee.department && currentEmployee.department !== currentEmployee.company) { // Avoid redundant display if dept is same as company or for general structure
+        addDetailLine('🏢', currentEmployee.department);
+    }
+    
     doc.save(`Employee_Card_${currentEmployee.name.replace(/\s+/g, '_')}.pdf`);
   };
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
