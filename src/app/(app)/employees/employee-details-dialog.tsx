@@ -57,35 +57,38 @@ export function EmployeeDetailsDialog({
 
     const cardWidth = 85;
     const cardHeight = 55;
-    const margin = 5; 
+    const margin = 4; // Reduced margin slightly for more content space
 
-    const darkBlue = [10, 34, 64];
-    const accentBlue = [0, 174, 239];
-    const white = [255, 255, 255];
-    const lightGray = [200, 200, 200]; 
+    // Colors
+    const darkBlue = '#0A2240'; // Hex for [10, 34, 64]
+    const accentBlue = '#00AEEF'; // Hex for [0, 174, 239]
+    const white = '#FFFFFF';
+    const lightGray = '#CCCCCC';
+    const textColorOnDark = white;
+    const roleColor = lightGray;
 
-    doc.setFillColor(darkBlue[0], darkBlue[1], darkBlue[2]);
+    // Draw main background
+    doc.setFillColor(darkBlue);
     doc.rect(0, 0, cardWidth, cardHeight, 'F');
 
-    const accentWidth = 28; 
-    doc.setFillColor(accentBlue[0], accentBlue[1], accentBlue[2]);
+    // Draw accent bar
+    const accentWidth = 26; // Adjusted accent width
+    doc.setFillColor(accentBlue);
     doc.rect(0, 0, accentWidth, cardHeight, 'F');
 
-    const avatarSize = 20; 
+    // --- Left Accent Bar Content ---
+    const avatarSize = 18; // Slightly smaller avatar
     const avatarX = (accentWidth - avatarSize) / 2;
-    const avatarY = margin + 2;
-
+    const avatarY = margin + 3;
     let avatarAdded = false;
+
     if (currentEmployee.avatar) {
       try {
-        // Let jsPDF auto-detect the image format by passing undefined or omitting the format.
-        // It will attempt to infer from the data URI or file extension if it's a direct URL.
-        // Common formats supported: JPEG, PNG. For others, conversion might be needed.
         doc.addImage(currentEmployee.avatar, undefined, avatarX, avatarY, avatarSize, avatarSize);
         avatarAdded = true;
       } catch (e: any) {
-        console.error(`Error adding image to PDF (URL: ${currentEmployee.avatar}):`, e.message || e);
-        // Fallback to initials if image fails
+        console.error(`Error adding image to PDF (URL: ${currentEmployee.avatar}). Error: ${e.message || e}. Falling back to initials.`);
+        // Fallback to initials will happen outside this try-catch
       }
     }
 
@@ -95,75 +98,92 @@ export function EmployeeDetailsDialog({
       const circleX = accentWidth / 2;
       const circleYFallback = avatarY + circleRadius;
 
-      doc.setFillColor(white[0], white[1], white[2]);
+      doc.setFillColor(white);
       doc.circle(circleX, circleYFallback, circleRadius, 'F');
       
-      doc.setTextColor(accentBlue[0], accentBlue[1], accentBlue[2]);
-      doc.setFontSize(10);
+      doc.setTextColor(darkBlue); // Dark blue initials on white circle
+      doc.setFontSize(9); // Adjusted font size for initials
       doc.setFont(undefined, 'bold');
       const initialsTextWidth = doc.getTextWidth(initials);
-      doc.text(initials, circleX - initialsTextWidth / 2, circleYFallback + 3.5); // Adjusted Y for better vertical centering
+      doc.text(initials, circleX - initialsTextWidth / 2, circleYFallback + 3); // Adjusted Y for better vertical centering
     }
     
+    // Company Name in Accent Bar
+    let currentYAccent = avatarY + avatarSize + 5; // Start Y below avatar
     if (currentEmployee.company) {
-      doc.setTextColor(white[0], white[1], white[2]);
-      doc.setFontSize(6);
+      doc.setTextColor(white);
+      doc.setFontSize(6.5); // Slightly smaller font for company
       doc.setFont(undefined, 'bold');
       const companyText = currentEmployee.company;
-      const companyTextMaxWidth = accentWidth - (margin / 2); // Max width for company text in accent bar
+      const companyTextMaxWidth = accentWidth - (margin / 2); 
       const companyWrappedText = doc.splitTextToSize(companyText, companyTextMaxWidth);
-      const companyTextX = (accentWidth - doc.getTextWidth(companyWrappedText[0])) / 2; // Center first line
-      doc.text(companyWrappedText, companyTextX, avatarY + avatarSize + 6, { align: 'center' });
+      
+      // Calculate X to center each line of company text
+      companyWrappedText.forEach((line: string, index: number) => {
+        const lineWidth = doc.getTextWidth(line);
+        const lineX = (accentWidth - lineWidth) / 2;
+        doc.text(line, lineX, currentYAccent + (index * 3)); // 3mm line height
+      });
+      currentYAccent += companyWrappedText.length * 3;
     }
 
+
+    // --- Right Main Content Area ---
     let textX = accentWidth + margin;
-    let textY = margin + 5;
+    let textY = margin + 7; // Initial Y for the name
+    const contentWidth = cardWidth - accentWidth - (margin * 1.5); // Max width for content on the right
 
-    doc.setTextColor(white[0], white[1], white[2]);
-    doc.setFontSize(13);
+    // Employee Name
+    doc.setTextColor(textColorOnDark);
+    doc.setFontSize(12); // Larger font for name
     doc.setFont(undefined, 'bold');
-    const nameMaxWidth = cardWidth - accentWidth - (margin * 2);
-    const nameText = doc.splitTextToSize(currentEmployee.name, nameMaxWidth);
-    doc.text(nameText, textX, textY);
-    
-    textY += (nameText.length * 4.5); // Adjust based on number of lines for name
+    const nameLines = doc.splitTextToSize(currentEmployee.name, contentWidth);
+    nameLines.forEach((line: string, index: number) => {
+        doc.text(line, textX, textY + (index * 5)); // 5mm line height for name
+    });
+    textY += nameLines.length * 5;
 
-    doc.setFontSize(9);
+    // Role
+    doc.setFontSize(8.5); // Slightly smaller font for role
     doc.setFont(undefined, 'normal');
-    doc.setTextColor(lightGray[0], lightGray[1], lightGray[2]);
-    const roleText = doc.splitTextToSize(currentEmployee.role, nameMaxWidth);
-    doc.text(roleText, textX, textY);
+    doc.setTextColor(roleColor);
+    const roleLines = doc.splitTextToSize(currentEmployee.role || 'N/A', contentWidth);
+    roleLines.forEach((line: string, index: number) => {
+        doc.text(line, textX, textY + (index * 3.5)); // 3.5mm line height
+    });
+    textY += (roleLines.length * 3.5) + 2; // Add a small gap after role
 
-    textY += (roleText.length * 3.5) + 2; // Adjust based on number of lines for role, add small gap
-    
-    doc.setDrawColor(accentBlue[0], accentBlue[1], accentBlue[2]); 
-    doc.setLineWidth(0.3);
+    // Separator Line
+    doc.setDrawColor(accentBlue); 
+    doc.setLineWidth(0.2);
     doc.line(textX, textY, cardWidth - margin, textY);
+    textY += 3.5; // Space after separator
 
-    textY += 5;
-
-    doc.setFontSize(7.5); 
-    doc.setTextColor(white[0], white[1], white[2]);
+    // Contact Details
+    doc.setFontSize(7);
+    doc.setTextColor(textColorOnDark);
     const iconTextGap = 1.5; 
-    const lineHeight = 4.5;
-    const contactMaxWidth = cardWidth - textX - margin - doc.getTextWidth('MM') - iconTextGap; // Reserve space for icons
+    const detailLineHeight = 3.5;
+    const contactMaxWidth = contentWidth - doc.getTextWidth('MM') - iconTextGap; // Reserve space for icons
 
-    if (currentEmployee.phone) {
-      doc.text('📱', textX, textY); 
-      doc.text(doc.splitTextToSize(currentEmployee.phone, contactMaxWidth), textX + doc.getTextWidth('📱') + iconTextGap, textY);
-      textY += lineHeight;
-    }
-    if (currentEmployee.email) {
-      doc.text('📧', textX, textY); 
-      doc.text(doc.splitTextToSize(currentEmployee.email, contactMaxWidth), textX + doc.getTextWidth('📧') + iconTextGap, textY);
-      textY += lineHeight;
-    }
+    const addDetailLine = (icon: string, detailText: string | undefined | null) => {
+        if (detailText && textY < (cardHeight - margin - 2)) { // Check if space allows
+            doc.text(icon, textX, textY, { charSpace: 0.5 }); // Added charSpace for emoji rendering
+            const detailLines = doc.splitTextToSize(detailText, contactMaxWidth);
+            detailLines.forEach((line: string, index: number) => {
+                if (textY + (index * detailLineHeight) < (cardHeight - margin - 1)) {
+                    doc.text(line, textX + doc.getTextWidth(icon) + iconTextGap, textY + (index * detailLineHeight));
+                }
+            });
+            textY += detailLines.length * detailLineHeight;
+        }
+    };
     
-    if (currentEmployee.department && textY < (cardHeight - margin - 2)) { // Check if space allows
-      doc.text('💼', textX, textY); 
-      doc.text(doc.splitTextToSize(currentEmployee.department, contactMaxWidth), textX + doc.getTextWidth('💼') + iconTextGap, textY);
-      // textY += lineHeight; // No increment if it's the last item
-    }
+    addDetailLine('📱', currentEmployee.phone);
+    addDetailLine('📧', currentEmployee.email);
+    addDetailLine('🏢', currentEmployee.department);
+    // Add more details if needed and space permits
+    // e.g., addDetailLine('💼', currentEmployee.company); // if company not in accent bar
 
     doc.save(`Employee_Card_${currentEmployee.name.replace(/\s+/g, '_')}.pdf`);
   };
