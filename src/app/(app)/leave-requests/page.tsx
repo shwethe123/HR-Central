@@ -14,8 +14,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; // Import Tabs
 import { LeaveRequestForm } from "./leave-request-form";
-import { CalendarPlus, FileText, Loader2 } from 'lucide-react';
+import { CalendarPlus, FileText, Loader2, User, ListChecks } from 'lucide-react';
 import { updateLeaveRequestStatus, type UpdateLeaveStatusFormState } from './actions';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -23,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { format as formatDateFns } from 'date-fns';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, Timestamp } from 'firebase/firestore';
+import { useAuth } from '@/contexts/auth-context'; // Import useAuth
 
 // Helper to format dates, handling both string and Firestore Timestamp
 const formatDate = (dateInput: string | Timestamp | undefined): string => {
@@ -30,7 +32,6 @@ const formatDate = (dateInput: string | Timestamp | undefined): string => {
   let date: Date;
   if (typeof dateInput === 'string') {
     try {
-        // Attempt to parse common ISO string formats, including those from Firestore toDate().toISOString()
         date = new Date(dateInput);
     } catch (e) {
         console.warn("Invalid date string encountered:", dateInput, e);
@@ -38,7 +39,7 @@ const formatDate = (dateInput: string | Timestamp | undefined): string => {
     }
   } else if (dateInput instanceof Timestamp) {
     date = dateInput.toDate();
-  } else if (dateInput instanceof Date) { // Already a Date object
+  } else if (dateInput instanceof Date) { 
     date = dateInput;
   }
    else {
@@ -52,7 +53,10 @@ const formatDate = (dateInput: string | Timestamp | undefined): string => {
   return formatDateFns(date, "MMMM d, yyyy");
 };
 
+type ViewMode = "myRequests" | "allRequests";
+
 export default function LeaveRequestsPage() {
+  const { user, loading: authLoading } = useAuth(); // Get current user
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
@@ -61,6 +65,8 @@ export default function LeaveRequestsPage() {
   const [isLoadingRequests, setIsLoadingRequests] = useState(true);
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(true);
   const { toast } = useToast();
+  const [activeView, setActiveView] = useState<ViewMode>("allRequests");
+  const [currentUserEmployeeId, setCurrentUserEmployeeId] = useState<string | null>(null);
 
   const fetchLeaveRequests = useCallback(async () => {
     setIsLoadingRequests(true);
@@ -70,9 +76,8 @@ export default function LeaveRequestsPage() {
       const querySnapshot = await getDocs(q);
       const fetchedRequests: LeaveRequest[] = querySnapshot.docs.map(doc => {
         const data = doc.data();
-        // Ensure dates are correctly handled if they are Timestamps
-        const requestedDate = data.requestedDate; // Keep as Timestamp or string
-        const processedDate = data.processedDate; // Keep as Timestamp or string
+        const requestedDate = data.requestedDate;
+        const processedDate = data.processedDate;
         
         return {
           id: doc.id,
@@ -108,7 +113,7 @@ export default function LeaveRequestsPage() {
           id: doc.id,
           ...data,
           name: data.name || "",
-          employeeId: data.employeeId || "",
+          employeeId: data.employeeId || "", // This is the custom EMP001 style ID
           department: data.department || "",
           role: data.role || "",
           email: data.email || "",
@@ -135,12 +140,22 @@ export default function LeaveRequestsPage() {
 
   useEffect(() => {
     async function fetchInitialData() {
-      // Fetch employees first, then leave requests, or in parallel if appropriate
       await fetchEmployees();
       await fetchLeaveRequests();
     }
     fetchInitialData();
   }, [fetchEmployees, fetchLeaveRequests]);
+
+  useEffect(() => {
+    if (user && employees.length > 0) {
+      const loggedInEmployee = employees.find(emp => emp.email === user.email);
+      if (loggedInEmployee) {
+        setCurrentUserEmployeeId(loggedInEmployee.id); // This is the Firestore document ID of the employee
+      } else {
+        setCurrentUserEmployeeId(null);
+      }
+    }
+  }, [user, employees]);
 
   const handleFormSubmissionSuccess = () => {
     fetchLeaveRequests(); 
@@ -155,7 +170,7 @@ export default function LeaveRequestsPage() {
             ...req, 
             status: status, 
             rejectionReason: status === "Rejected" ? rejectionReason : undefined, 
-            processedDate: new Date().toISOString() // Store as ISO string for client, server action will convert to Timestamp
+            processedDate: new Date().toISOString() 
         } : req
       )
     );
@@ -175,20 +190,28 @@ export default function LeaveRequestsPage() {
     setIsDetailsDialogOpen(true);
   };
   
-  const columns = useMemo(() => getLeaveRequestColumns(handleUpdateRequestStatus, handleViewDetails), [handleUpdateRequestStatus, handleViewDetails]);
+  const columns = useMemo(() => getLeaveRequestColumns(handleUpdateRequestStatus, handleViewDetails), []); // Removed dependencies as they cause re-render issues with memo
 
-  const isLoading = isLoadingRequests || isLoadingEmployees;
+  const filteredLeaveRequests = useMemo(() => {
+    if (activeView === "myRequests") {
+      if (!currentUserEmployeeId) return [];
+      return leaveRequests.filter(req => req.employeeId === currentUserEmployeeId);
+    }
+    return leaveRequests;
+  }, [activeView, leaveRequests, currentUserEmployeeId]);
+
+  const isLoading = isLoadingRequests || isLoadingEmployees || authLoading;
 
   return (
     <div className="container mx-auto py-2 space-y-6">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <h1 className="text-3xl font-semibold flex items-center">
           <CalendarPlus className="mr-3 h-8 w-8 text-primary" />
-          Leave Requests Management
+          Leave Requests
         </h1>
         <Dialog open={isFormDialogOpen} onOpenChange={setIsFormDialogOpen}>
           <DialogTrigger asChild>
-            <Button disabled={isLoadingEmployees}>
+            <Button disabled={isLoadingEmployees || authLoading}>
               <CalendarPlus className="mr-2 h-4 w-4" /> Request Leave
             </Button>
           </DialogTrigger>
@@ -214,22 +237,58 @@ export default function LeaveRequestsPage() {
         </Dialog>
       </div>
 
-      <Card className="shadow-lg rounded-lg">
-        <CardHeader>
-            <CardTitle>All Leave Requests</CardTitle>
-            <CardDescription>View and manage all submitted leave requests.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoadingRequests ? (
-            <div className="flex justify-center items-center py-10">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="ml-2 text-muted-foreground">Loading leave requests...</p>
-            </div>
-          ) : (
-            <LeaveRequestDataTable columns={columns} data={leaveRequests} />
-          )}
-        </CardContent>
-      </Card>
+      <Tabs value={activeView} onValueChange={(value) => setActiveView(value as ViewMode)}>
+        <TabsList className="grid w-full grid-cols-2 md:w-1/2 lg:w-1/3 mb-4">
+          <TabsTrigger value="allRequests">
+            <ListChecks className="mr-2 h-4 w-4" /> All Requests
+          </TabsTrigger>
+          <TabsTrigger value="myRequests">
+            <User className="mr-2 h-4 w-4" /> My Requests
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="allRequests">
+          <Card className="shadow-lg rounded-lg">
+            <CardHeader>
+                <CardTitle>All Submitted Leave Requests</CardTitle>
+                <CardDescription>View and manage all leave requests from employees.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="flex justify-center items-center py-10">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="ml-2 text-muted-foreground">Loading requests...</p>
+                </div>
+              ) : (
+                <LeaveRequestDataTable columns={columns} data={filteredLeaveRequests} />
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="myRequests">
+           <Card className="shadow-lg rounded-lg">
+            <CardHeader>
+                <CardTitle>My Submitted Leave Requests</CardTitle>
+                <CardDescription>View your personal leave request history and status.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="flex justify-center items-center py-10">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="ml-2 text-muted-foreground">Loading your requests...</p>
+                </div>
+              ) : !currentUserEmployeeId && !authLoading ? (
+                <div className="py-10 text-center text-muted-foreground">
+                  <p>Could not find an employee record associated with your account ({user?.email}).</p>
+                  <p>Please contact HR if you believe this is an error.</p>
+                </div>
+              ) : (
+                <LeaveRequestDataTable columns={columns} data={filteredLeaveRequests} />
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
 
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
         <DialogContent className="sm:max-w-md">
@@ -296,5 +355,6 @@ export default function LeaveRequestsPage() {
     </div>
   );
 }
+    
 
     
