@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Users, MessageSquareText, Settings, LifeBuoy, LogOut, Building2, Loader2, CalendarClock, MessageCircle, User as UserIconLucide, Users2, MessageSquarePlus, FileText } from "lucide-react"; // Added FileText
+import { Home, Users, MessageSquareText, Settings, LifeBuoy, LogOut, Building2, Loader2, CalendarClock, MessageCircle, User as UserIconLucide, Users2, MessageSquarePlus, FileText, Wifi } from "lucide-react"; // Added Wifi
 import { cn } from "@/lib/utils";
 import {
   SidebarMenu,
@@ -23,7 +23,8 @@ const navItems = [
   { href: "/employees", label: "Employees", icon: UserIconLucide },
   { href: "/teams", label: "Teams", icon: Users2 },
   { href: "/leave-requests", label: "Leave Requests", icon: CalendarClock },
-  { href: "/documents", label: "Documents", icon: FileText }, // New Documents Link
+  { href: "/documents", label: "Documents", icon: FileText },
+  { href: "/wifi-bills", label: "WiFi Bills", icon: Wifi }, // New WiFi Bills Link
   // Updated Chat Links
   { href: `/chat/${GENERAL_CHAT_CONVERSATION_ID}?name=Company%20General%20Chat`, label: "General Chat", icon: MessageCircle },
   { href: "/chat/users", label: "Direct Chats", icon: MessageSquarePlus }, 
