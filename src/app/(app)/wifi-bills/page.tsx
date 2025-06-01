@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import type { WifiBill } from "@/types";
 import { Button } from '@/components/ui/button';
 import {
@@ -15,13 +15,15 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from '@/components/ui/badge';
 import { AddWifiBillForm, type WifiBillFormData } from "./add-wifi-bill-form";
-import { Wifi, PlusCircle, Loader2, CalendarDays, DollarSign, Info, FileText, Building, Server, UserCircle2, RefreshCw } from 'lucide-react';
+import { Wifi, PlusCircle, Loader2, CalendarDays, DollarSign, Info, FileText, Building, Server, UserCircle2, RefreshCw, ListFilter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, Timestamp, limit } from 'firebase/firestore';
 import { format as formatDateFns, differenceInDays, isToday, isFuture, isValid, formatDistanceToNowStrict, isPast, addMonths, addYears, parseISO } from 'date-fns';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 
-const WIFI_BILLS_FETCH_LIMIT = 20; // Limit for initial fetch
+const WIFI_BILLS_FETCH_LIMIT = 50; // Increased limit for more data to test filtering
 
 // Helper to format dates, handling both string and Firestore Timestamp
 const formatDate = (dateInput: string | Timestamp | Date | undefined | null): string => {
@@ -31,7 +33,7 @@ const formatDate = (dateInput: string | Timestamp | Date | undefined | null): st
     date = dateInput;
   } else if (typeof dateInput === 'string') {
     try {
-        date = parseISO(dateInput); // Use parseISO for better string parsing
+        date = parseISO(dateInput); 
     } catch (e) {
         console.warn("Invalid date string encountered:", dateInput, e);
         return 'Invalid Date String';
@@ -42,7 +44,7 @@ const formatDate = (dateInput: string | Timestamp | Date | undefined | null): st
     console.warn("Invalid date type encountered:", dateInput);
     return 'Invalid Date Type';
   }
-  if (!isValid(date)) { // Check validity after conversion
+  if (!isValid(date)) { 
     console.warn("Date resulted in NaN or is invalid:", dateInput);
     return 'Invalid Date';
   }
@@ -73,6 +75,10 @@ export default function WifiBillsPage() {
   const [renewalInitialData, setRenewalInitialData] = useState<Partial<WifiBillFormData> | null>(null);
   const [dialogTitle, setDialogTitle] = useState("Add New WiFi Bill");
 
+  // State for filters
+  const [selectedCompany, setSelectedCompany] = useState<string>('all');
+  const [selectedProvider, setSelectedProvider] = useState<string>('all');
+
 
   const fetchWifiBills = useCallback(async () => {
     setIsLoading(true);
@@ -88,8 +94,8 @@ export default function WifiBillsPage() {
 
        if (querySnapshot.docs.length >= WIFI_BILLS_FETCH_LIMIT) {
         toast({
-          title: "Bill List Truncated",
-          description: `Showing the first ${WIFI_BILLS_FETCH_LIMIT} WiFi bills. Implement pagination or 'load more' for a full list.`,
+          title: "Bill List Might Be Truncated",
+          description: `Showing up to ${WIFI_BILLS_FETCH_LIMIT} WiFi bills. Implement pagination or 'load more' for a full list if needed.`,
           variant: "default",
         });
       }
@@ -111,8 +117,8 @@ export default function WifiBillsPage() {
 
   const handleFormSubmissionSuccess = (newBillId?: string) => {
     setIsFormDialogOpen(false);
-    setRenewalInitialData(null); // Clear renewal data after submission
-    setDialogTitle("Add New WiFi Bill"); // Reset title
+    setRenewalInitialData(null); 
+    setDialogTitle("Add New WiFi Bill"); 
     fetchWifiBills(); 
     if (newBillId) {
         // Optionally, scroll to new bill or highlight
@@ -128,11 +134,10 @@ export default function WifiBillsPage() {
     } else if (currentDueDateStr instanceof Date) {
         currentDueDate = currentDueDateStr;
     } else {
-      // Fallback if type is unexpected, though should be handled by WifiBill type
       currentDueDate = new Date(); 
     }
 
-    if (!isValid(currentDueDate)) return new Date(); // fallback to today if parsing failed
+    if (!isValid(currentDueDate)) return new Date(); 
 
     switch (cycle) {
       case "Monthly":
@@ -143,7 +148,7 @@ export default function WifiBillsPage() {
         return addMonths(currentDueDate, 3);
       case "Annually":
         return addYears(currentDueDate, 1);
-      default: // Should not happen with enum type
+      default: 
         return addMonths(currentDueDate, 1); 
     }
   };
@@ -159,17 +164,34 @@ export default function WifiBillsPage() {
         paymentCycle: billToRenew.paymentCycle,
         billAmount: billToRenew.billAmount,
         currency: billToRenew.currency || 'MMK',
-        dueDate: nextDueDate, // Date object
-        paymentDate: null, // Clear payment date for renewal
+        dueDate: nextDueDate, 
+        paymentDate: null, 
         status: 'Pending',
-        invoiceUrl: '', // Clear invoice URL for renewal
-        notes: billToRenew.notes || '', // Optionally copy notes or add "Renewed from..."
+        invoiceUrl: '', 
+        notes: billToRenew.notes || '', 
     };
     setRenewalInitialData(initialDataForForm);
     setDialogTitle("Renew WiFi Bill");
     setIsFormDialogOpen(true);
   };
 
+  const uniqueCompanies = useMemo(() => {
+    return ['all', ...new Set(bills.map(bill => bill.companyName))].sort((a, b) => a === 'all' ? -1 : b === 'all' ? 1 : a.localeCompare(b));
+  }, [bills]);
+
+  const uniqueProviders = useMemo(() => {
+    return ['all', ...new Set(bills.map(bill => bill.wifiProvider))].sort((a, b) => a === 'all' ? -1 : b === 'all' ? 1 : a.localeCompare(b));
+  }, [bills]);
+
+  const filteredBills = useMemo(() => {
+    return bills.filter(bill => {
+      const companyMatch = selectedCompany === 'all' || bill.companyName === selectedCompany;
+      const providerMatch = selectedProvider === 'all' || bill.wifiProvider === selectedProvider;
+      return companyMatch && providerMatch;
+    });
+  }, [bills, selectedCompany, selectedProvider]);
+
+  const displayBills = filteredBills; // Use filteredBills for rendering
 
   return (
     <div className="container mx-auto py-2 space-y-6">
@@ -183,19 +205,18 @@ export default function WifiBillsPage() {
             onOpenChange={(isOpen) => {
                 setIsFormDialogOpen(isOpen);
                 if (!isOpen) {
-                    setRenewalInitialData(null); // Reset renewal data when dialog closes
-                    setDialogTitle("Add New WiFi Bill"); // Reset title
+                    setRenewalInitialData(null); 
+                    setDialogTitle("Add New WiFi Bill"); 
                 }
             }}
         >
           <DialogTrigger asChild>
             <Button 
                 onClick={() => {
-                    setRenewalInitialData(null); // Ensure form is empty for new bill
+                    setRenewalInitialData(null); 
                     setDialogTitle("Add New WiFi Bill");
-                    // setIsFormDialogOpen(true); // DialogTrigger handles opening
                 }}
-                disabled={isFormDialogOpen && dialogTitle === "Add New WiFi Bill"} // Disable if already adding new
+                disabled={isFormDialogOpen && dialogTitle === "Add New WiFi Bill"} 
             >
               {isFormDialogOpen && dialogTitle === "Add New WiFi Bill" ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -221,19 +242,63 @@ export default function WifiBillsPage() {
         </Dialog>
       </div>
 
+      {/* Filters Section */}
+      <Card className="shadow-md rounded-lg">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center"><ListFilter className="mr-2 h-5 w-5 text-primary/80"/>Filters</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="filter-company" className="text-sm font-medium">Company Name</Label>
+            <Select value={selectedCompany} onValueChange={setSelectedCompany}>
+              <SelectTrigger id="filter-company" className="mt-1">
+                <SelectValue placeholder="Filter by Company" />
+              </SelectTrigger>
+              <SelectContent>
+                {uniqueCompanies.map(company => (
+                  <SelectItem key={company} value={company}>
+                    {company === 'all' ? 'All Companies' : company}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="filter-provider" className="text-sm font-medium">WiFi Provider</Label>
+            <Select value={selectedProvider} onValueChange={setSelectedProvider}>
+              <SelectTrigger id="filter-provider" className="mt-1">
+                <SelectValue placeholder="Filter by Provider" />
+              </SelectTrigger>
+              <SelectContent>
+                {uniqueProviders.map(provider => (
+                  <SelectItem key={provider} value={provider}>
+                    {provider === 'all' ? 'All Providers' : provider}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+
       {isLoading ? (
         <div className="flex justify-center items-center py-20">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
           <p className="ml-3 text-muted-foreground">Loading WiFi bills...</p>
         </div>
-      ) : bills.length === 0 ? (
+      ) : displayBills.length === 0 ? (
         <Card className="text-center py-10 shadow-md rounded-lg">
           <CardHeader>
-            <CardTitle className="text-2xl">No WiFi Bills Found</CardTitle>
+            <CardTitle className="text-2xl">
+                {bills.length === 0 ? "No WiFi Bills Found" : "No Bills Match Your Filters"}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground mb-4">
-              Get started by adding your first WiFi bill record.
+              {bills.length === 0 
+                ? "Get started by adding your first WiFi bill record." 
+                : "Try adjusting your filter criteria or add a new bill."}
             </p>
             <Button 
                 onClick={() => {
@@ -254,11 +319,11 @@ export default function WifiBillsPage() {
         </Card>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {bills.map((bill) => {
+          {displayBills.map((bill) => {
             const now = new Date();
             let dueDateInfoText = '';
             let paymentDateInfoText = '';
-            let dueDateIconColor = 'text-gray-500'; // Default color
+            let dueDateIconColor = 'text-gray-500'; 
 
             const billDueDateObj = bill.dueDate instanceof Timestamp ? bill.dueDate.toDate() : (typeof bill.dueDate === 'string' ? parseISO(bill.dueDate) : null);
             const billPaymentDateObj = bill.paymentDate ? (bill.paymentDate instanceof Timestamp ? bill.paymentDate.toDate() : (typeof bill.paymentDate === 'string' ? parseISO(bill.paymentDate) : null)) : null;
@@ -373,4 +438,3 @@ export default function WifiBillsPage() {
     </div>
   );
 }
-
