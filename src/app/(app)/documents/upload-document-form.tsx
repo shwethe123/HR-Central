@@ -28,7 +28,7 @@ import { storage, auth as firebaseAuth } from '@/lib/firebase';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import Image from 'next/image'; // For preview
 
-const DOCUMENT_CATEGORIES = ["Image Gallery", "Company Policy", "HR Template", "Financial Report", "Training Material", "Onboarding Doc", "Legal", "Miscellaneous"];
+const DOCUMENT_CATEGORIES = ["Image Gallery", "Company Policy", "HR Template", "Financial Report", "Training Material", "Onboarding Doc", "Presentation", "Legal", "Archive (ZIP)", "Miscellaneous"];
 
 const ClientDocumentSchema = z.object({
   file: (typeof window !== 'undefined' ? z.instanceof(FileList) : z.any())
@@ -169,6 +169,7 @@ export function UploadDocumentForm({ onFormSubmissionSuccess, className }: Uploa
           {...form.register('file')} 
           ref={fileInputRef}
           className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+          accept="image/*,application/pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,.zip,application/zip,application/x-zip-compressed"
         />
         {form.formState.errors.file && <p className="text-sm text-destructive mt-1">{form.formState.errors.file.message}</p>}
         {state?.errors?.file && <p className="text-sm text-destructive mt-1">{state.errors.file.join(', ')}</p>}
@@ -218,3 +219,4 @@ export function UploadDocumentForm({ onFormSubmissionSuccess, className }: Uploa
     </form>
   );
 }
+

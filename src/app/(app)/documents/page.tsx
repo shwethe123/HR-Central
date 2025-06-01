@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { UploadDocumentForm } from "./upload-document-form";
-import { FileText, PlusCircle, Loader2, Download, PackageOpen, FileQuestion, Tag, CalendarDays, UserCircle, FileArchive, Sheet, Image as ImageIcon } from 'lucide-react';
+import { FileText, PlusCircle, Loader2, Download, PackageOpen, FileQuestion, Tag, CalendarDays, UserCircle, FileArchive, Sheet, Image as ImageIcon, FilePresentation } from 'lucide-react';
 import Image from 'next/image'; // For image previews
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
@@ -41,6 +41,7 @@ const getFileIcon = (fileType: string, category: string) => {
   if (fileType === 'application/pdf') return <FileText className="h-8 w-8 text-red-500" />;
   if (fileType.includes('wordprocessingml') || fileType === 'application/msword') return <FileText className="h-8 w-8 text-blue-700" />;
   if (fileType.includes('spreadsheetml') || fileType === 'application/vnd.ms-excel') return <Sheet className="h-8 w-8 text-green-600" />;
+  if (fileType.includes('presentationml') || fileType === 'application/vnd.ms-powerpoint') return <FilePresentation className="h-8 w-8 text-orange-500" />;
   if (fileType === 'application/zip' || fileType === 'application/x-zip-compressed') return <FileArchive className="h-8 w-8 text-yellow-500" />;
   return <FileQuestion className="h-8 w-8 text-gray-500" />;
 };
@@ -145,13 +146,13 @@ export default function DocumentsPage() {
               <Card key={doc.id} className="shadow-lg rounded-lg flex flex-col overflow-hidden hover:shadow-xl transition-shadow duration-300">
                 <CardHeader className="pb-3">
                   {isImagePreview ? (
-                    <div className="w-full h-32 relative mb-2 rounded-t-md overflow-hidden">
+                    <div className="w-full h-32 relative mb-2 rounded-t-md overflow-hidden bg-muted">
                       <Image
                         src={doc.downloadURL}
                         alt={doc.fileName}
                         fill
                         sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                        className="object-cover"
+                        className="object-contain"
                         data-ai-hint="image preview"
                       />
                     </div>
@@ -204,3 +205,4 @@ export default function DocumentsPage() {
     </div>
   );
 }
+
