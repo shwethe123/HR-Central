@@ -24,21 +24,21 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, UploadCloud } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import { storage, auth as firebaseAuth } from '@/lib/firebase';
+import { storage, auth as firebaseAuth } from '@/lib/firebase'; // firebaseAuth for client-side user info
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import Image from 'next/image'; // For preview
 
 const DOCUMENT_CATEGORIES = [
-    "Image Gallery", 
-    "Company Policy", 
-    "HR Template", 
-    "Financial Report", 
-    "Training Material", 
-    "Onboarding Doc", 
-    "Presentation", 
+    "Image Gallery",
+    "Company Policy",
+    "HR Template",
+    "Financial Report",
+    "Training Material",
+    "Onboarding Doc",
+    "Presentation",
     "Spreadsheet",
-    "Legal", 
-    "Archive (ZIP)", 
+    "Legal",
+    "Archive (ZIP)",
     "Miscellaneous"
 ];
 
@@ -46,7 +46,7 @@ const ClientDocumentSchema = z.object({
   file: (typeof window !== 'undefined' ? z.instanceof(FileList) : z.any())
     .refine((files) => files?.length === 1, { message: 'A single file is required.' })
     .refine((files) => files?.[0]?.size <= 10 * 1024 * 1024, { message: 'File size must be 10MB or less.' }) // Max 10MB
-    .transform(fileList => fileList?.[0]), 
+    .transform(fileList => fileList?.[0]),
   category: z.string().min(1, { message: "Category is required." }),
   description: z.string().max(500).optional(),
 });
@@ -61,7 +61,7 @@ interface UploadDocumentFormProps {
 function SubmitButton({ isUploading }: { isUploading: boolean }) {
   const { pending: isActionPending } = useFormStatus();
   const isDisabled = isUploading || isActionPending;
-  
+
   let buttonText = "Save Document";
   if (isUploading) {
     buttonText = "Uploading File...";
@@ -120,12 +120,12 @@ export function UploadDocumentForm({ onFormSubmissionSuccess, className }: Uploa
         title: "Success",
         description: state.message,
       });
-      form.reset(); 
-      if (fileInputRef.current) fileInputRef.current.value = ""; 
+      form.reset();
+      if (fileInputRef.current) fileInputRef.current.value = "";
       setUploadProgress(0);
       setFilePreview(null);
       if (onFormSubmissionSuccess) {
-        onFormSubmissionSuccess(state.newDocumentId); 
+        onFormSubmissionSuccess(state.newDocumentId);
       }
     } else if (!state?.success && state?.message && (state.errors || state.message.includes("failed:"))) {
        toast({
@@ -135,18 +135,26 @@ export function UploadDocumentForm({ onFormSubmissionSuccess, className }: Uploa
       });
     }
   }, [state, toast, form, onFormSubmissionSuccess]);
-  
+
   const onSubmit = async (data: DocumentFormData) => {
     const fileToUpload = data.file;
-    if (!fileToUpload || !firebaseAuth.currentUser) {
-        toast({ title: "File or user missing", description: "Please select a file and ensure you are logged in.", variant: "destructive"});
+    const currentUser = firebaseAuth.currentUser; // Get current user on client
+
+    if (!fileToUpload) {
+        toast({ title: "File missing", description: "Please select a file.", variant: "destructive"});
         return;
     }
+    if (!currentUser) {
+        toast({ title: "User not authenticated", description: "Please log in to upload documents.", variant: "destructive"});
+        setIsUploading(false); // Ensure uploading is reset if user is not authenticated
+        return;
+    }
+
 
     setIsUploading(true);
     setUploadProgress(0);
 
-    const sRef = storageRef(storage, `company-documents/${firebaseAuth.currentUser.uid}-${Date.now()}-${fileToUpload.name}`);
+    const sRef = storageRef(storage, `company-documents/${currentUser.uid}-${Date.now()}-${fileToUpload.name}`);
     const uploadTask = uploadBytesResumable(sRef, fileToUpload);
 
     uploadTask.on('state_changed',
@@ -164,10 +172,10 @@ export function UploadDocumentForm({ onFormSubmissionSuccess, className }: Uploa
         setIsUploading(false);
         setUploadProgress(0);
       },
-      async () => { 
+      async () => {
         try {
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          setIsUploading(false); 
+          setIsUploading(false);
 
           const metadataFormData = new FormData();
           metadataFormData.append('fileName', fileToUpload.name);
@@ -177,7 +185,10 @@ export function UploadDocumentForm({ onFormSubmissionSuccess, className }: Uploa
           if (data.description) metadataFormData.append('description', data.description);
           metadataFormData.append('downloadURL', downloadURL);
           metadataFormData.append('storagePath', uploadTask.snapshot.ref.fullPath);
-          
+          // Add authenticated user's info from client-side
+          metadataFormData.append('uploadedByUid', currentUser.uid);
+          metadataFormData.append('uploadedByName', currentUser.displayName || currentUser.email || "Unknown User");
+
           startTransition(() => {
             formAction(metadataFormData);
           });
@@ -196,10 +207,10 @@ export function UploadDocumentForm({ onFormSubmissionSuccess, className }: Uploa
     <form onSubmit={form.handleSubmit(onSubmit)} className={cn("space-y-6", className)}>
       <div>
         <Label htmlFor="file-upload">Document File</Label>
-        <Input 
-          id="file-upload" 
-          type="file" 
-          onChange={handleFileChange} // Use controlled file input
+        <Input
+          id="file-upload"
+          type="file"
+          onChange={handleFileChange}
           ref={fileInputRef}
           className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
           accept="image/*,application/pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,.zip,application/zip,application/x-zip-compressed,text/plain,text/csv"
@@ -247,7 +258,7 @@ export function UploadDocumentForm({ onFormSubmissionSuccess, className }: Uploa
         {form.formState.errors.description && <p className="text-sm text-destructive mt-1">{form.formState.errors.description.message}</p>}
         {state?.errors?.description && <p className="text-sm text-destructive mt-1">{state.errors.description.join(', ')}</p>}
       </div>
-      
+
       {state?.errors?._form && <p className="text-sm font-medium text-destructive mt-2">{state.errors._form.join(', ')}</p>}
 
       <div className="flex justify-end pt-2">
@@ -256,4 +267,3 @@ export function UploadDocumentForm({ onFormSubmissionSuccess, className }: Uploa
     </form>
   );
 }
-
