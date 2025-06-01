@@ -15,15 +15,15 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { UploadDocumentForm } from "./upload-document-form";
-import { FileText, PlusCircle, Loader2, Download, PackageOpen, FileQuestion, Tag, CalendarDays, UserCircle, FileArchive, Sheet, Image as ImageIcon, Presentation } from 'lucide-react';
-import Image from 'next/image'; // For image previews
+import { FileText, PlusCircle, Loader2, Download, PackageOpen, FileQuestion, Tag, CalendarDays, UserCircle, FileArchive, Sheet, ImageIcon as LucideImageIcon, Presentation as LucidePresentation } from 'lucide-react';
+import Image from 'next/image'; 
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, Timestamp, limit } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 
-const DOCUMENTS_FETCH_LIMIT = 20; // Limit for initial fetch
+const DOCUMENTS_FETCH_LIMIT = 20; 
 
 const formatFileSize = (bytes: number): string => {
   if (bytes === 0) return '0 Bytes';
@@ -34,15 +34,17 @@ const formatFileSize = (bytes: number): string => {
 };
 
 const getFileIcon = (fileType: string, category: string) => {
+  // For "Image Gallery" category, if it's an image, we'll show a preview instead of an icon.
   if (category === "Image Gallery" && fileType.startsWith('image/')) {
-    return null; // Indicate that an image preview will be shown instead
+    return null; 
   }
-  if (fileType.startsWith('image/')) return <ImageIcon className="h-8 w-8 text-purple-500" />;
+  if (fileType.startsWith('image/')) return <LucideImageIcon className="h-8 w-8 text-purple-500" />;
   if (fileType === 'application/pdf') return <FileText className="h-8 w-8 text-red-500" />;
   if (fileType.includes('wordprocessingml') || fileType === 'application/msword') return <FileText className="h-8 w-8 text-blue-700" />;
   if (fileType.includes('spreadsheetml') || fileType === 'application/vnd.ms-excel') return <Sheet className="h-8 w-8 text-green-600" />;
-  if (fileType.includes('presentationml') || fileType === 'application/vnd.ms-powerpoint') return <Presentation className="h-8 w-8 text-orange-500" />;
+  if (fileType.includes('presentationml') || fileType === 'application/vnd.ms-powerpoint') return <LucidePresentation className="h-8 w-8 text-orange-500" />;
   if (fileType === 'application/zip' || fileType === 'application/x-zip-compressed') return <FileArchive className="h-8 w-8 text-yellow-500" />;
+  if (fileType === 'text/plain' || fileType === 'text/csv') return <FileText className="h-8 w-8 text-gray-600" />;
   return <FileQuestion className="h-8 w-8 text-gray-500" />;
 };
 
@@ -146,15 +148,17 @@ export default function DocumentsPage() {
               <Card key={doc.id} className="shadow-lg rounded-lg flex flex-col overflow-hidden hover:shadow-xl transition-shadow duration-300">
                 <CardHeader className="pb-3">
                   {isImagePreview ? (
-                    <div className="w-full h-32 relative mb-2 rounded-t-md overflow-hidden bg-muted">
+                    <div className="w-full h-40 relative mb-2 rounded-t-md overflow-hidden bg-muted flex items-center justify-center">
                       <Image
                         src={doc.downloadURL}
                         alt={doc.fileName}
                         fill
                         sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                         className="object-contain"
-                        data-ai-hint="image preview"
+                        data-ai-hint="image document"
+                        onError={(e) => (e.currentTarget.style.display = 'none')} // Hide if image fails to load
                       />
+                       {!doc.downloadURL.startsWith('https://placehold.co') && <LucideImageIcon className="h-16 w-16 text-muted-foreground absolute" style={{ display: 'none' }} />} {/* Fallback Icon, hidden if image loads */}
                     </div>
                   ) : (
                     iconElement && <div className="flex justify-center items-center h-16 mb-2">{iconElement}</div>
@@ -205,3 +209,4 @@ export default function DocumentsPage() {
     </div>
   );
 }
+

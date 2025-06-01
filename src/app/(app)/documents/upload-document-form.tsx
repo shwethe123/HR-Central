@@ -28,13 +28,25 @@ import { storage, auth as firebaseAuth } from '@/lib/firebase';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import Image from 'next/image'; // For preview
 
-const DOCUMENT_CATEGORIES = ["Image Gallery", "Company Policy", "HR Template", "Financial Report", "Training Material", "Onboarding Doc", "Presentation", "Legal", "Archive (ZIP)", "Miscellaneous"];
+const DOCUMENT_CATEGORIES = [
+    "Image Gallery", 
+    "Company Policy", 
+    "HR Template", 
+    "Financial Report", 
+    "Training Material", 
+    "Onboarding Doc", 
+    "Presentation", 
+    "Spreadsheet",
+    "Legal", 
+    "Archive (ZIP)", 
+    "Miscellaneous"
+];
 
 const ClientDocumentSchema = z.object({
   file: (typeof window !== 'undefined' ? z.instanceof(FileList) : z.any())
     .refine((files) => files?.length === 1, { message: 'A single file is required.' })
     .refine((files) => files?.[0]?.size <= 10 * 1024 * 1024, { message: 'File size must be 10MB or less.' }) // Max 10MB
-    .transform(fileList => fileList?.[0]), // Get the single file
+    .transform(fileList => fileList?.[0]), 
   category: z.string().min(1, { message: "Category is required." }),
   description: z.string().max(500).optional(),
 });
@@ -71,6 +83,7 @@ export function UploadDocumentForm({ onFormSubmissionSuccess, className }: Uploa
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
 
 
   const form = useForm<DocumentFormData>({
@@ -82,6 +95,25 @@ export function UploadDocumentForm({ onFormSubmissionSuccess, className }: Uploa
     },
   });
 
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      form.setValue('file', event.target.files, { shouldValidate: true });
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setFilePreview(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        setFilePreview(null);
+      }
+    } else {
+      form.setValue('file', undefined, { shouldValidate: true });
+      setFilePreview(null);
+    }
+  };
+
   useEffect(() => {
     if (state?.success && state.message) {
       toast({
@@ -89,8 +121,9 @@ export function UploadDocumentForm({ onFormSubmissionSuccess, className }: Uploa
         description: state.message,
       });
       form.reset(); 
-      if (fileInputRef.current) fileInputRef.current.value = ""; // Clear file input
+      if (fileInputRef.current) fileInputRef.current.value = ""; 
       setUploadProgress(0);
+      setFilePreview(null);
       if (onFormSubmissionSuccess) {
         onFormSubmissionSuccess(state.newDocumentId); 
       }
@@ -131,10 +164,10 @@ export function UploadDocumentForm({ onFormSubmissionSuccess, className }: Uploa
         setIsUploading(false);
         setUploadProgress(0);
       },
-      async () => { // On successful upload
+      async () => { 
         try {
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          setIsUploading(false); // File is uploaded, now call server action to save metadata
+          setIsUploading(false); 
 
           const metadataFormData = new FormData();
           metadataFormData.append('fileName', fileToUpload.name);
@@ -166,13 +199,18 @@ export function UploadDocumentForm({ onFormSubmissionSuccess, className }: Uploa
         <Input 
           id="file-upload" 
           type="file" 
-          {...form.register('file')} 
+          onChange={handleFileChange} // Use controlled file input
           ref={fileInputRef}
           className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
-          accept="image/*,application/pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,.zip,application/zip,application/x-zip-compressed"
+          accept="image/*,application/pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,.zip,application/zip,application/x-zip-compressed,text/plain,text/csv"
         />
         {form.formState.errors.file && <p className="text-sm text-destructive mt-1">{form.formState.errors.file.message}</p>}
         {state?.errors?.file && <p className="text-sm text-destructive mt-1">{state.errors.file.join(', ')}</p>}
+        {filePreview && (
+          <div className="mt-2 p-2 border rounded-md inline-block bg-muted">
+            <Image src={filePreview} alt="Selected preview" width={100} height={100} className="rounded-md object-cover" data-ai-hint="upload preview"/>
+          </div>
+        )}
       </div>
 
       {isUploading && (
@@ -182,7 +220,6 @@ export function UploadDocumentForm({ onFormSubmissionSuccess, className }: Uploa
           <p className="text-xs text-muted-foreground text-right">{Math.round(uploadProgress)}%</p>
         </div>
       )}
-
 
       <div>
         <Label htmlFor="category-doc">Category</Label>
