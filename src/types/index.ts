@@ -80,3 +80,16 @@ export type Team = {
   createdAt: Timestamp | string;
 };
 
+export type DocumentMetadata = {
+  id: string;
+  fileName: string;
+  fileType: string; // MIME type e.g. application/pdf
+  fileSize: number; // in bytes
+  storagePath: string; // Path in Firebase Storage e.g. company-documents/uuid-filename.pdf
+  downloadURL: string; // Publicly accessible download URL from Firebase Storage
+  category: string; // e.g., "Policy", "Template", "Report"
+  description?: string;
+  uploadedByUid: string; // Firebase Auth UID of the uploader
+  uploadedByName: string; // Display name of the uploader
+  uploadedAt: Timestamp; // Firestore Timestamp
+};

@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Users, MessageSquareText, Settings, LifeBuoy, LogOut, Building2, Loader2, CalendarClock, MessageCircle, User as UserIconLucide, Users2, MessageSquarePlus } from "lucide-react"; // Added Users2, MessageSquarePlus
+import { Home, Users, MessageSquareText, Settings, LifeBuoy, LogOut, Building2, Loader2, CalendarClock, MessageCircle, User as UserIconLucide, Users2, MessageSquarePlus, FileText } from "lucide-react"; // Added FileText
 import { cn } from "@/lib/utils";
 import {
   SidebarMenu,
@@ -23,6 +23,7 @@ const navItems = [
   { href: "/employees", label: "Employees", icon: UserIconLucide },
   { href: "/teams", label: "Teams", icon: Users2 },
   { href: "/leave-requests", label: "Leave Requests", icon: CalendarClock },
+  { href: "/documents", label: "Documents", icon: FileText }, // New Documents Link
   // Updated Chat Links
   { href: `/chat/${GENERAL_CHAT_CONVERSATION_ID}?name=Company%20General%20Chat`, label: "General Chat", icon: MessageCircle },
   { href: "/chat/users", label: "Direct Chats", icon: MessageSquarePlus }, 
@@ -68,8 +69,8 @@ export function SidebarNav() {
                 asChild
                 isActive={
                   pathname === item.href || 
-                  (item.label === "Direct Chats" && pathname.startsWith("/chat/users")) || // Special case for main chat page
-                  (item.label === "General Chat" && pathname.startsWith(`/chat/${GENERAL_CHAT_CONVERSATION_ID}`)) || // Special case for general chat
+                  (item.label === "Direct Chats" && pathname.startsWith("/chat/users")) || 
+                  (item.label === "General Chat" && pathname.startsWith(`/chat/${GENERAL_CHAT_CONVERSATION_ID}`)) || 
                   (item.href !== "/dashboard" && 
                    !item.href.startsWith("/chat/users") && 
                    !item.href.startsWith(`/chat/${GENERAL_CHAT_CONVERSATION_ID}`) && 
