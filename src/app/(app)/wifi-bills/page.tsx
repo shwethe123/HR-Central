@@ -15,16 +15,16 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from '@/components/ui/badge';
 import { AddWifiBillForm } from "./add-wifi-bill-form";
-import { Wifi, PlusCircle, Loader2, CalendarDays, DollarSign, Info, FileText, ExternalLink, Building, Server, FileBadge, UserCircle2 } from 'lucide-react';
+import { Wifi, PlusCircle, Loader2, CalendarDays, DollarSign, Info, FileText, Building, Server, UserCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, Timestamp, limit } from 'firebase/firestore';
-import { format as formatDateFns } from 'date-fns';
+import { format as formatDateFns, differenceInDays, isToday, isFuture, isValid, formatDistanceToNowStrict, isPast } from 'date-fns';
 
 const WIFI_BILLS_FETCH_LIMIT = 20; // Limit for initial fetch
 
 // Helper to format dates, handling both string and Firestore Timestamp
-const formatDate = (dateInput: string | Timestamp | undefined | null): string => {
+const formatDate = (dateInput: string | Timestamp | Date | undefined | null): string => {
   if (!dateInput) return 'N/A';
   let date: Date;
   if (typeof dateInput === 'string') {
@@ -43,8 +43,8 @@ const formatDate = (dateInput: string | Timestamp | undefined | null): string =>
     console.warn("Invalid date type encountered:", dateInput);
     return 'Invalid Date Type';
   }
-  if (isNaN(date.getTime())) {
-    console.warn("Date resulted in NaN:", dateInput);
+  if (!isValid(date)) { // Check validity after conversion
+    console.warn("Date resulted in NaN or is invalid:", dateInput);
     return 'Invalid Date';
   }
   return formatDateFns(date, "MMM d, yyyy");
@@ -109,9 +109,9 @@ export default function WifiBillsPage() {
 
   const handleFormSubmissionSuccess = (newBillId?: string) => {
     setIsFormDialogOpen(false);
-    fetchWifiBills(); // Refresh the list after adding a new bill
+    fetchWifiBills(); 
     if (newBillId) {
-        // Optionally, you could scroll to the new bill or highlight it
+        // Optionally, scroll to new bill or highlight
     }
   };
 
@@ -171,77 +171,112 @@ export default function WifiBillsPage() {
         </Card>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {bills.map((bill) => (
-            <Card key={bill.id} className="shadow-lg rounded-lg flex flex-col hover:shadow-xl transition-shadow duration-300">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-lg font-semibold truncate leading-tight flex items-center" title={`${bill.companyName} - ${bill.wifiProvider}`}>
-                        <Building className="mr-2 h-5 w-5 text-primary/80 shrink-0" /> 
-                        <span className="truncate">{bill.companyName}</span>
-                    </CardTitle>
-                     <Badge 
-                        variant={statusBadgeVariant(bill.status)}
-                        className={`text-xs whitespace-nowrap capitalize shrink-0 font-medium ${
-                            bill.status === "Paid" ? "bg-green-100 text-green-700 border-green-300" :
-                            bill.status === "Overdue" ? "bg-red-100 text-red-700 border-red-300" :
-                            bill.status === "Pending" ? "bg-yellow-100 text-yellow-700 border-yellow-300" :
-                            "bg-gray-100 text-gray-700 border-gray-300" // Cancelled or other
-                        }`}
-                    >
-                        {bill.status}
-                    </Badge>
-                </div>
-                 <CardDescription className="text-sm text-muted-foreground flex items-center pt-1">
-                    <Server className="mr-2 h-4 w-4 shrink-0" /> {bill.wifiProvider} - {bill.planName}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="text-xs text-muted-foreground space-y-1.5 flex-grow pt-0 pb-3">
-                {bill.accountNumber && (
-                    <div className="flex items-center gap-1.5">
-                        <UserCircle2 className="h-3.5 w-3.5" />
-                        <span>Account: {bill.accountNumber}</span>
-                    </div>
-                )}
-                <div className="flex items-center gap-1.5">
-                    <DollarSign className="h-3.5 w-3.5" />
-                    <span className="font-semibold text-foreground/90">{formatCurrency(bill.billAmount, bill.currency)}</span>
-                    <span className="text-muted-foreground">({bill.paymentCycle})</span>
-                </div>
-                 <div className="flex items-center gap-1.5">
-                    <CalendarDays className="h-3.5 w-3.5 text-red-500" />
-                    <span className="font-medium">Due: {formatDate(bill.dueDate)}</span>
-                </div>
-                {bill.paymentDate && (
-                    <div className="flex items-center gap-1.5">
-                        <CalendarDays className="h-3.5 w-3.5 text-green-500" />
-                        <span>Paid: {formatDate(bill.paymentDate)}</span>
-                    </div>
-                )}
-                {bill.notes && (
-                    <div className="flex items-start gap-1.5 pt-1">
-                        <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                        <p className="line-clamp-2 text-xs" title={bill.notes}>Notes: {bill.notes}</p>
-                    </div>
-                )}
-              </CardContent>
-              <CardFooter className="border-t pt-3 pb-3">
-                {bill.invoiceUrl ? (
-                     <Button 
-                        variant="outline" 
-                        size="sm" 
-                        asChild 
-                        className="w-full"
-                    >
-                        <a href={bill.invoiceUrl} target="_blank" rel="noopener noreferrer">
-                        <FileText className="mr-2 h-4 w-4" /> View Invoice
-                        </a>
-                    </Button>
-                ) : (
-                    <p className="text-xs text-muted-foreground italic w-full text-center">No invoice URL provided</p>
-                )}
-              </CardFooter>
-            </Card>
-          ))}
+          {bills.map((bill) => {
+            const now = new Date();
+            let dueDateInfoText = '';
+            let paymentDateInfoText = '';
+            let dueDateIconColor = 'text-gray-500'; // Default color
+
+            const billDueDateObj = bill.dueDate instanceof Timestamp ? bill.dueDate.toDate() : (typeof bill.dueDate === 'string' ? new Date(bill.dueDate) : null);
+            const billPaymentDateObj = bill.paymentDate ? (bill.paymentDate instanceof Timestamp ? bill.paymentDate.toDate() : (typeof bill.paymentDate === 'string' ? new Date(bill.paymentDate) : null)) : null;
+            
+            if (billDueDateObj && isValid(billDueDateObj)) {
+              if (bill.status === 'Pending' || bill.status === 'Overdue') {
+                const daysDiff = differenceInDays(billDueDateObj, now);
+                if (isToday(billDueDateObj)) {
+                  dueDateInfoText = '(Due today)';
+                  dueDateIconColor = 'text-orange-500';
+                } else if (isFuture(billDueDateObj)) {
+                  // For future dates, differenceInDays returns positive. Add 1 to make "tomorrow" show "in 1 day".
+                  dueDateInfoText = `(Due in ${daysDiff +1} day${daysDiff + 1 > 1 ? 's' : ''})`;
+                  dueDateIconColor = 'text-blue-500';
+                } else { // isPast
+                  // For past dates, differenceInDays with (past, now) is negative. (now, past) is positive.
+                  const overdueDays = differenceInDays(now, billDueDateObj);
+                  dueDateInfoText = `(Overdue by ${overdueDays} day${overdueDays > 1 ? 's' : ''})`;
+                  dueDateIconColor = 'text-red-500';
+                }
+              }
+            }
+
+            if (billPaymentDateObj && isValid(billPaymentDateObj) && bill.status === 'Paid') {
+                paymentDateInfoText = `(${formatDistanceToNowStrict(billPaymentDateObj, { addSuffix: true })})`;
+            }
+            
+            return (
+              <Card key={bill.id} className="shadow-lg rounded-lg flex flex-col hover:shadow-xl transition-shadow duration-300">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between gap-2">
+                      <CardTitle className="text-lg font-semibold truncate leading-tight flex items-center" title={`${bill.companyName} - ${bill.wifiProvider}`}>
+                          <Building className="mr-2 h-5 w-5 text-primary/80 shrink-0" /> 
+                          <span className="truncate">{bill.companyName}</span>
+                      </CardTitle>
+                       <Badge 
+                          variant={statusBadgeVariant(bill.status)}
+                          className={`text-xs whitespace-nowrap capitalize shrink-0 font-medium ${
+                              bill.status === "Paid" ? "bg-green-100 text-green-700 border-green-300" :
+                              bill.status === "Overdue" ? "bg-red-100 text-red-700 border-red-300" :
+                              bill.status === "Pending" ? "bg-yellow-100 text-yellow-700 border-yellow-300" :
+                              "bg-gray-100 text-gray-700 border-gray-300" 
+                          }`}
+                      >
+                          {bill.status}
+                      </Badge>
+                  </div>
+                   <CardDescription className="text-sm text-muted-foreground flex items-center pt-1">
+                      <Server className="mr-2 h-4 w-4 shrink-0" /> {bill.wifiProvider} - {bill.planName}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="text-xs text-muted-foreground space-y-1.5 flex-grow pt-0 pb-3">
+                  {bill.accountNumber && (
+                      <div className="flex items-center gap-1.5">
+                          <UserCircle2 className="h-3.5 w-3.5" />
+                          <span>Account: {bill.accountNumber}</span>
+                      </div>
+                  )}
+                  <div className="flex items-center gap-1.5">
+                      <DollarSign className="h-3.5 w-3.5" />
+                      <span className="font-semibold text-foreground/90">{formatCurrency(bill.billAmount, bill.currency)}</span>
+                      <span className="text-muted-foreground">({bill.paymentCycle})</span>
+                  </div>
+                   <div className="flex items-center gap-1.5">
+                      <CalendarDays className={`h-3.5 w-3.5 ${dueDateIconColor}`} />
+                      <span className="font-medium">Due: {formatDate(billDueDateObj)}</span>
+                      {dueDateInfoText && <span className="text-xs text-muted-foreground ml-1">{dueDateInfoText}</span>}
+                  </div>
+                  {billPaymentDateObj && bill.status === 'Paid' && (
+                      <div className="flex items-center gap-1.5">
+                          <CalendarDays className="h-3.5 w-3.5 text-green-500" />
+                          <span>Paid: {formatDate(billPaymentDateObj)}</span>
+                          {paymentDateInfoText && <span className="text-xs text-muted-foreground ml-1">{paymentDateInfoText}</span>}
+                      </div>
+                  )}
+                  {bill.notes && (
+                      <div className="flex items-start gap-1.5 pt-1">
+                          <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                          <p className="line-clamp-2 text-xs" title={bill.notes}>Notes: {bill.notes}</p>
+                      </div>
+                  )}
+                </CardContent>
+                <CardFooter className="border-t pt-3 pb-3">
+                  {bill.invoiceUrl ? (
+                       <Button 
+                          variant="outline" 
+                          size="sm" 
+                          asChild 
+                          className="w-full"
+                      >
+                          <a href={bill.invoiceUrl} target="_blank" rel="noopener noreferrer">
+                          <FileText className="mr-2 h-4 w-4" /> View Invoice
+                          </a>
+                      </Button>
+                  ) : (
+                      <p className="text-xs text-muted-foreground italic w-full text-center">No invoice URL provided</p>
+                  )}
+                </CardFooter>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
