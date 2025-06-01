@@ -15,11 +15,12 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { UploadDocumentForm } from "./upload-document-form";
-import { FileText, PlusCircle, Loader2, Download, PackageOpen, FileQuestion, Tag, CalendarDays, UserCircle } from 'lucide-react';
+import { FileText, PlusCircle, Loader2, Download, PackageOpen, FileQuestion, Tag, CalendarDays, UserCircle, FileArchive, Sheet, Image as ImageIcon } from 'lucide-react';
+import Image from 'next/image'; // For image previews
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, Timestamp, limit } from 'firebase/firestore';
-import { format, formatDistanceToNowStrict } from 'date-fns';
+import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 
 const DOCUMENTS_FETCH_LIMIT = 20; // Limit for initial fetch
@@ -32,12 +33,16 @@ const formatFileSize = (bytes: number): string => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-const getFileIcon = (fileType: string) => {
-  if (fileType.startsWith('image/')) return <FileQuestion className="h-5 w-5 text-blue-500" />; // Or a specific image icon
-  if (fileType === 'application/pdf') return <FileText className="h-5 w-5 text-red-500" />;
-  if (fileType.includes('wordprocessingml') || fileType === 'application/msword') return <FileText className="h-5 w-5 text-blue-700" />;
-  if (fileType.includes('spreadsheetml') || fileType === 'application/vnd.ms-excel') return <FileText className="h-5 w-5 text-green-600" />;
-  return <FileQuestion className="h-5 w-5 text-gray-500" />;
+const getFileIcon = (fileType: string, category: string) => {
+  if (category === "Image Gallery" && fileType.startsWith('image/')) {
+    return null; // Indicate that an image preview will be shown instead
+  }
+  if (fileType.startsWith('image/')) return <ImageIcon className="h-8 w-8 text-purple-500" />;
+  if (fileType === 'application/pdf') return <FileText className="h-8 w-8 text-red-500" />;
+  if (fileType.includes('wordprocessingml') || fileType === 'application/msword') return <FileText className="h-8 w-8 text-blue-700" />;
+  if (fileType.includes('spreadsheetml') || fileType === 'application/vnd.ms-excel') return <Sheet className="h-8 w-8 text-green-600" />;
+  if (fileType === 'application/zip' || fileType === 'application/x-zip-compressed') return <FileArchive className="h-8 w-8 text-yellow-500" />;
+  return <FileQuestion className="h-8 w-8 text-gray-500" />;
 };
 
 export default function DocumentsPage() {
@@ -132,52 +137,68 @@ export default function DocumentsPage() {
         </Card>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {documents.map((doc) => (
-            <Card key={doc.id} className="shadow-lg rounded-lg flex flex-col overflow-hidden hover:shadow-xl transition-shadow duration-300">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2 flex-shrink min-w-0">
-                        {getFileIcon(doc.fileType)}
-                        <CardTitle className="text-base font-semibold truncate" title={doc.fileName}>
-                            {doc.fileName}
-                        </CardTitle>
+          {documents.map((doc) => {
+            const iconElement = getFileIcon(doc.fileType, doc.category);
+            const isImagePreview = doc.category === "Image Gallery" && doc.fileType.startsWith('image/');
+
+            return (
+              <Card key={doc.id} className="shadow-lg rounded-lg flex flex-col overflow-hidden hover:shadow-xl transition-shadow duration-300">
+                <CardHeader className="pb-3">
+                  {isImagePreview ? (
+                    <div className="w-full h-32 relative mb-2 rounded-t-md overflow-hidden">
+                      <Image
+                        src={doc.downloadURL}
+                        alt={doc.fileName}
+                        fill
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        className="object-cover"
+                        data-ai-hint="image preview"
+                      />
                     </div>
-                    <Badge variant="outline" className="text-xs whitespace-nowrap capitalize">{doc.category}</Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="text-xs text-muted-foreground space-y-1.5 flex-grow pt-0 pb-3">
-                {doc.description && (
-                  <p className="line-clamp-2" title={doc.description}>
-                    {doc.description}
-                  </p>
-                )}
-                <div className="flex items-center gap-1.5">
-                    <CalendarDays className="h-3.5 w-3.5" />
-                    <span>Uploaded: {doc.uploadedAt instanceof Timestamp ? format(doc.uploadedAt.toDate(), "MMM d, yyyy") : 'N/A'}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                    <UserCircle className="h-3.5 w-3.5" />
-                    <span className="truncate" title={doc.uploadedByName}>By: {doc.uploadedByName}</span>
-                </div>
-                 <div className="flex items-center gap-1.5">
-                    <PackageOpen className="h-3.5 w-3.5" />
-                    <span>Size: {formatFileSize(doc.fileSize)}</span>
-                </div>
-              </CardContent>
-              <CardFooter className="border-t pt-3 pb-3">
-                <Button 
-                  variant="default" 
-                  size="sm" 
-                  asChild 
-                  className="w-full"
-                >
-                  <a href={doc.downloadURL} target="_blank" rel="noopener noreferrer" download={doc.fileName}>
-                    <Download className="mr-2 h-4 w-4" /> Download
-                  </a>
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
+                  ) : (
+                    iconElement && <div className="flex justify-center items-center h-16 mb-2">{iconElement}</div>
+                  )}
+                  <div className="flex items-start justify-between gap-2">
+                      <CardTitle className="text-base font-semibold truncate leading-tight" title={doc.fileName}>
+                          {doc.fileName}
+                      </CardTitle>
+                      <Badge variant="outline" className="text-xs whitespace-nowrap capitalize shrink-0">{doc.category}</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="text-xs text-muted-foreground space-y-1.5 flex-grow pt-0 pb-3">
+                  {doc.description && (
+                    <p className="line-clamp-2" title={doc.description}>
+                      {doc.description}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-1.5">
+                      <CalendarDays className="h-3.5 w-3.5" />
+                      <span>Uploaded: {doc.uploadedAt instanceof Timestamp ? format(doc.uploadedAt.toDate(), "MMM d, yyyy") : 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                      <UserCircle className="h-3.5 w-3.5" />
+                      <span className="truncate" title={doc.uploadedByName}>By: {doc.uploadedByName}</span>
+                  </div>
+                   <div className="flex items-center gap-1.5">
+                      <PackageOpen className="h-3.5 w-3.5" />
+                      <span>Size: {formatFileSize(doc.fileSize)}</span>
+                  </div>
+                </CardContent>
+                <CardFooter className="border-t pt-3 pb-3">
+                  <Button 
+                    variant="default" 
+                    size="sm" 
+                    asChild 
+                    className="w-full"
+                  >
+                    <a href={doc.downloadURL} target="_blank" rel="noopener noreferrer" download={doc.fileName}>
+                      <Download className="mr-2 h-4 w-4" /> Download
+                    </a>
+                  </Button>
+                </CardFooter>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

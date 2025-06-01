@@ -26,8 +26,9 @@ import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { storage, auth as firebaseAuth } from '@/lib/firebase';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import Image from 'next/image'; // For preview
 
-const DOCUMENT_CATEGORIES = ["Company Policy", "HR Template", "Financial Report", "Training Material", "Onboarding Doc", "Legal", "Miscellaneous"];
+const DOCUMENT_CATEGORIES = ["Image Gallery", "Company Policy", "HR Template", "Financial Report", "Training Material", "Onboarding Doc", "Legal", "Miscellaneous"];
 
 const ClientDocumentSchema = z.object({
   file: (typeof window !== 'undefined' ? z.instanceof(FileList) : z.any())
@@ -212,7 +213,7 @@ export function UploadDocumentForm({ onFormSubmissionSuccess, className }: Uploa
       {state?.errors?._form && <p className="text-sm font-medium text-destructive mt-2">{state.errors._form.join(', ')}</p>}
 
       <div className="flex justify-end pt-2">
-        <SubmitButton isImageUploading={isUploading} />
+        <SubmitButton isUploading={isUploading} />
       </div>
     </form>
   );
