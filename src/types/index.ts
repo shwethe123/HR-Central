@@ -93,3 +93,21 @@ export type DocumentMetadata = {
   uploadedByName: string; // Display name of the uploader
   uploadedAt: Timestamp; // Firestore Timestamp
 };
+
+export type WifiBill = {
+  id: string;
+  companyName: "Innovatech Solutions" | "Synergy Corp" | "QuantumLeap Inc." | string; // Allow other company names too
+  wifiProvider: "Myanmar Net" | "5BB" | "Ooredoo Fiber" | string; // Allow other providers
+  planName: string; // e.g., "50Mbps Unlimited", "Business Plan A"
+  accountNumber?: string;
+  paymentCycle: "Monthly" | "2 Months" | "Quarterly" | "Annually";
+  billAmount: number;
+  currency?: "MMK" | "USD"; // Optional currency field, default to MMK if not specified elsewhere
+  dueDate: string; // Could be Timestamp for more precise handling
+  paymentDate?: string; // Optional, could be Timestamp
+  status: "Pending" | "Paid" | "Overdue" | "Cancelled";
+  invoiceUrl?: string; // Optional link to the invoice PDF/image
+  notes?: string; // Optional notes
+  createdAt: Timestamp; // When the bill record was created in the system
+  updatedAt?: Timestamp; // When the bill record was last updated
+};
