@@ -124,8 +124,13 @@ export default function WifiBillsPage() {
         </h1>
         <Dialog open={isFormDialogOpen} onOpenChange={setIsFormDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
-              <PlusCircle className="mr-2 h-4 w-4" /> Add New WiFi Bill
+            <Button disabled={isFormDialogOpen}>
+              {isFormDialogOpen ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <PlusCircle className="mr-2 h-4 w-4" />
+              )}
+              Add New WiFi Bill
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[625px]">
@@ -154,8 +159,13 @@ export default function WifiBillsPage() {
             <p className="text-muted-foreground mb-4">
               Get started by adding your first WiFi bill record.
             </p>
-            <Button onClick={() => setIsFormDialogOpen(true)}>
-              <PlusCircle className="mr-2 h-4 w-4" /> Add New WiFi Bill
+            <Button onClick={() => setIsFormDialogOpen(true)} disabled={isFormDialogOpen}>
+                {isFormDialogOpen ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                )}
+                 Add New WiFi Bill
             </Button>
           </CardContent>
         </Card>
