@@ -14,12 +14,12 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from '@/components/ui/badge';
-import { AddWifiBillForm } from "./add-wifi-bill-form";
-import { Wifi, PlusCircle, Loader2, CalendarDays, DollarSign, Info, FileText, Building, Server, UserCircle2 } from 'lucide-react';
+import { AddWifiBillForm, type WifiBillFormData } from "./add-wifi-bill-form";
+import { Wifi, PlusCircle, Loader2, CalendarDays, DollarSign, Info, FileText, Building, Server, UserCircle2, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, Timestamp, limit } from 'firebase/firestore';
-import { format as formatDateFns, differenceInDays, isToday, isFuture, isValid, formatDistanceToNowStrict, isPast } from 'date-fns';
+import { format as formatDateFns, differenceInDays, isToday, isFuture, isValid, formatDistanceToNowStrict, isPast, addMonths, addYears, parseISO } from 'date-fns';
 
 const WIFI_BILLS_FETCH_LIMIT = 20; // Limit for initial fetch
 
@@ -27,19 +27,18 @@ const WIFI_BILLS_FETCH_LIMIT = 20; // Limit for initial fetch
 const formatDate = (dateInput: string | Timestamp | Date | undefined | null): string => {
   if (!dateInput) return 'N/A';
   let date: Date;
-  if (typeof dateInput === 'string') {
+  if (dateInput instanceof Date && isValid(dateInput)) {
+    date = dateInput;
+  } else if (typeof dateInput === 'string') {
     try {
-        date = new Date(dateInput);
+        date = parseISO(dateInput); // Use parseISO for better string parsing
     } catch (e) {
         console.warn("Invalid date string encountered:", dateInput, e);
         return 'Invalid Date String';
     }
   } else if (dateInput instanceof Timestamp) {
     date = dateInput.toDate();
-  } else if (dateInput instanceof Date) { 
-    date = dateInput;
-  }
-   else {
+  } else {
     console.warn("Invalid date type encountered:", dateInput);
     return 'Invalid Date Type';
   }
@@ -71,6 +70,9 @@ export default function WifiBillsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const { toast } = useToast();
+  const [renewalInitialData, setRenewalInitialData] = useState<Partial<WifiBillFormData> | null>(null);
+  const [dialogTitle, setDialogTitle] = useState("Add New WiFi Bill");
+
 
   const fetchWifiBills = useCallback(async () => {
     setIsLoading(true);
@@ -109,11 +111,65 @@ export default function WifiBillsPage() {
 
   const handleFormSubmissionSuccess = (newBillId?: string) => {
     setIsFormDialogOpen(false);
+    setRenewalInitialData(null); // Clear renewal data after submission
+    setDialogTitle("Add New WiFi Bill"); // Reset title
     fetchWifiBills(); 
     if (newBillId) {
         // Optionally, scroll to new bill or highlight
     }
   };
+
+  const calculateNextDueDate = (currentDueDateStr: string | Date | Timestamp, cycle: WifiBill['paymentCycle']): Date => {
+    let currentDueDate;
+    if (currentDueDateStr instanceof Timestamp) {
+        currentDueDate = currentDueDateStr.toDate();
+    } else if (typeof currentDueDateStr === 'string') {
+        currentDueDate = parseISO(currentDueDateStr);
+    } else if (currentDueDateStr instanceof Date) {
+        currentDueDate = currentDueDateStr;
+    } else {
+      // Fallback if type is unexpected, though should be handled by WifiBill type
+      currentDueDate = new Date(); 
+    }
+
+    if (!isValid(currentDueDate)) return new Date(); // fallback to today if parsing failed
+
+    switch (cycle) {
+      case "Monthly":
+        return addMonths(currentDueDate, 1);
+      case "2 Months":
+        return addMonths(currentDueDate, 2);
+      case "Quarterly":
+        return addMonths(currentDueDate, 3);
+      case "Annually":
+        return addYears(currentDueDate, 1);
+      default: // Should not happen with enum type
+        return addMonths(currentDueDate, 1); 
+    }
+  };
+
+  const handleOpenRenewDialog = (billToRenew: WifiBill) => {
+    const nextDueDate = calculateNextDueDate(billToRenew.dueDate, billToRenew.paymentCycle);
+    
+    const initialDataForForm: Partial<WifiBillFormData> = {
+        companyName: billToRenew.companyName,
+        wifiProvider: billToRenew.wifiProvider,
+        planName: billToRenew.planName,
+        accountNumber: billToRenew.accountNumber || '',
+        paymentCycle: billToRenew.paymentCycle,
+        billAmount: billToRenew.billAmount,
+        currency: billToRenew.currency || 'MMK',
+        dueDate: nextDueDate, // Date object
+        paymentDate: null, // Clear payment date for renewal
+        status: 'Pending',
+        invoiceUrl: '', // Clear invoice URL for renewal
+        notes: billToRenew.notes || '', // Optionally copy notes or add "Renewed from..."
+    };
+    setRenewalInitialData(initialDataForForm);
+    setDialogTitle("Renew WiFi Bill");
+    setIsFormDialogOpen(true);
+  };
+
 
   return (
     <div className="container mx-auto py-2 space-y-6">
@@ -122,10 +178,26 @@ export default function WifiBillsPage() {
           <Wifi className="mr-3 h-8 w-8 text-primary" />
           WiFi Bill Management
         </h1>
-        <Dialog open={isFormDialogOpen} onOpenChange={setIsFormDialogOpen}>
+        <Dialog 
+            open={isFormDialogOpen} 
+            onOpenChange={(isOpen) => {
+                setIsFormDialogOpen(isOpen);
+                if (!isOpen) {
+                    setRenewalInitialData(null); // Reset renewal data when dialog closes
+                    setDialogTitle("Add New WiFi Bill"); // Reset title
+                }
+            }}
+        >
           <DialogTrigger asChild>
-            <Button disabled={isFormDialogOpen}>
-              {isFormDialogOpen ? (
+            <Button 
+                onClick={() => {
+                    setRenewalInitialData(null); // Ensure form is empty for new bill
+                    setDialogTitle("Add New WiFi Bill");
+                    // setIsFormDialogOpen(true); // DialogTrigger handles opening
+                }}
+                disabled={isFormDialogOpen && dialogTitle === "Add New WiFi Bill"} // Disable if already adding new
+            >
+              {isFormDialogOpen && dialogTitle === "Add New WiFi Bill" ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <PlusCircle className="mr-2 h-4 w-4" />
@@ -135,12 +207,16 @@ export default function WifiBillsPage() {
           </DialogTrigger>
           <DialogContent className="sm:max-w-[625px]">
             <DialogHeader>
-              <DialogTitle>Add New WiFi Bill</DialogTitle>
+              <DialogTitle>{dialogTitle}</DialogTitle>
               <DialogDescription>
-                Fill in the details for the new WiFi bill entry.
+                {dialogTitle === "Renew WiFi Bill" ? "Confirm details for the renewal." : "Fill in the details for the new WiFi bill entry."}
               </DialogDescription>
             </DialogHeader>
-            <AddWifiBillForm onFormSubmissionSuccess={handleFormSubmissionSuccess} />
+            <AddWifiBillForm 
+                key={renewalInitialData ? `renew-${renewalInitialData.dueDate?.toISOString()}` : 'new-bill'}
+                onFormSubmissionSuccess={handleFormSubmissionSuccess} 
+                initialData={renewalInitialData || undefined}
+            />
           </DialogContent>
         </Dialog>
       </div>
@@ -159,8 +235,15 @@ export default function WifiBillsPage() {
             <p className="text-muted-foreground mb-4">
               Get started by adding your first WiFi bill record.
             </p>
-            <Button onClick={() => setIsFormDialogOpen(true)} disabled={isFormDialogOpen}>
-                {isFormDialogOpen ? (
+            <Button 
+                onClick={() => {
+                    setRenewalInitialData(null);
+                    setDialogTitle("Add New WiFi Bill");
+                    setIsFormDialogOpen(true);
+                }} 
+                disabled={isFormDialogOpen && dialogTitle === "Add New WiFi Bill"}
+            >
+                {isFormDialogOpen && dialogTitle === "Add New WiFi Bill" ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                     <PlusCircle className="mr-2 h-4 w-4" />
@@ -177,8 +260,8 @@ export default function WifiBillsPage() {
             let paymentDateInfoText = '';
             let dueDateIconColor = 'text-gray-500'; // Default color
 
-            const billDueDateObj = bill.dueDate instanceof Timestamp ? bill.dueDate.toDate() : (typeof bill.dueDate === 'string' ? new Date(bill.dueDate) : null);
-            const billPaymentDateObj = bill.paymentDate ? (bill.paymentDate instanceof Timestamp ? bill.paymentDate.toDate() : (typeof bill.paymentDate === 'string' ? new Date(bill.paymentDate) : null)) : null;
+            const billDueDateObj = bill.dueDate instanceof Timestamp ? bill.dueDate.toDate() : (typeof bill.dueDate === 'string' ? parseISO(bill.dueDate) : null);
+            const billPaymentDateObj = bill.paymentDate ? (bill.paymentDate instanceof Timestamp ? bill.paymentDate.toDate() : (typeof bill.paymentDate === 'string' ? parseISO(bill.paymentDate) : null)) : null;
             
             if (billDueDateObj && isValid(billDueDateObj)) {
               if (bill.status === 'Pending' || bill.status === 'Overdue') {
@@ -187,13 +270,11 @@ export default function WifiBillsPage() {
                   dueDateInfoText = '(Due today)';
                   dueDateIconColor = 'text-orange-500';
                 } else if (isFuture(billDueDateObj)) {
-                  // For future dates, differenceInDays returns positive. Add 1 to make "tomorrow" show "in 1 day".
-                  dueDateInfoText = `(Due in ${daysDiff +1} day${daysDiff + 1 > 1 ? 's' : ''})`;
+                  dueDateInfoText = `(Due in ${daysDiff +1} day${daysDiff + 1 !== 1 ? 's' : ''})`;
                   dueDateIconColor = 'text-blue-500';
-                } else { // isPast
-                  // For past dates, differenceInDays with (past, now) is negative. (now, past) is positive.
+                } else { 
                   const overdueDays = differenceInDays(now, billDueDateObj);
-                  dueDateInfoText = `(Overdue by ${overdueDays} day${overdueDays > 1 ? 's' : ''})`;
+                  dueDateInfoText = `(Overdue by ${overdueDays} day${overdueDays !== 1 ? 's' : ''})`;
                   dueDateIconColor = 'text-red-500';
                 }
               }
@@ -258,7 +339,7 @@ export default function WifiBillsPage() {
                       </div>
                   )}
                 </CardContent>
-                <CardFooter className="border-t pt-3 pb-3">
+                <CardFooter className="border-t pt-3 pb-3 flex flex-col items-stretch gap-2">
                   {bill.invoiceUrl ? (
                        <Button 
                           variant="outline" 
@@ -272,6 +353,16 @@ export default function WifiBillsPage() {
                       </Button>
                   ) : (
                       <p className="text-xs text-muted-foreground italic w-full text-center">No invoice URL provided</p>
+                  )}
+                  {bill.status !== "Cancelled" && (
+                     <Button
+                        variant="default"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => handleOpenRenewDialog(bill)}
+                      >
+                        <RefreshCw className="mr-2 h-4 w-4" /> Renew Bill
+                      </Button>
                   )}
                 </CardFooter>
               </Card>

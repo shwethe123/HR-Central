@@ -7,7 +7,7 @@ import { useFormStatus } from 'react-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { format } from 'date-fns';
+import { format, parseISO, isValid as isDateValid } from 'date-fns';
 
 import { addWifiBill, type AddWifiBillFormState } from './actions';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,7 @@ import { Calendar as CalendarIcon, Loader2 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
+import type { WifiBill } from '@/types';
 
 // Match server-side Zod schema structure, but use Date for client-side date pickers
 const ClientWifiBillSchema = z.object({
@@ -47,7 +48,7 @@ const ClientWifiBillSchema = z.object({
   notes: z.string().max(500).optional(),
 });
 
-type WifiBillFormData = z.infer<typeof ClientWifiBillSchema>;
+export type WifiBillFormData = z.infer<typeof ClientWifiBillSchema>;
 
 // Placeholder data - in a real app, this might come from props or context
 const MOCK_COMPANIES = ["Innovatech Solutions", "Synergy Corp", "QuantumLeap Inc.", "Lashio Main", "Taunggyi Branch"];
@@ -59,6 +60,7 @@ const STATUS_OPTIONS = ["Pending", "Paid", "Overdue", "Cancelled"];
 interface AddWifiBillFormProps {
   onFormSubmissionSuccess?: (newBillId?: string) => void;
   className?: string;
+  initialData?: Partial<WifiBillFormData>; // For pre-filling the form (e.g., for renewal)
 }
 
 function SubmitButton() {
@@ -66,32 +68,75 @@ function SubmitButton() {
   return (
     <Button type="submit" disabled={pending} className="w-full sm:w-auto">
       {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-      Add WiFi Bill
+      Save Bill
     </Button>
   );
 }
 
-export function AddWifiBillForm({ onFormSubmissionSuccess, className }: AddWifiBillFormProps) {
+export function AddWifiBillForm({ onFormSubmissionSuccess, className, initialData }: AddWifiBillFormProps) {
   const { toast } = useToast();
   const [state, formAction] = useActionState(addWifiBill, { message: null, errors: {}, success: false });
 
+  const getProcessedInitialData = (data?: Partial<WifiBillFormData>) => {
+    if (!data) {
+      return {
+        companyName: '',
+        wifiProvider: '',
+        planName: '',
+        accountNumber: '',
+        paymentCycle: 'Monthly' as WifiBillFormData['paymentCycle'],
+        billAmount: undefined,
+        currency: 'MMK' as WifiBillFormData['currency'],
+        dueDate: undefined,
+        paymentDate: null,
+        status: 'Pending' as WifiBillFormData['status'],
+        invoiceUrl: '',
+        notes: '',
+      };
+    }
+    
+    let dueDateProcessed: Date | undefined = undefined;
+    if (data.dueDate) {
+        if (data.dueDate instanceof Date && isDateValid(data.dueDate)) {
+            dueDateProcessed = data.dueDate;
+        } else if (typeof data.dueDate === 'string') {
+            const parsed = parseISO(data.dueDate);
+            if (isDateValid(parsed)) dueDateProcessed = parsed;
+        }
+    }
+
+    let paymentDateProcessed: Date | null | undefined = null;
+     if (data.paymentDate) {
+        if (data.paymentDate instanceof Date && isDateValid(data.paymentDate)) {
+            paymentDateProcessed = data.paymentDate;
+        } else if (typeof data.paymentDate === 'string') {
+            const parsed = parseISO(data.paymentDate);
+            if (isDateValid(parsed)) paymentDateProcessed = parsed;
+        }
+    }
+
+    return {
+      ...data,
+      dueDate: dueDateProcessed,
+      paymentDate: paymentDateProcessed,
+      // Ensure other enum types have fallbacks if initialData might be incomplete
+      paymentCycle: data.paymentCycle || 'Monthly',
+      currency: data.currency || 'MMK',
+      status: data.status || 'Pending',
+    };
+  };
+
+
   const form = useForm<WifiBillFormData>({
     resolver: zodResolver(ClientWifiBillSchema),
-    defaultValues: {
-      companyName: '',
-      wifiProvider: '',
-      planName: '',
-      accountNumber: '',
-      paymentCycle: 'Monthly',
-      billAmount: undefined,
-      currency: 'MMK',
-      dueDate: undefined,
-      paymentDate: null,
-      status: 'Pending',
-      invoiceUrl: '',
-      notes: '',
-    },
+    defaultValues: getProcessedInitialData(initialData),
   });
+
+   useEffect(() => {
+    // Reset form with new initialData when it changes (e.g., user clicks "Renew" on different bills)
+    form.reset(getProcessedInitialData(initialData));
+  }, [initialData, form.reset]);
+
 
   useEffect(() => {
     if (state?.success && state.message) {
@@ -99,13 +144,13 @@ export function AddWifiBillForm({ onFormSubmissionSuccess, className }: AddWifiB
         title: "Success",
         description: state.message,
       });
-      form.reset();
+      form.reset(getProcessedInitialData()); // Reset to empty defaults after success
       if (onFormSubmissionSuccess) {
         onFormSubmissionSuccess(state.newWifiBillId);
       }
     } else if (!state?.success && state?.message && (state.errors || state.message.includes("failed:"))) {
        toast({
-        title: "Error Adding WiFi Bill",
+        title: "Error Saving WiFi Bill",
         description: state.errors?._form?.[0] || state.message || "An unexpected error occurred.",
         variant: "destructive",
       });
@@ -124,6 +169,8 @@ export function AddWifiBillForm({ onFormSubmissionSuccess, className }: AddWifiB
     formData.append('dueDate', format(data.dueDate, "yyyy-MM-dd"));
     if (data.paymentDate) {
       formData.append('paymentDate', format(data.paymentDate, "yyyy-MM-dd"));
+    } else {
+      formData.append('paymentDate', ''); // Send empty string if null/undefined for server action
     }
     formData.append('status', data.status);
     if (data.invoiceUrl) formData.append('invoiceUrl', data.invoiceUrl);
@@ -264,7 +311,7 @@ export function AddWifiBillForm({ onFormSubmissionSuccess, className }: AddWifiB
                 <PopoverTrigger asChild>
                   <Button variant="outline" id="dueDate" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                    {field.value && isDateValid(field.value) ? format(field.value, "PPP") : <span>Pick a date</span>}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent>
@@ -283,7 +330,7 @@ export function AddWifiBillForm({ onFormSubmissionSuccess, className }: AddWifiB
                 <PopoverTrigger asChild>
                   <Button variant="outline" id="paymentDate" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                    {field.value && isDateValid(field.value) ? format(field.value, "PPP") : <span>Pick a date</span>}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent>
@@ -314,3 +361,4 @@ export function AddWifiBillForm({ onFormSubmissionSuccess, className }: AddWifiB
     </form>
   );
 }
+
