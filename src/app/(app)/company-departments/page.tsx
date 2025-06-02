@@ -67,7 +67,7 @@ export default function CompanyDepartmentsPage() {
         console.error("Error fetching employees for Company Depts page:", error);
         toast({
           title: "Error Fetching Data",
-          description: "Could not load employee information.",
+          description: "Could not load employee information. Please check your internet connection or try again later.",
           variant: "destructive",
         });
       } finally {
@@ -139,19 +139,19 @@ export default function CompanyDepartmentsPage() {
               <div className="rounded-md border overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[50px] font-semibold sticky left-0 bg-card z-10">#</TableHead>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="w-[50px] px-4 font-semibold sticky left-0 bg-card z-10">#</TableHead>
                       {companyDepartments.map(dept => (
-                        <TableHead key={dept} className="font-semibold min-w-[200px]">{dept}</TableHead>
+                        <TableHead key={dept} className="font-semibold min-w-[200px] px-4 text-left">{dept}</TableHead>
                       ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {companyEmployees.map((employee, index) => (
                       <TableRow key={employee.id} className="hover:bg-muted/50">
-                        <TableCell className="font-medium py-3 sticky left-0 bg-card z-0">{index + 1}</TableCell>
+                        <TableCell className="font-medium py-3 px-4 sticky left-0 bg-card z-0">{index + 1}</TableCell>
                         {companyDepartments.map(dept => (
-                          <TableCell key={`${employee.id}-${dept}`} className="py-3 min-w-[200px]">
+                          <TableCell key={`${employee.id}-${dept}`} className="py-3 px-4 min-w-[200px]">
                             {(employee.department || "Unknown Department") === dept ? employee.name : ''}
                           </TableCell>
                         ))}
@@ -161,7 +161,7 @@ export default function CompanyDepartmentsPage() {
                 </Table>
               </div>
             ) : (
-              <p className="text-muted-foreground py-4">No departments with employees found for {companyName}.</p>
+              <p className="text-muted-foreground py-4 px-4">No departments with employees found for {companyName}.</p>
             )}
           </CardContent>
         </Card>
@@ -239,16 +239,16 @@ export default function CompanyDepartmentsPage() {
                 <div className="rounded-md border overflow-x-auto">
                   <Table>
                     <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[60%] font-semibold">Department Name</TableHead>
-                        <TableHead className="text-left font-semibold">Employees ({employees.filter(e => e.company === selectedCompany).length} total)</TableHead>
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="w-[60%] px-4 font-semibold text-left">Department Name</TableHead>
+                        <TableHead className="px-4 text-left font-semibold">Employees ({employees.filter(e => e.company === selectedCompany).length} total)</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {departmentsInSelectedCompany.map(dept => (
                         <TableRow key={dept.name} className="hover:bg-muted/50">
-                          <TableCell className="font-medium py-3">{dept.name}</TableCell>
-                          <TableCell className="py-3">
+                          <TableCell className="font-medium py-3 px-4">{dept.name}</TableCell>
+                          <TableCell className="py-3 px-4">
                             {dept.employeeSamples.join(", ")}
                             {dept.employeeCount > dept.employeeSamples.length && (
                               <span>
@@ -264,7 +264,7 @@ export default function CompanyDepartmentsPage() {
                   </Table>
                 </div>
               ) : (
-                <p className="text-muted-foreground py-4">No departments found for {selectedCompany}, or no employees currently in this company.</p>
+                <p className="text-muted-foreground py-4 px-4">No departments found for {selectedCompany}, or no employees currently in this company.</p>
               )}
             </CardContent>
           </Card>
@@ -293,18 +293,18 @@ export default function CompanyDepartmentsPage() {
                       <div className="rounded-md border overflow-x-auto bg-card">
                         <Table>
                           <TableHeader>
-                            <TableRow>
-                              <TableHead className="w-[50px] font-semibold">#</TableHead>
-                              <TableHead className="font-semibold">Name</TableHead>
-                              <TableHead className="font-semibold">Role</TableHead>
+                            <TableRow className="bg-muted/50">
+                              <TableHead className="w-[50px] px-4 font-semibold text-left">#</TableHead>
+                              <TableHead className="px-4 font-semibold text-left">Name</TableHead>
+                              <TableHead className="px-4 font-semibold text-left">Role</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {deptEmployees.map((emp, empIndex) => (
                               <TableRow key={emp.id} className="hover:bg-muted/50">
-                                <TableCell className="font-medium py-3">{empIndex + 1}</TableCell>
-                                <TableCell className="font-medium py-3">{emp.name}</TableCell>
-                                <TableCell className="py-3">{emp.role}</TableCell>
+                                <TableCell className="font-medium py-3 px-4">{empIndex + 1}</TableCell>
+                                <TableCell className="font-medium py-3 px-4">{emp.name}</TableCell>
+                                <TableCell className="py-3 px-4">{emp.role}</TableCell>
                               </TableRow>
                             ))}
                           </TableBody>
@@ -314,7 +314,7 @@ export default function CompanyDepartmentsPage() {
                   );
                 })
               ) : (
-                <p className="text-muted-foreground py-4">No employees found in any department for {selectedCompany}.</p>
+                <p className="text-muted-foreground py-4 px-4">No employees found in any department for {selectedCompany}.</p>
               )}
             </CardContent>
           </Card>
@@ -327,7 +327,7 @@ export default function CompanyDepartmentsPage() {
             <CardTitle>Overview</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground">Please select a company from the dropdown above to view its department summary and employee list.</p>
+            <p className="text-muted-foreground px-4">Please select a company from the dropdown above to view its department summary and employee list.</p>
           </CardContent>
         </Card>
       )}
