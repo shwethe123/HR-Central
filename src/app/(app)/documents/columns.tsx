@@ -32,7 +32,6 @@ const getFileIconForTable = (fileType: string, downloadURL: string, fileName: st
             className="object-contain"
             data-ai-hint="document thumbnail"
             onError={(e) => {
-                // In case of error, hide image and show fallback icon (handled by showing generic icon)
                 const parent = e.currentTarget.parentElement;
                 if (parent) {
                     const fallback = parent.querySelector('[data-fallback-icon="true"]');
@@ -47,10 +46,10 @@ const getFileIconForTable = (fileType: string, downloadURL: string, fileName: st
   }
   if (fileType === 'application/pdf') return <FileText className={`${commonIconClass} text-red-500`} />;
   if (fileType.includes('wordprocessingml') || fileType === 'application/msword') return <FileText className={`${commonIconClass} text-blue-700`} />;
-  if (fileType.includes('spreadsheetml') || fileType === 'application/vnd.ms-excel') return <Sheet className={`${commonIconClass} text-green-600`} />;
+  if (fileType.includes('spreadsheetml') || fileType === 'application/vnd.ms-excel' || fileType.includes('csv')) return <Sheet className={`${commonIconClass} text-green-600`} />;
   if (fileType.includes('presentationml') || fileType === 'application/vnd.ms-powerpoint') return <LucidePresentation className={`${commonIconClass} text-orange-500`} />;
   if (fileType === 'application/zip' || fileType === 'application/x-zip-compressed') return <FileArchive className={`${commonIconClass} text-yellow-500`} />;
-  if (fileType === 'text/plain' || fileType === 'text/csv') return <FileText className={`${commonIconClass} text-gray-600`} />;
+  if (fileType === 'text/plain') return <FileText className={`${commonIconClass} text-gray-600`} />;
   return <FileQuestion className={`${commonIconClass} text-gray-500`} />;
 };
 
@@ -102,6 +101,23 @@ export const getDocumentColumns = (): ColumnDef<DocumentMetadata>[] => [
       if (timestamp instanceof Timestamp) {
         return format(timestamp.toDate(), "MMM d, yyyy HH:mm");
       }
+      // Handle cases where timestamp might be a string (e.g., from older data or different source)
+      if (typeof timestamp === 'string') {
+        try {
+          const date = new Date(timestamp);
+          if (!isNaN(date.getTime())) {
+             return format(date, "MMM d, yyyy HH:mm");
+          }
+        } catch (e) { /* ignore parse error, return N/A */ }
+      }
+      // Handle cases where timestamp might be an object from Firebase but not a Timestamp instance
+      // This can happen if data is manually inserted or comes from a different SDK version.
+      if (timestamp && typeof timestamp === 'object' && 'seconds' in timestamp && 'nanoseconds' in timestamp) {
+        try {
+          const date = new Timestamp((timestamp as any).seconds, (timestamp as any).nanoseconds).toDate();
+           return format(date, "MMM d, yyyy HH:mm");
+        } catch (e) { /* ignore error, return N/A */ }
+      }
       return 'N/A';
     },
   },
@@ -124,3 +140,4 @@ export const getDocumentColumns = (): ColumnDef<DocumentMetadata>[] => [
     },
   },
 ];
+
