@@ -1,10 +1,9 @@
-
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Users, Briefcase, TrendingUp, Clock, Building, Percent, DollarSign, Activity, Wifi, Loader2 } from "lucide-react";
-import type { Metric, WifiBill, Employee } from "@/types"; // Added Employee
+import type { Metric, WifiBill, Employee } from "@/types";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { Bar, Line, Pie, Cell, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend as RechartsLegend, BarChart, LineChart, PieChart as RechartsPieChart } from "recharts";
 import { db } from '@/lib/firebase';
@@ -16,7 +15,7 @@ import { isValid, parseISO, differenceInMilliseconds } from 'date-fns';
 const initialStaticMetrics: Metric[] = [
   { title: "Total Employees", value: "Loading...", change: "+5% this month", changeType: "positive", icon: Users },
   { title: "Average Salary", value: "Loading...", change: "+2.5% this year", changeType: "positive", icon: DollarSign },
-  { title: "Average Tenure", value: "Loading...", icon: Clock }, // Change removed, will be dynamic
+  { title: "Average Tenure", value: "Loading...", icon: Clock },
   { title: "Turnover Rate", value: "12%", change: "-1.2% vs last quarter", changeType: "positive", icon: TrendingUp },
 ];
 
@@ -33,9 +32,8 @@ const initialHeadcountConfig: Record<string, { label: string; color?: string }> 
   marketing: { label: "Marketing", color: "hsl(var(--chart-3))" },
   hr: { label: "HR", color: "hsl(var(--chart-4))" },
   support: { label: "Support", color: "hsl(var(--chart-5))" },
-  finance: { label: "Finance", color: "hsl(var(--chart-1))" }, // Re-uses chart-1
+  finance: { label: "Finance", color: "hsl(var(--chart-1))" },
 };
-
 
 const turnoverTrendData = [
   { month: "Jan", rate: 1.5 }, { month: "Feb", rate: 1.2 }, { month: "Mar", rate: 1.8 },
@@ -68,14 +66,10 @@ const initialAvgSalaryByDeptConfig = {
   "sales-salary": { label: "Sales", color: "hsl(var(--chart-4))" },
 };
 
-const employeeStatusData = [
-  { name: "Active", value: 950, fill: "var(--color-active)" },
-  { name: "Inactive", value: 300, fill: "var(--color-inactive)" },
-];
 const employeeStatusConfig = {
   value: { label: "Employees" },
-  active: { label: "Active", color: "hsl(var(--chart-2))" }, 
-  inactive: { label: "Inactive", color: "hsl(var(--chart-5))" }, 
+  active: { label: "Active", color: "hsl(var(--chart-2))" },
+  inactive: { label: "Inactive", color: "hsl(var(--chart-5))" },
 };
 
 // Predefined department colors and a cycle for new departments
@@ -85,7 +79,7 @@ const departmentColorMap: Record<string, string> = {
   "marketing": "hsl(var(--chart-3))",
   "hr": "hsl(var(--chart-4))",
   "support": "hsl(var(--chart-5))",
-  "finance": "hsl(var(--chart-1))", // Re-uses chart-1
+  "finance": "hsl(var(--chart-1))",
 };
 const chartColorCycle = [
   "hsl(var(--chart-1))",
@@ -95,9 +89,7 @@ const chartColorCycle = [
   "hsl(var(--chart-5))",
 ];
 
-
 export default function DashboardPage() {
-  const totalEmployeesForStatusChart = employeeStatusData.reduce((sum, entry) => sum + entry.value, 0);
   const { toast } = useToast();
   const [wifiBills, setWifiBills] = useState<WifiBill[]>([]);
   const [isLoadingWifiBills, setIsLoadingWifiBills] = useState(true);
@@ -113,7 +105,7 @@ export default function DashboardPage() {
   const [avgSalaryByDeptConfig, setAvgSalaryByDeptConfig] = useState(initialAvgSalaryByDeptConfig);
 
   const [dynamicGenderData, setDynamicGenderData] = useState<typeof initialGenderDiversityData>(initialGenderDiversityData);
-
+  const [employeeStatusData, setEmployeeStatusData] = useState<{name: string, value: number, fill: string}[]>([]);
 
   const fetchWifiBills = useCallback(async () => {
     setIsLoadingWifiBills(true);
@@ -142,7 +134,7 @@ export default function DashboardPage() {
     setIsLoadingEmployees(true);
     try {
       const employeesCollectionRef = collection(db, "employees");
-      const q = query(employeesCollectionRef); // Get all employees
+      const q = query(employeesCollectionRef);
       const querySnapshot = await getDocs(q);
       const fetchedEmployees: Employee[] = querySnapshot.docs.map(doc => ({
         id: doc.id,
@@ -172,7 +164,7 @@ export default function DashboardPage() {
       const totalEmployeesMetric: Metric = { 
           title: "Total Employees", 
           value: employees.length.toLocaleString(), 
-          change: "+5% this month", // Static change for now
+          change: "+5% this month",
           changeType: "positive", 
           icon: Users 
       };
@@ -184,7 +176,7 @@ export default function DashboardPage() {
       const averageSalaryMetric: Metric = {
           title: "Average Salary",
           value: `$${avgSalaryValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`,
-          change: "+2.5% this year", // Static change for now
+          change: "+2.5% this year",
           changeType: "positive",
           icon: DollarSign
       };
@@ -199,18 +191,16 @@ export default function DashboardPage() {
             let startDateObj: Date | null = null;
             if (typeof emp.startDate === 'string') {
                 startDateObj = parseISO(emp.startDate);
-            } else if (emp.startDate instanceof Date) { // Should not happen with current type but good practice
+            } else if (emp.startDate instanceof Date) {
                 startDateObj = emp.startDate;
             }
-            // Check if emp.startDate is a Firestore Timestamp (will have toDate method)
             else if (typeof emp.startDate === 'object' && 'toDate' in emp.startDate && typeof emp.startDate.toDate === 'function') {
                  startDateObj = emp.startDate.toDate();
             }
 
-
             if (startDateObj && isValid(startDateObj)) {
                 const diffMs = differenceInMilliseconds(today, startDateObj);
-                if (diffMs > 0) { // Ensure start date is not in the future
+                if (diffMs > 0) {
                     totalTenureMs += diffMs;
                     employeesWithValidStartDate++;
                 }
@@ -228,8 +218,24 @@ export default function DashboardPage() {
         title: "Average Tenure",
         value: `${avgTenureYears} Years`,
         icon: Clock,
-        // No "change" field as it's not dynamically calculated here
       };
+
+      // Calculate Employee Status (Active/Inactive)
+      let activeCount = 0;
+      let inactiveCount = 0;
+      
+      employees.forEach(emp => {
+        if (emp.status === "Active" || emp.status === "active" || !emp.status) {
+          activeCount++;
+        } else if (emp.status === "Inactive" || emp.status === "inactive") {
+          inactiveCount++;
+        }
+      });
+
+      setEmployeeStatusData([
+        { name: "Active", value: activeCount, fill: "var(--color-active)" },
+        { name: "Inactive", value: inactiveCount, fill: "var(--color-inactive)" },
+      ]);
 
       setProcessedMetrics(prevMetrics => {
           const otherMetrics = prevMetrics.filter(
@@ -243,7 +249,6 @@ export default function DashboardPage() {
             averageTenureMetric, 
             ...otherMetrics
           ];
-          // Simple sort to keep a consistent order, can be improved
           const order = ["Total Employees", "Average Salary", "Average Tenure", "Turnover Rate"];
           newMetrics.sort((a,b) => {
             const indexA = order.indexOf(a.title);
@@ -255,7 +260,6 @@ export default function DashboardPage() {
           });
           return newMetrics;
       });
-
 
       // Process Headcount by Department
       const countsByDept: Record<string, number> = {};
@@ -325,7 +329,7 @@ export default function DashboardPage() {
       employees.forEach(emp => {
         if (emp.gender === "Male") maleCount++;
         else if (emp.gender === "Female") femaleCount++;
-        else otherCount++; // Includes "Other", "Prefer not to say", or undefined
+        else otherCount++;
       });
       
       const newGenderData = [];
@@ -349,9 +353,9 @@ export default function DashboardPage() {
         setAvgSalaryByDeptData([]);
         setAvgSalaryByDeptConfig({ avgSalary: { label: "Average Salary ($)" } });
         setDynamicGenderData([]);
+        setEmployeeStatusData([]);
     }
   }, [employees, isLoadingEmployees]);
-
 
   const dynamicWifiMetrics: Metric[] = useMemo(() => {
     if (isLoadingWifiBills) {
@@ -389,16 +393,11 @@ export default function DashboardPage() {
   }, [wifiBills, isLoadingWifiBills]);
 
   const allMetrics = useMemo(() => {
-    // Ensure initialStaticMetrics that are NOT dynamically updated are preserved.
     const staticOnlyMetrics = initialStaticMetrics.filter(
         initialMetric => !processedMetrics.some(pMetric => pMetric.title === initialMetric.title)
     );
     
-    // Combine processed dynamic metrics with any remaining static ones, and then WiFi metrics.
-    // The `processedMetrics` state already handles replacing the dynamic parts of `initialStaticMetrics`.
     let combinedMetrics = [...processedMetrics];
-
-    // Ensure "Turnover Rate" is always present if it was in initialStaticMetrics and not handled dynamically
     const turnoverMetric = initialStaticMetrics.find(m => m.title === "Turnover Rate");
     if (turnoverMetric && !combinedMetrics.some(m => m.title === "Turnover Rate")) {
         combinedMetrics.push(turnoverMetric);
@@ -406,7 +405,6 @@ export default function DashboardPage() {
     
     combinedMetrics = combinedMetrics.concat(dynamicWifiMetrics);
 
-    // Maintain a preferred order for display
     const preferredOrder = [
       "Total Employees", 
       "Average Salary", 
@@ -420,15 +418,14 @@ export default function DashboardPage() {
     combinedMetrics.sort((a,b) => {
         const indexA = preferredOrder.indexOf(a.title);
         const indexB = preferredOrder.indexOf(b.title);
-        if (indexA === -1 && indexB === -1) return 0; // both not in preferred, keep original relative order
-        if (indexA === -1) return 1; // a not in preferred, b is, so b comes first
-        if (indexB === -1) return -1; // b not in preferred, a is, so a comes first
+        if (indexA === -1 && indexB === -1) return 0;
+        if (indexA === -1) return 1;
+        if (indexB === -1) return -1;
         return indexA - indexB;
     });
     
     return combinedMetrics;
   }, [processedMetrics, dynamicWifiMetrics]);
-
 
   return (
     <div className="flex flex-col gap-6">
@@ -622,32 +619,48 @@ export default function DashboardPage() {
             <CardDescription>Distribution of active and inactive employees.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={employeeStatusConfig} className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <RechartsPieChart accessibilityLayer>
-                  <RechartsTooltip 
-                    contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
-                    formatter={(value: number, name: string, props: any) => {
-                      if (totalEmployeesForStatusChart === 0) return [`${value.toLocaleString()}`, name];
-                      const percentage = ((value / totalEmployeesForStatusChart) * 100).toFixed(1);
-                      return [`${value.toLocaleString()} (${percentage}%)`, name];
-                    }}
-                  />
-                  <ChartLegend content={<ChartLegendContent nameKey="name" />} />
-                  <Pie data={employeeStatusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
-                     {employeeStatusData.map((entry, index) => (
-                        <Cell key={`cell-status-${index}`} fill={entry.fill} />
-                      ))}
-                  </Pie>
-                </RechartsPieChart>
-              </ResponsiveContainer>
-            </ChartContainer>
+            {isLoadingEmployees ? (
+              <div className="h-[300px] w-full flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="ml-2 text-muted-foreground">Loading employee status data...</p>
+              </div>
+            ) : employees.length === 0 ? (
+              <div className="h-[300px] w-full flex items-center justify-center text-muted-foreground">
+                No employee data available.
+              </div>
+            ) : (
+              <ChartContainer config={employeeStatusConfig} className="h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RechartsPieChart accessibilityLayer>
+                    <RechartsTooltip 
+                      contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
+                      formatter={(value: number, name: string, props: any) => {
+                        const totalEmployees = employees.length;
+                        if (totalEmployees === 0) return [`${value.toLocaleString()}`, name];
+                        const percentage = ((value / totalEmployees) * 100).toFixed(1);
+                        return [`${value.toLocaleString()} (${percentage}%)`, name];
+                      }}
+                    />
+                    <ChartLegend content={<ChartLegendContent nameKey="name" />} />
+                    <Pie 
+                      data={employeeStatusData}
+                      dataKey="value" 
+                      nameKey="name" 
+                      cx="50%" 
+                      cy="50%" 
+                      outerRadius={100} 
+                      label
+                    >
+                      <Cell key="cell-active" fill="var(--color-active)" />
+                      <Cell key="cell-inactive" fill="var(--color-inactive)" />
+                    </Pie>
+                  </RechartsPieChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+            )}
           </CardContent>
         </Card>
-
       </div>
     </div>
   );
 }
-
-    
