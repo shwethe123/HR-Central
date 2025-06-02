@@ -1,40 +1,40 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, Briefcase, TrendingUp, Clock, Building, Percent, DollarSign, Activity, Wifi, Loader2 } from "lucide-react"; // Added Wifi, Loader2
-import type { Metric, WifiBill } from "@/types"; // Added WifiBill
+import { Users, Briefcase, TrendingUp, Clock, Building, Percent, DollarSign, Activity, Wifi, Loader2 } from "lucide-react";
+import type { Metric, WifiBill, Employee } from "@/types"; // Added Employee
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { Bar, Line, Pie, Cell, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend as RechartsLegend, BarChart, LineChart, PieChart as RechartsPieChart } from "recharts";
-import { db } from '@/lib/firebase'; // Added
-import { collection, getDocs, query } from 'firebase/firestore'; // Added
-import { useToast } from '@/hooks/use-toast'; // Added
+import { db } from '@/lib/firebase';
+import { collection, getDocs, query } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 
-const staticMetrics: Metric[] = [
-  { title: "Total Employees", value: "1,250", change: "+5% this month", changeType: "positive", icon: Users },
+// Initial static metrics (Total Employees will be updated dynamically)
+const initialStaticMetrics: Metric[] = [
+  { title: "Total Employees", value: "Loading...", change: "+5% this month", changeType: "positive", icon: Users },
   { title: "Turnover Rate", value: "12%", change: "-1.2% vs last quarter", changeType: "positive", icon: TrendingUp },
   { title: "Average Tenure", value: "4.2 Years", icon: Clock },
   { title: "Average Salary", value: "$75,200", change: "+2.5% this year", changeType: "positive", icon: DollarSign },
 ];
 
-const headcountData = [
-  { name: "Engineering", value: 400, fill: "var(--color-engineering)" },
-  { name: "Sales", value: 300, fill: "var(--color-sales)" },
-  { name: "Marketing", value: 200, fill: "var(--color-marketing)" },
-  { name: "HR", value: 50, fill: "var(--color-hr)" },
-  { name: "Support", value: 150, fill: "var(--color-support)" },
-  { name: "Finance", value: 150, fill: "var(--color-finance)" },
+// Initial static chart data (Headcount by Department will be updated dynamically)
+const initialHeadcountData = [
+  { name: "Engineering", value: 0, fill: "var(--color-engineering)" },
+  { name: "Sales", value: 0, fill: "var(--color-sales)" },
 ];
-const headcountConfig = {
+
+const initialHeadcountConfig: Record<string, { label: string; color?: string }> = {
   value: { label: "Employees" },
   engineering: { label: "Engineering", color: "hsl(var(--chart-1))" },
   sales: { label: "Sales", color: "hsl(var(--chart-2))" },
   marketing: { label: "Marketing", color: "hsl(var(--chart-3))" },
   hr: { label: "HR", color: "hsl(var(--chart-4))" },
   support: { label: "Support", color: "hsl(var(--chart-5))" },
-  finance: { label: "Finance", color: "hsl(var(--chart-1))" },
+  finance: { label: "Finance", color: "hsl(var(--chart-1))" }, // Re-uses chart-1
 };
+
 
 const turnoverTrendData = [
   { month: "Jan", rate: 1.5 }, { month: "Feb", rate: 1.2 }, { month: "Mar", rate: 1.8 },
@@ -84,12 +84,36 @@ const employeeStatusConfig = {
   inactive: { label: "Inactive", color: "hsl(var(--chart-5))" }, 
 };
 
+// Predefined department colors and a cycle for new departments
+const departmentColorMap: Record<string, string> = {
+  "engineering": "hsl(var(--chart-1))",
+  "sales": "hsl(var(--chart-2))",
+  "marketing": "hsl(var(--chart-3))",
+  "hr": "hsl(var(--chart-4))",
+  "support": "hsl(var(--chart-5))",
+  "finance": "hsl(var(--chart-1))", // Re-uses chart-1
+};
+const chartColorCycle = [
+  "hsl(var(--chart-1))",
+  "hsl(var(--chart-2))",
+  "hsl(var(--chart-3))",
+  "hsl(var(--chart-4))",
+  "hsl(var(--chart-5))",
+];
+
 
 export default function DashboardPage() {
   const totalEmployeesForStatusChart = employeeStatusData.reduce((sum, entry) => sum + entry.value, 0);
   const { toast } = useToast();
   const [wifiBills, setWifiBills] = useState<WifiBill[]>([]);
   const [isLoadingWifiBills, setIsLoadingWifiBills] = useState(true);
+
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [isLoadingEmployees, setIsLoadingEmployees] = useState(true);
+  const [processedMetrics, setProcessedMetrics] = useState<Metric[]>(initialStaticMetrics);
+  const [headcountChartData, setHeadcountChartData] = useState<typeof initialHeadcountData>(initialHeadcountData);
+  const [headcountChartConfig, setHeadcountChartConfig] = useState(initialHeadcountConfig);
+
 
   const fetchWifiBills = useCallback(async () => {
     setIsLoadingWifiBills(true);
@@ -114,26 +138,104 @@ export default function DashboardPage() {
     }
   }, [toast]);
 
+  const fetchEmployees = useCallback(async () => {
+    setIsLoadingEmployees(true);
+    try {
+      const employeesCollectionRef = collection(db, "employees");
+      const q = query(employeesCollectionRef); // Get all employees
+      const querySnapshot = await getDocs(q);
+      const fetchedEmployees: Employee[] = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      } as Employee));
+      setEmployees(fetchedEmployees);
+    } catch (error) {
+      console.error("Error fetching employees:", error);
+      toast({
+        title: "Error Fetching Employee Data",
+        description: "Could not load employee information for the dashboard.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingEmployees(false);
+    }
+  }, [toast]);
+
   useEffect(() => {
     fetchWifiBills();
-  }, [fetchWifiBills]);
+    fetchEmployees();
+  }, [fetchWifiBills, fetchEmployees]);
 
-  const dynamicMetrics: Metric[] = [];
+  useEffect(() => {
+    if (!isLoadingEmployees && employees.length > 0) {
+      // Update Total Employees metric
+      setProcessedMetrics(prevMetrics =>
+        prevMetrics.map(metric =>
+          metric.title === "Total Employees"
+            ? { ...metric, value: employees.length.toLocaleString() }
+            : metric
+        )
+      );
 
-  if (isLoadingWifiBills) {
-    dynamicMetrics.push({ title: "Total WiFi Connections", value: "Loading...", icon: Loader2 });
-    dynamicMetrics.push({ title: "Total WiFi Bill (MMK)", value: "Loading...", icon: Loader2 });
-  } else {
-    dynamicMetrics.push({
+      // Process Headcount by Department
+      const countsByDept: Record<string, number> = {};
+      employees.forEach(emp => {
+        const dept = emp.department || "Unknown";
+        countsByDept[dept] = (countsByDept[dept] || 0) + 1;
+      });
+
+      const newHeadcountConfig: Record<string, { label: string; color?: string }> = { value: { label: "Employees" } };
+      let colorIndex = 0;
+
+      const newHeadcountData = Object.entries(countsByDept).map(([deptName, count]) => {
+        const deptSlug = deptName.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
+        const colorKey = deptName.toLowerCase();
+        
+        let color = departmentColorMap[colorKey];
+        if (!color) {
+          color = chartColorCycle[colorIndex % chartColorCycle.length];
+          colorIndex++;
+        }
+        
+        newHeadcountConfig[deptSlug] = { label: deptName, color: color };
+        return { name: deptName, value: count, fill: color }; // Use direct color for Cell fill
+      }).sort((a,b) => b.value - a.value); // Sort by value descending
+
+      setHeadcountChartData(newHeadcountData);
+      setHeadcountChartConfig(newHeadcountConfig);
+    } else if (!isLoadingEmployees && employees.length === 0) {
+        // Handle case where there are no employees
+        setProcessedMetrics(prevMetrics =>
+            prevMetrics.map(metric =>
+            metric.title === "Total Employees"
+                ? { ...metric, value: "0" }
+                : metric
+            )
+        );
+        setHeadcountChartData([]);
+        setHeadcountChartConfig({ value: { label: "Employees" } });
+    }
+  }, [employees, isLoadingEmployees]);
+
+
+  const dynamicWifiMetrics: Metric[] = useMemo(() => {
+    if (isLoadingWifiBills) {
+      return [
+        { title: "Total WiFi Connections", value: "Loading...", icon: Loader2 },
+        { title: "Total WiFi Bill (฿)", value: "Loading...", icon: Loader2 },
+      ];
+    }
+    const metrics: Metric[] = [];
+    metrics.push({
       title: "Total WiFi Connections",
       value: wifiBills.length.toString(),
       icon: Wifi,
     });
 
     const totalMMK = wifiBills
-      .filter(bill => bill.currency === "MMK" || !bill.currency) // Default to MMK if currency isn't set
+      .filter(bill => bill.currency === "MMK" || !bill.currency)
       .reduce((sum, bill) => sum + (bill.billAmount || 0), 0);
-    dynamicMetrics.push({
+    metrics.push({
       title: "Total WiFi Bill (฿)",
       value: totalMMK.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + " ฿",
       icon: DollarSign,
@@ -142,15 +244,25 @@ export default function DashboardPage() {
     const usdBills = wifiBills.filter(bill => bill.currency === "USD");
     if (usdBills.length > 0) {
       const totalUSD = usdBills.reduce((sum, bill) => sum + (bill.billAmount || 0), 0);
-      dynamicMetrics.push({
+      metrics.push({
         title: "Total WiFi Bill (USD)",
         value: totalUSD.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }),
         icon: DollarSign,
       });
     }
-  }
+    return metrics;
+  }, [wifiBills, isLoadingWifiBills]);
 
-  const allMetrics = [...staticMetrics, ...dynamicMetrics];
+  const allMetrics = useMemo(() => {
+    const staticPortion = processedMetrics.filter(m => m.title !== "Total Employees");
+    const dynamicTotalEmployees = processedMetrics.find(m => m.title === "Total Employees");
+    return [
+        ...(dynamicTotalEmployees ? [dynamicTotalEmployees] : [initialStaticMetrics.find(m => m.title === "Total Employees")!]),
+        ...staticPortion,
+        ...dynamicWifiMetrics
+    ];
+  }, [processedMetrics, dynamicWifiMetrics]);
+
 
   return (
     <div className="flex flex-col gap-6">
@@ -182,22 +294,42 @@ export default function DashboardPage() {
             <CardDescription>Current employee distribution across departments.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={headcountConfig} className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={headcountData} accessibilityLayer>
-                  <CartesianGrid vertical={false} />
-                  <XAxis dataKey="name" tickLine={false} tickMargin={10} axisLine={false} />
-                  <YAxis tickLine={false} tickMargin={10} axisLine={false} />
-                  <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-                  <ChartLegend content={<ChartLegendContent />} />
-                  <Bar dataKey="value" radius={4}>
-                    {headcountData.map((entry) => (
-                       <Cell key={`cell-${entry.name}`} fill={entry.fill} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartContainer>
+            {isLoadingEmployees ? (
+              <div className="h-[300px] w-full flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                 <p className="ml-2 text-muted-foreground">Loading headcount data...</p>
+              </div>
+            ) : headcountChartData.length === 0 ? (
+                 <div className="h-[300px] w-full flex items-center justify-center text-muted-foreground">
+                    No employee data available for departments.
+                </div>
+            ) : (
+              <ChartContainer config={headcountChartConfig} className="h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={headcountChartData} accessibilityLayer layout="vertical" margin={{ left: 20, right: 20}}>
+                    <CartesianGrid horizontal={false} strokeDasharray="3 3"/>
+                    <XAxis type="number" tickLine={false} axisLine={false} tickMargin={10} />
+                    <YAxis 
+                        dataKey="name" 
+                        type="category" 
+                        tickLine={false} 
+                        axisLine={false} 
+                        tickMargin={10} 
+                        className="text-xs"
+                        width={80} // Adjust width as needed for longer names
+                        interval={0} // Show all labels
+                    />
+                    <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+                    <ChartLegend content={<ChartLegendContent />} />
+                    <Bar dataKey="value" radius={4} barSize={20}>
+                      {headcountChartData.map((entry, index) => (
+                         <Cell key={`cell-${entry.name}-${index}`} fill={entry.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+            )}
           </CardContent>
         </Card>
 
@@ -254,13 +386,13 @@ export default function DashboardPage() {
           <CardContent>
             <ChartContainer config={avgSalaryByDeptConfig} className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={avgSalaryByDeptData} accessibilityLayer>
+                <BarChart data={avgSalaryByDeptData} accessibilityLayer margin={{ left: 20, right: 20}}>
                   <CartesianGrid vertical={false} />
-                  <XAxis dataKey="department" tickLine={false} tickMargin={10} axisLine={false} />
+                  <XAxis dataKey="department" tickLine={false} tickMargin={10} axisLine={false} className="text-xs" interval={0} angle={-30} textAnchor="end" height={50}/>
                   <YAxis tickLine={false} tickMargin={10} axisLine={false} tickFormatter={(value) => `$${(value / 1000)}k`} />
                   <ChartTooltip content={<ChartTooltipContent formatter={(value) => value.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 })} />} />
-                  <ChartLegend content={<ChartLegendContent />} />
-                  <Bar dataKey="avgSalary" name="Average Salary" radius={4}>
+                  {/* <ChartLegend content={<ChartLegendContent />} /> */} {/* Legend might be too noisy for this chart */}
+                  <Bar dataKey="avgSalary" name="Average Salary" radius={4} barSize={20}>
                     {avgSalaryByDeptData.map((entry) => (
                        <Cell key={`cell-salary-${entry.department}`} fill={entry.fill} />
                     ))}
@@ -304,3 +436,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
