@@ -20,7 +20,7 @@ const formatFileSize = (bytes: number): string => {
 };
 
 const getFileIconForTable = (fileType: string, downloadURL: string, fileName: string) => {
-  const commonIconClass = "h-6 w-6"; // Slightly smaller for table rows
+  const commonIconClass = "h-6 w-6";
   if (fileType.startsWith('image/')) {
     return (
       <div className="w-10 h-10 relative rounded overflow-hidden bg-muted flex items-center justify-center">
@@ -44,13 +44,13 @@ const getFileIconForTable = (fileType: string, downloadURL: string, fileName: st
       </div>
     );
   }
-  if (fileType === 'application/pdf') return <FileText className={`${commonIconClass} text-red-500`} />;
-  if (fileType.includes('wordprocessingml') || fileType === 'application/msword') return <FileText className={`${commonIconClass} text-blue-700`} />;
-  if (fileType.includes('spreadsheetml') || fileType === 'application/vnd.ms-excel' || fileType.includes('csv')) return <Sheet className={`${commonIconClass} text-green-600`} />;
-  if (fileType.includes('presentationml') || fileType === 'application/vnd.ms-powerpoint') return <LucidePresentation className={`${commonIconClass} text-orange-500`} />;
-  if (fileType === 'application/zip' || fileType === 'application/x-zip-compressed') return <FileArchive className={`${commonIconClass} text-yellow-500`} />;
-  if (fileType === 'text/plain') return <FileText className={`${commonIconClass} text-gray-600`} />;
-  return <FileQuestion className={`${commonIconClass} text-gray-500`} />;
+  if (fileType === 'application/pdf') return <FileText className={`${commonIconClass} text-destructive`} />;
+  if (fileType.includes('wordprocessingml') || fileType === 'application/msword') return <FileText className={`${commonIconClass} text-primary`} />;
+  if (fileType.includes('spreadsheetml') || fileType === 'application/vnd.ms-excel' || fileType.includes('csv')) return <Sheet className={`${commonIconClass} text-accent`} />;
+  if (fileType.includes('presentationml') || fileType === 'application/vnd.ms-powerpoint') return <LucidePresentation className={`${commonIconClass} text-chart-3`} />;
+  if (fileType === 'application/zip' || fileType === 'application/x-zip-compressed') return <FileArchive className={`${commonIconClass} text-chart-4`} />;
+  if (fileType === 'text/plain') return <FileText className={`${commonIconClass} text-muted-foreground`} />;
+  return <FileQuestion className={`${commonIconClass} text-muted-foreground`} />;
 };
 
 export const getDocumentColumns = (): ColumnDef<DocumentMetadata>[] => [
@@ -101,7 +101,6 @@ export const getDocumentColumns = (): ColumnDef<DocumentMetadata>[] => [
       if (timestamp instanceof Timestamp) {
         return format(timestamp.toDate(), "MMM d, yyyy HH:mm");
       }
-      // Handle cases where timestamp might be a string (e.g., from older data or different source)
       if (typeof timestamp === 'string') {
         try {
           const date = new Date(timestamp);
@@ -110,8 +109,6 @@ export const getDocumentColumns = (): ColumnDef<DocumentMetadata>[] => [
           }
         } catch (e) { /* ignore parse error, return N/A */ }
       }
-      // Handle cases where timestamp might be an object from Firebase but not a Timestamp instance
-      // This can happen if data is manually inserted or comes from a different SDK version.
       if (timestamp && typeof timestamp === 'object' && 'seconds' in timestamp && 'nanoseconds' in timestamp) {
         try {
           const date = new Timestamp((timestamp as any).seconds, (timestamp as any).nanoseconds).toDate();
