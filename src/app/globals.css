@@ -113,3 +113,27 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* Announcement Ticker Styles */
+@layer components {
+  .announcement-ticker-container {
+    @apply overflow-hidden whitespace-nowrap max-w-xs md:max-w-md lg:max-w-lg relative h-full flex items-center;
+  }
+
+  .announcement-ticker-content {
+    @apply inline-block pl-[100%] text-sm text-muted-foreground;
+    animation-name: marquee-kf;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+    /* animation-duration is set dynamically in layout.tsx */
+  }
+}
+
+@keyframes marquee-kf {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-200%); 
+  }
+}
