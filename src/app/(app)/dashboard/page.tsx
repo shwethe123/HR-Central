@@ -56,22 +56,14 @@ const genderDiversityConfig = {
   other: { label: "Other/Prefer not to say", color: "hsl(var(--chart-3))" },
 };
 
-const avgSalaryByDeptData = [
-  { department: "Engineering", avgSalary: 95000, fill: "var(--color-engineering-salary)" },
-  { department: "Sales", avgSalary: 82000, fill: "var(--color-sales-salary)" },
-  { department: "Marketing", avgSalary: 78000, fill: "var(--color-marketing-salary)" },
-  { department: "HR", avgSalary: 72000, fill: "var(--color-hr-salary)" },
-  { department: "Support", avgSalary: 65000, fill: "var(--color-support-salary)" },
-  { department: "Finance", avgSalary: 88000, fill: "var(--color-finance-salary)" },
+const initialAvgSalaryByDeptData = [
+  { department: "Engineering", avgSalary: 0, fill: "var(--color-engineering-salary)" },
+  { department: "Sales", avgSalary: 0, fill: "var(--color-sales-salary)" },
 ];
-const avgSalaryByDeptConfig = {
+const initialAvgSalaryByDeptConfig = {
   avgSalary: { label: "Average Salary ($)" },
   "engineering-salary": { label: "Engineering", color: "hsl(var(--chart-5))" },
   "sales-salary": { label: "Sales", color: "hsl(var(--chart-4))" },
-  "marketing-salary": { label: "Marketing", color: "hsl(var(--chart-3))" },
-  "hr-salary": { label: "HR", color: "hsl(var(--chart-2))" },
-  "support-salary": { label: "Support", color: "hsl(var(--chart-1))" },
-  "finance-salary": { label: "Finance", color: "hsl(var(--chart-5))" },
 };
 
 const employeeStatusData = [
@@ -111,8 +103,12 @@ export default function DashboardPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(true);
   const [processedMetrics, setProcessedMetrics] = useState<Metric[]>(initialStaticMetrics);
+  
   const [headcountChartData, setHeadcountChartData] = useState<typeof initialHeadcountData>(initialHeadcountData);
   const [headcountChartConfig, setHeadcountChartConfig] = useState(initialHeadcountConfig);
+
+  const [avgSalaryByDeptData, setAvgSalaryByDeptData] = useState<typeof initialAvgSalaryByDeptData>(initialAvgSalaryByDeptData);
+  const [avgSalaryByDeptConfig, setAvgSalaryByDeptConfig] = useState(initialAvgSalaryByDeptConfig);
 
 
   const fetchWifiBills = useCallback(async () => {
@@ -199,10 +195,46 @@ export default function DashboardPage() {
         
         newHeadcountConfig[deptSlug] = { label: deptName, color: color };
         return { name: deptName, value: count, fill: color }; // Use direct color for Cell fill
-      }).sort((a,b) => b.value - a.value); // Sort by value descending
+      }).sort((a,b) => b.value - a.value); 
 
       setHeadcountChartData(newHeadcountData);
       setHeadcountChartConfig(newHeadcountConfig);
+
+      // Process Average Salary by Department
+      const salariesByDept: Record<string, { totalSalary: number; count: number }> = {};
+      employees.forEach(emp => {
+        if (emp.department && typeof emp.salary === 'number' && !isNaN(emp.salary)) {
+          const dept = emp.department;
+          salariesByDept[dept] = salariesByDept[dept] || { totalSalary: 0, count: 0 };
+          salariesByDept[dept].totalSalary += emp.salary;
+          salariesByDept[dept].count++;
+        }
+      });
+
+      const newAvgSalaryConfig: Record<string, { label: string; color?: string }> = { avgSalary: { label: "Average Salary ($)" } };
+      let salaryColorIndex = 0;
+      
+      const newAvgSalaryData = Object.entries(salariesByDept)
+        .filter(([, data]) => data.count > 0) // Only include departments with at least one employee with salary
+        .map(([deptName, data]) => {
+          const avgSalary = data.totalSalary / data.count;
+          const deptSlugSalary = `${deptName.toLowerCase().replace(/\s+/g, '-')}-salary`;
+          const colorKey = deptName.toLowerCase();
+
+          let color = departmentColorMap[colorKey]; // Try to get predefined color
+          if (!color) { // If no predefined color, cycle through chart colors
+            color = chartColorCycle[salaryColorIndex % chartColorCycle.length];
+            salaryColorIndex++;
+          }
+          newAvgSalaryConfig[deptSlugSalary] = { label: deptName, color: color };
+          return { department: deptName, avgSalary: Math.round(avgSalary), fill: color };
+        })
+        .sort((a, b) => b.avgSalary - a.avgSalary); // Sort by average salary descending
+
+      setAvgSalaryByDeptData(newAvgSalaryData);
+      setAvgSalaryByDeptConfig(newAvgSalaryConfig);
+
+
     } else if (!isLoadingEmployees && employees.length === 0) {
         // Handle case where there are no employees
         setProcessedMetrics(prevMetrics =>
@@ -214,6 +246,8 @@ export default function DashboardPage() {
         );
         setHeadcountChartData([]);
         setHeadcountChartConfig({ value: { label: "Employees" } });
+        setAvgSalaryByDeptData([]);
+        setAvgSalaryByDeptConfig({ avgSalary: { label: "Average Salary ($)" } });
     }
   }, [employees, isLoadingEmployees]);
 
@@ -254,13 +288,16 @@ export default function DashboardPage() {
   }, [wifiBills, isLoadingWifiBills]);
 
   const allMetrics = useMemo(() => {
-    const staticPortion = processedMetrics.filter(m => m.title !== "Total Employees");
+    const staticPortion = processedMetrics.filter(m => m.title !== "Total Employees" && m.title !== "Average Salary");
     const dynamicTotalEmployees = processedMetrics.find(m => m.title === "Total Employees");
+    const dynamicAverageSalary = processedMetrics.find(m => m.title === "Average Salary"); // This will be updated later if needed
+
     return [
         ...(dynamicTotalEmployees ? [dynamicTotalEmployees] : [initialStaticMetrics.find(m => m.title === "Total Employees")!]),
+        ...(dynamicAverageSalary ? [dynamicAverageSalary] : [initialStaticMetrics.find(m => m.title === "Average Salary")!]),
         ...staticPortion,
         ...dynamicWifiMetrics
-    ];
+    ].filter(metric => metric.title !== "Average Salary"); // Remove the static Average Salary if it's not updated by dynamic data
   }, [processedMetrics, dynamicWifiMetrics]);
 
 
@@ -316,8 +353,8 @@ export default function DashboardPage() {
                         axisLine={false} 
                         tickMargin={10} 
                         className="text-xs"
-                        width={80} // Adjust width as needed for longer names
-                        interval={0} // Show all labels
+                        width={80} 
+                        interval={0} 
                     />
                     <ChartTooltip content={<ChartTooltipContent hideLabel />} />
                     <ChartLegend content={<ChartLegendContent />} />
@@ -384,14 +421,43 @@ export default function DashboardPage() {
             <CardDescription>Average annual salary distribution across departments.</CardDescription>
           </CardHeader>
           <CardContent>
+            {isLoadingEmployees ? (
+                 <div className="h-[300px] w-full flex items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <p className="ml-2 text-muted-foreground">Loading salary data...</p>
+                </div>
+            ) : avgSalaryByDeptData.length === 0 ? (
+                <div className="h-[300px] w-full flex items-center justify-center text-muted-foreground">
+                    No salary data available for departments.
+                </div>
+            ) : (
             <ChartContainer config={avgSalaryByDeptConfig} className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={avgSalaryByDeptData} accessibilityLayer margin={{ left: 20, right: 20}}>
+                <BarChart data={avgSalaryByDeptData} accessibilityLayer margin={{ left: 5, right: 20, bottom: 50}}>
                   <CartesianGrid vertical={false} />
-                  <XAxis dataKey="department" tickLine={false} tickMargin={10} axisLine={false} className="text-xs" interval={0} angle={-30} textAnchor="end" height={50}/>
-                  <YAxis tickLine={false} tickMargin={10} axisLine={false} tickFormatter={(value) => `$${(value / 1000)}k`} />
-                  <ChartTooltip content={<ChartTooltipContent formatter={(value) => value.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 })} />} />
-                  {/* <ChartLegend content={<ChartLegendContent />} /> */} {/* Legend might be too noisy for this chart */}
+                  <XAxis 
+                    dataKey="department" 
+                    tickLine={false} 
+                    tickMargin={10} 
+                    axisLine={false} 
+                    className="text-xs" 
+                    interval={0} 
+                    angle={-40} 
+                    textAnchor="end"
+                  />
+                  <YAxis 
+                    tickLine={false} 
+                    tickMargin={10} 
+                    axisLine={false} 
+                    tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`} 
+                    className="text-xs"
+                  />
+                  <ChartTooltip 
+                    content={<ChartTooltipContent 
+                                formatter={(value: number) => value.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 })} 
+                                hideLabel 
+                            />} 
+                  />
                   <Bar dataKey="avgSalary" name="Average Salary" radius={4} barSize={20}>
                     {avgSalaryByDeptData.map((entry) => (
                        <Cell key={`cell-salary-${entry.department}`} fill={entry.fill} />
@@ -400,6 +466,7 @@ export default function DashboardPage() {
                 </BarChart>
               </ResponsiveContainer>
             </ChartContainer>
+            )}
           </CardContent>
         </Card>
 
