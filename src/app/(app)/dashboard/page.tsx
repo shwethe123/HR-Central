@@ -10,13 +10,14 @@ import { Bar, Line, Pie, Cell, ResponsiveContainer, XAxis, YAxis, CartesianGrid,
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { isValid, parseISO, differenceInMilliseconds } from 'date-fns';
 
-// Initial static metrics (Total Employees will be updated dynamically)
+// Initial static metrics (Total Employees, Average Salary, Average Tenure will be updated dynamically)
 const initialStaticMetrics: Metric[] = [
   { title: "Total Employees", value: "Loading...", change: "+5% this month", changeType: "positive", icon: Users },
+  { title: "Average Salary", value: "Loading...", change: "+2.5% this year", changeType: "positive", icon: DollarSign },
+  { title: "Average Tenure", value: "Loading...", icon: Clock }, // Change removed, will be dynamic
   { title: "Turnover Rate", value: "12%", change: "-1.2% vs last quarter", changeType: "positive", icon: TrendingUp },
-  { title: "Average Tenure", value: "4.2 Years", icon: Clock },
-  // Average Salary will be dynamically calculated if data exists
 ];
 
 // Initial static chart data (Headcount by Department will be updated dynamically)
@@ -168,11 +169,11 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!isLoadingEmployees && employees.length > 0) {
       // Update Total Employees metric
-      const totalEmployeesMetric = { 
+      const totalEmployeesMetric: Metric = { 
           title: "Total Employees", 
           value: employees.length.toLocaleString(), 
           change: "+5% this month", // Static change for now
-          changeType: "positive" as "positive" | "negative", 
+          changeType: "positive", 
           icon: Users 
       };
       
@@ -180,17 +181,79 @@ export default function DashboardPage() {
       const totalSalary = employees.reduce((sum, emp) => sum + (emp.salary || 0), 0);
       const employeesWithSalary = employees.filter(emp => typeof emp.salary === 'number').length;
       const avgSalaryValue = employeesWithSalary > 0 ? (totalSalary / employeesWithSalary) : 0;
-      const averageSalaryMetric = {
+      const averageSalaryMetric: Metric = {
           title: "Average Salary",
           value: `$${avgSalaryValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`,
           change: "+2.5% this year", // Static change for now
-          changeType: "positive" as "positive" | "negative",
+          changeType: "positive",
           icon: DollarSign
       };
 
+      // Calculate Average Tenure
+      let totalTenureMs = 0;
+      let employeesWithValidStartDate = 0;
+      const today = new Date();
+
+      employees.forEach(emp => {
+        if (emp.startDate) {
+            let startDateObj: Date | null = null;
+            if (typeof emp.startDate === 'string') {
+                startDateObj = parseISO(emp.startDate);
+            } else if (emp.startDate instanceof Date) { // Should not happen with current type but good practice
+                startDateObj = emp.startDate;
+            }
+            // Check if emp.startDate is a Firestore Timestamp (will have toDate method)
+            else if (typeof emp.startDate === 'object' && 'toDate' in emp.startDate && typeof emp.startDate.toDate === 'function') {
+                 startDateObj = emp.startDate.toDate();
+            }
+
+
+            if (startDateObj && isValid(startDateObj)) {
+                const diffMs = differenceInMilliseconds(today, startDateObj);
+                if (diffMs > 0) { // Ensure start date is not in the future
+                    totalTenureMs += diffMs;
+                    employeesWithValidStartDate++;
+                }
+            } else {
+                console.warn(`Invalid or unparseable start date for employee ${emp.employeeId}: ${emp.startDate}`);
+            }
+        }
+      });
+
+      const avgTenureYears = employeesWithValidStartDate > 0
+        ? (totalTenureMs / employeesWithValidStartDate / (1000 * 60 * 60 * 24 * 365.25)).toFixed(1)
+        : "0.0";
+      
+      const averageTenureMetric: Metric = {
+        title: "Average Tenure",
+        value: `${avgTenureYears} Years`,
+        icon: Clock,
+        // No "change" field as it's not dynamically calculated here
+      };
+
       setProcessedMetrics(prevMetrics => {
-          const otherMetrics = prevMetrics.filter(m => m.title !== "Total Employees" && m.title !== "Average Salary");
-          return [totalEmployeesMetric, averageSalaryMetric, ...otherMetrics];
+          const otherMetrics = prevMetrics.filter(
+            m => m.title !== "Total Employees" &&
+                 m.title !== "Average Salary" &&
+                 m.title !== "Average Tenure"
+          );
+          const newMetrics = [
+            totalEmployeesMetric, 
+            averageSalaryMetric, 
+            averageTenureMetric, 
+            ...otherMetrics
+          ];
+          // Simple sort to keep a consistent order, can be improved
+          const order = ["Total Employees", "Average Salary", "Average Tenure", "Turnover Rate"];
+          newMetrics.sort((a,b) => {
+            const indexA = order.indexOf(a.title);
+            const indexB = order.indexOf(b.title);
+            if (indexA === -1 && indexB === -1) return 0;
+            if (indexA === -1) return 1;
+            if (indexB === -1) return -1;
+            return indexA - indexB;
+          });
+          return newMetrics;
       });
 
 
@@ -275,10 +338,10 @@ export default function DashboardPage() {
     } else if (!isLoadingEmployees && employees.length === 0) {
         setProcessedMetrics(prevMetrics =>
             prevMetrics.map(metric =>
-            metric.title === "Total Employees"
-                ? { ...metric, value: "0" }
-                : metric.title === "Average Salary" ? {...metric, value: "$0" }
-                : metric
+                metric.title === "Total Employees" ? { ...metric, value: "0" } :
+                metric.title === "Average Salary" ? {...metric, value: "$0" } :
+                metric.title === "Average Tenure" ? {...metric, value: "N/A"} :
+                metric
             )
         );
         setHeadcountChartData([]);
@@ -326,7 +389,44 @@ export default function DashboardPage() {
   }, [wifiBills, isLoadingWifiBills]);
 
   const allMetrics = useMemo(() => {
-    return processedMetrics.concat(dynamicWifiMetrics);
+    // Ensure initialStaticMetrics that are NOT dynamically updated are preserved.
+    const staticOnlyMetrics = initialStaticMetrics.filter(
+        initialMetric => !processedMetrics.some(pMetric => pMetric.title === initialMetric.title)
+    );
+    
+    // Combine processed dynamic metrics with any remaining static ones, and then WiFi metrics.
+    // The `processedMetrics` state already handles replacing the dynamic parts of `initialStaticMetrics`.
+    let combinedMetrics = [...processedMetrics];
+
+    // Ensure "Turnover Rate" is always present if it was in initialStaticMetrics and not handled dynamically
+    const turnoverMetric = initialStaticMetrics.find(m => m.title === "Turnover Rate");
+    if (turnoverMetric && !combinedMetrics.some(m => m.title === "Turnover Rate")) {
+        combinedMetrics.push(turnoverMetric);
+    }
+    
+    combinedMetrics = combinedMetrics.concat(dynamicWifiMetrics);
+
+    // Maintain a preferred order for display
+    const preferredOrder = [
+      "Total Employees", 
+      "Average Salary", 
+      "Average Tenure", 
+      "Turnover Rate", 
+      "Total WiFi Connections", 
+      "Total WiFi Bill (฿)", 
+      "Total WiFi Bill (USD)"
+    ];
+    
+    combinedMetrics.sort((a,b) => {
+        const indexA = preferredOrder.indexOf(a.title);
+        const indexB = preferredOrder.indexOf(b.title);
+        if (indexA === -1 && indexB === -1) return 0; // both not in preferred, keep original relative order
+        if (indexA === -1) return 1; // a not in preferred, b is, so b comes first
+        if (indexB === -1) return -1; // b not in preferred, a is, so a comes first
+        return indexA - indexB;
+    });
+    
+    return combinedMetrics;
   }, [processedMetrics, dynamicWifiMetrics]);
 
 
