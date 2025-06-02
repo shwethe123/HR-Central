@@ -1,13 +1,17 @@
 
 "use client";
 
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, Briefcase, TrendingUp, Clock, Building, Percent, DollarSign, Activity } from "lucide-react";
-import type { Metric } from "@/types";
+import { Users, Briefcase, TrendingUp, Clock, Building, Percent, DollarSign, Activity, Wifi, Loader2 } from "lucide-react"; // Added Wifi, Loader2
+import type { Metric, WifiBill } from "@/types"; // Added WifiBill
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { Bar, Line, Pie, Cell, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend as RechartsLegend, BarChart, LineChart, PieChart as RechartsPieChart } from "recharts";
+import { db } from '@/lib/firebase'; // Added
+import { collection, getDocs, query } from 'firebase/firestore'; // Added
+import { useToast } from '@/hooks/use-toast'; // Added
 
-const metrics: Metric[] = [
+const staticMetrics: Metric[] = [
   { title: "Total Employees", value: "1,250", change: "+5% this month", changeType: "positive", icon: Users },
   { title: "Turnover Rate", value: "12%", change: "-1.2% vs last quarter", changeType: "positive", icon: TrendingUp },
   { title: "Average Tenure", value: "4.2 Years", icon: Clock },
@@ -76,28 +80,92 @@ const employeeStatusData = [
 ];
 const employeeStatusConfig = {
   value: { label: "Employees" },
-  active: { label: "Active", color: "hsl(var(--chart-2))" }, // Soft Green
-  inactive: { label: "Inactive", color: "hsl(var(--chart-5))" }, // Pink
+  active: { label: "Active", color: "hsl(var(--chart-2))" }, 
+  inactive: { label: "Inactive", color: "hsl(var(--chart-5))" }, 
 };
 
 
 export default function DashboardPage() {
   const totalEmployeesForStatusChart = employeeStatusData.reduce((sum, entry) => sum + entry.value, 0);
+  const { toast } = useToast();
+  const [wifiBills, setWifiBills] = useState<WifiBill[]>([]);
+  const [isLoadingWifiBills, setIsLoadingWifiBills] = useState(true);
+
+  const fetchWifiBills = useCallback(async () => {
+    setIsLoadingWifiBills(true);
+    try {
+      const billsCollectionRef = collection(db, "wifiBills");
+      const q = query(billsCollectionRef);
+      const querySnapshot = await getDocs(q);
+      const fetchedBills: WifiBill[] = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      } as WifiBill));
+      setWifiBills(fetchedBills);
+    } catch (error) {
+      console.error("Error fetching WiFi bills:", error);
+      toast({
+        title: "Error Fetching WiFi Data",
+        description: "Could not load WiFi bill information for the dashboard.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingWifiBills(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    fetchWifiBills();
+  }, [fetchWifiBills]);
+
+  const dynamicMetrics: Metric[] = [];
+
+  if (isLoadingWifiBills) {
+    dynamicMetrics.push({ title: "Total WiFi Connections", value: "Loading...", icon: Loader2 });
+    dynamicMetrics.push({ title: "Total WiFi Bill (MMK)", value: "Loading...", icon: Loader2 });
+  } else {
+    dynamicMetrics.push({
+      title: "Total WiFi Connections",
+      value: wifiBills.length.toString(),
+      icon: Wifi,
+    });
+
+    const totalMMK = wifiBills
+      .filter(bill => bill.currency === "MMK" || !bill.currency) // Default to MMK if currency isn't set
+      .reduce((sum, bill) => sum + (bill.billAmount || 0), 0);
+    dynamicMetrics.push({
+      title: "Total WiFi Bill (MMK)",
+      value: totalMMK.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + " MMK",
+      icon: DollarSign,
+    });
+
+    const usdBills = wifiBills.filter(bill => bill.currency === "USD");
+    if (usdBills.length > 0) {
+      const totalUSD = usdBills.reduce((sum, bill) => sum + (bill.billAmount || 0), 0);
+      dynamicMetrics.push({
+        title: "Total WiFi Bill (USD)",
+        value: totalUSD.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }),
+        icon: DollarSign,
+      });
+    }
+  }
+
+  const allMetrics = [...staticMetrics, ...dynamicMetrics];
 
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-3xl font-semibold">HR Dashboard</h1>
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {metrics.map((metric) => (
+        {allMetrics.map((metric) => (
           <Card key={metric.title} className="shadow-md hover:shadow-lg transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{metric.title}</CardTitle>
-              <metric.icon className="h-5 w-5 text-muted-foreground" />
+              <metric.icon className={`h-5 w-5 text-muted-foreground ${metric.value === "Loading..." ? "animate-spin" : ""}`} />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{metric.value}</div>
-              {metric.change && (
+              {metric.change && metric.value !== "Loading..." && (
                 <p className={`text-xs ${metric.changeType === "positive" ? "text-green-600" : "text-red-600"}`}>
                   {metric.change}
                 </p>

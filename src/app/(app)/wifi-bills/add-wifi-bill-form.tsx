@@ -51,9 +51,9 @@ const ClientWifiBillSchema = z.object({
 export type WifiBillFormData = z.infer<typeof ClientWifiBillSchema>;
 
 // Placeholder data - in a real app, this might come from props or context
-const MOCK_COMPANIES = ["Innovatech Solutions", "Synergy Corp", "QuantumLeap Inc.", "Lashio Main", "Taunggyi Branch"];
-const MOCK_PROVIDERS = ["Myanmar Net", "5BB", "Ooredoo Fiber", "MPT Fiber", "Welink"];
-const PAYMENT_CYCLES = ["Monthly", "2 Months", "Quarterly", "Annually"];
+const MOCK_COMPANIES = ["ဆန်ဆိုင်း (၁)", "ဝမ်လုံးဆိုင် (၂)", "ဟောင်လိတ်ဆိုင် (၃)", "အုတ်စက်", "ကား ဝပ်လျှော့"];
+const MOCK_PROVIDERS = ["LongMao Wifi", "IQ-NET Wifi", "TCL-NET Wifi", "MBT Wifi", "IM-Net Wifi", "Royal Wifi", "MPT Wifi", "GGH Wifi"];
+const PAYMENT_CYCLES = ["Monthly", "2 Months", "3 Months", "4 Months", "5 Months","6 Months"];
 const CURRENCIES = ["MMK", "USD"];
 const STATUS_OPTIONS = ["Pending", "Paid", "Overdue", "Cancelled"];
 
