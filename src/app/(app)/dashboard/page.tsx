@@ -134,8 +134,8 @@ export default function DashboardPage() {
       .filter(bill => bill.currency === "MMK" || !bill.currency) // Default to MMK if currency isn't set
       .reduce((sum, bill) => sum + (bill.billAmount || 0), 0);
     dynamicMetrics.push({
-      title: "Total WiFi Bill (MMK)",
-      value: totalMMK.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + " MMK",
+      title: "Total WiFi Bill (฿)",
+      value: totalMMK.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + " ฿",
       icon: DollarSign,
     });
 
