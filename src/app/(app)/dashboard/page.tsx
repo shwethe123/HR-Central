@@ -1,20 +1,22 @@
+
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, Briefcase, TrendingUp, Clock, Building, Percent, DollarSign, Activity, Wifi, Loader2 } from "lucide-react";
+import { Users, Briefcase, TrendingUp, Clock, Building, Percent, DollarSign, Activity, Wifi, Loader2, Megaphone } from "lucide-react"; // Added Megaphone
 import type { Metric, WifiBill, Employee } from "@/types";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { Bar, Line, Pie, Cell, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend as RechartsLegend, BarChart, LineChart, PieChart as RechartsPieChart } from "recharts";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { isValid, parseISO, differenceInMilliseconds } from 'date-fns';
+import { isValid, parseISO, differenceInMilliseconds, format as formatDateFn } from 'date-fns'; // Added format as formatDateFn
+import { ScrollArea } from '@/components/ui/scroll-area'; // For scrollable announcements
 
 // Initial static metrics (Total Employees, Average Salary, Average Tenure will be updated dynamically)
 const initialStaticMetrics: Metric[] = [
-  { title: "Total Employees", value: "Loading...", change: "+5% this month", changeType: "positive", icon: Users },
-  { title: "Average Salary", value: "Loading...", change: "+2.5% this year", changeType: "positive", icon: DollarSign },
+  { title: "Total Employees", value: "Loading...", icon: Users },
+  { title: "Average Salary", value: "Loading...", icon: DollarSign },
   { title: "Average Tenure", value: "Loading...", icon: Clock },
   { title: "Turnover Rate", value: "12%", change: "-1.2% vs last quarter", changeType: "positive", icon: TrendingUp },
 ];
@@ -89,6 +91,23 @@ const chartColorCycle = [
   "hsl(var(--chart-5))",
 ];
 
+// Mock data for announcements
+interface MockAnnouncement {
+  id: string;
+  title: string;
+  date: string;
+  authorName?: string;
+  contentSnippet: string;
+}
+
+const mockAnnouncements: MockAnnouncement[] = [
+  { id: '1', title: 'New Q4 Company Goals Announced', date: 'October 26, 2023', authorName: 'HR Department', contentSnippet: 'We are excited to share the new strategic goals for Q4. Please review the attached document for full details and key performance indicators. Your manager will discuss these with you in your next team meeting.' },
+  { id: '2', title: 'Upcoming Holiday Schedule & Office Closure', date: 'October 25, 2023', contentSnippet: 'A reminder about the upcoming holiday schedule for November and December. All offices will be closed on Thanksgiving Day (Nov 23rd) and Christmas Day (Dec 25th). Further details on adjusted hours for other days are available on the intranet.' },
+  { id: '3', title: 'Welcome New Team Members!', date: 'October 24, 2023', authorName: 'CEO Office', contentSnippet: 'Please join us in giving a warm welcome to our newest members: Alice (Marketing), Bob (Engineering), and Charlie (Sales). We are thrilled to have them on board!' },
+  { id: '4', title: 'Annual Performance Review Cycle Kicks Off', date: 'October 23, 2023', authorName: 'HR Department', contentSnippet: 'The annual performance review cycle begins next week. Please ensure all your self-assessments are completed by November 10th. Check your email for detailed instructions and timelines.' },
+];
+
+
 export default function DashboardPage() {
   const { toast } = useToast();
   const [wifiBills, setWifiBills] = useState<WifiBill[]>([]);
@@ -160,32 +179,24 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!isLoadingEmployees && employees.length > 0) {
-      // Update Total Employees metric
       const totalEmployeesMetric: Metric = { 
           title: "Total Employees", 
           value: employees.length.toLocaleString(), 
-          change: "+5% this month",
-          changeType: "positive", 
           icon: Users 
       };
       
-      // Update Average Salary metric
       const totalSalary = employees.reduce((sum, emp) => sum + (emp.salary || 0), 0);
       const employeesWithSalary = employees.filter(emp => typeof emp.salary === 'number').length;
       const avgSalaryValue = employeesWithSalary > 0 ? (totalSalary / employeesWithSalary) : 0;
       const averageSalaryMetric: Metric = {
           title: "Average Salary",
           value: `$${avgSalaryValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`,
-          change: "+2.5% this year",
-          changeType: "positive",
           icon: DollarSign
       };
 
-      // Calculate Average Tenure
       let totalTenureMs = 0;
       let employeesWithValidStartDate = 0;
       const today = new Date();
-
       employees.forEach(emp => {
         if (emp.startDate) {
             let startDateObj: Date | null = null;
@@ -193,8 +204,7 @@ export default function DashboardPage() {
                 startDateObj = parseISO(emp.startDate);
             } else if (emp.startDate instanceof Date) {
                 startDateObj = emp.startDate;
-            }
-            else if (typeof emp.startDate === 'object' && 'toDate' in emp.startDate && typeof emp.startDate.toDate === 'function') {
+            } else if (typeof emp.startDate === 'object' && 'toDate' in emp.startDate && typeof emp.startDate.toDate === 'function') {
                  startDateObj = emp.startDate.toDate();
             }
 
@@ -209,21 +219,17 @@ export default function DashboardPage() {
             }
         }
       });
-
       const avgTenureYears = employeesWithValidStartDate > 0
         ? (totalTenureMs / employeesWithValidStartDate / (1000 * 60 * 60 * 24 * 365.25)).toFixed(1)
         : "0.0";
-      
       const averageTenureMetric: Metric = {
         title: "Average Tenure",
         value: `${avgTenureYears} Years`,
         icon: Clock,
       };
 
-      // Calculate Employee Status (Active/Inactive)
       let activeCount = 0;
       let inactiveCount = 0;
-      
       employees.forEach(emp => {
         if (emp.status === "Active" || emp.status === "active" || !emp.status) {
           activeCount++;
@@ -231,7 +237,6 @@ export default function DashboardPage() {
           inactiveCount++;
         }
       });
-
       setEmployeeStatusData([
         { name: "Active", value: activeCount, fill: "var(--color-active)" },
         { name: "Inactive", value: inactiveCount, fill: "var(--color-inactive)" },
@@ -261,34 +266,27 @@ export default function DashboardPage() {
           return newMetrics;
       });
 
-      // Process Headcount by Department
       const countsByDept: Record<string, number> = {};
       employees.forEach(emp => {
         const dept = emp.department || "Unknown";
         countsByDept[dept] = (countsByDept[dept] || 0) + 1;
       });
-
       const newHeadcountConfig: Record<string, { label: string; color?: string }> = { value: { label: "Employees" } };
       let colorIndex = 0;
-
       const newHeadcountData = Object.entries(countsByDept).map(([deptName, count]) => {
         const deptSlug = deptName.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
         const colorKey = deptName.toLowerCase();
-        
         let color = departmentColorMap[colorKey];
         if (!color) {
           color = chartColorCycle[colorIndex % chartColorCycle.length];
           colorIndex++;
         }
-        
         newHeadcountConfig[deptSlug] = { label: deptName, color: color };
         return { name: deptName, value: count, fill: color }; 
       }).sort((a,b) => b.value - a.value); 
-
       setHeadcountChartData(newHeadcountData);
       setHeadcountChartConfig(newHeadcountConfig);
 
-      // Process Average Salary by Department
       const salariesByDept: Record<string, { totalSalary: number; count: number }> = {};
       employees.forEach(emp => {
         if (emp.department && typeof emp.salary === 'number' && !isNaN(emp.salary)) {
@@ -298,17 +296,14 @@ export default function DashboardPage() {
           salariesByDept[dept].count++;
         }
       });
-
       const newAvgSalaryConfig: Record<string, { label: string; color?: string }> = { avgSalary: { label: "Average Salary ($)" } };
       let salaryColorIndex = 0;
-      
       const newAvgSalaryData = Object.entries(salariesByDept)
         .filter(([, data]) => data.count > 0) 
         .map(([deptName, data]) => {
           const avgSalary = data.totalSalary / data.count;
           const deptSlugSalary = `${deptName.toLowerCase().replace(/\s+/g, '-')}-salary`;
           const colorKey = deptName.toLowerCase();
-
           let color = departmentColorMap[colorKey]; 
           if (!color) { 
             color = chartColorCycle[salaryColorIndex % chartColorCycle.length];
@@ -318,11 +313,9 @@ export default function DashboardPage() {
           return { department: deptName, avgSalary: Math.round(avgSalary), fill: color };
         })
         .sort((a, b) => b.avgSalary - a.avgSalary); 
-
       setAvgSalaryByDeptData(newAvgSalaryData);
       setAvgSalaryByDeptConfig(newAvgSalaryConfig);
 
-      // Process Gender Diversity
       let maleCount = 0;
       let femaleCount = 0;
       let otherCount = 0;
@@ -331,12 +324,10 @@ export default function DashboardPage() {
         else if (emp.gender === "Female") femaleCount++;
         else otherCount++;
       });
-      
       const newGenderData = [];
       if (maleCount > 0) newGenderData.push({ name: "Male", value: maleCount, fill: genderDiversityConfig.male.color || "hsl(var(--chart-1))" });
       if (femaleCount > 0) newGenderData.push({ name: "Female", value: femaleCount, fill: genderDiversityConfig.female.color || "hsl(var(--chart-2))" });
       if (otherCount > 0) newGenderData.push({ name: "Other", value: otherCount, fill: genderDiversityConfig.other.color || "hsl(var(--chart-3))" });
-      
       setDynamicGenderData(newGenderData);
 
     } else if (!isLoadingEmployees && employees.length === 0) {
@@ -660,7 +651,50 @@ export default function DashboardPage() {
             )}
           </CardContent>
         </Card>
+
+        <Card className="shadow-md hover:shadow-lg transition-shadow lg:col-span-1 xl:col-span-1"> {/* Adjust span as needed */}
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Megaphone className="h-5 w-5 text-primary" />Company Announcements</CardTitle>
+            <CardDescription>Latest news and updates from the company.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoadingEmployees ? ( // You might want a separate loading state for announcements
+                <div className="h-[300px] w-full flex items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="ml-2 text-muted-foreground">Loading announcements...</p>
+                </div>
+            ) : mockAnnouncements.length === 0 ? (
+                <div className="h-[300px] w-full flex items-center justify-center text-muted-foreground">
+                    No announcements available at the moment.
+                </div>
+            ) : (
+              <ScrollArea className="h-[300px] pr-3"> {/* Added ScrollArea */}
+                <div className="space-y-4">
+                  {mockAnnouncements.map((announcement) => (
+                    <div key={announcement.id} className="pb-3 border-b last:border-b-0">
+                      <h3 className="text-md font-semibold text-foreground mb-0.5">{announcement.title}</h3>
+                      <div className="text-xs text-muted-foreground mb-1.5">
+                        <span>{formatDateFn(new Date(announcement.date), 'PP')}</span>
+                        {announcement.authorName && (
+                          <>
+                            <span className="mx-1.5">·</span>
+                            <span>By {announcement.authorName}</span>
+                          </>
+                        )}
+                      </div>
+                      <p className="text-sm text-foreground/80 line-clamp-3">{announcement.contentSnippet}</p>
+                      {/* Add a "Read more" button/link later if needed */}
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+          </CardContent>
+        </Card>
+
       </div>
     </div>
   );
 }
+
+    
