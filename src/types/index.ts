@@ -111,3 +111,14 @@ export type WifiBill = {
   createdAt: Timestamp; // When the bill record was created in the system
   updatedAt?: Timestamp; // When the bill record was last updated
 };
+
+export interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  authorName?: string; // e.g., "HR Department", or specific admin name
+  createdAt: Timestamp;
+  publishedAt?: Timestamp; // For scheduling, optional for now
+  status?: 'published' | 'draft'; // Optional for now, defaults to published
+  updatedAt?: Timestamp;
+}

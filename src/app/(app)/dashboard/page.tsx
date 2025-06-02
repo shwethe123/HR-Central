@@ -3,22 +3,27 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, Briefcase, TrendingUp, Clock, Building, Percent, DollarSign, Activity, Wifi, Loader2, Megaphone } from "lucide-react"; // Added Megaphone
-import type { Metric, WifiBill, Employee } from "@/types";
+import { Users, Briefcase, TrendingUp, Clock, Building, Percent, DollarSign, Activity, Wifi, Loader2, Megaphone, PlusCircle } from "lucide-react";
+import type { Metric, WifiBill, Employee, Announcement } from "@/types"; // Added Announcement
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { Bar, Line, Pie, Cell, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend as RechartsLegend, BarChart, LineChart, PieChart as RechartsPieChart } from "recharts";
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, Timestamp, limit } from 'firebase/firestore'; // Added limit, Timestamp
 import { useToast } from '@/hooks/use-toast';
-import { isValid, parseISO, differenceInMilliseconds, format as formatDateFn } from 'date-fns'; // Added format as formatDateFn
-import { ScrollArea } from '@/components/ui/scroll-area'; // For scrollable announcements
+import { isValid, parseISO, differenceInMilliseconds, format as formatDateFn } from 'date-fns';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { useAuth } from '@/contexts/auth-context'; // For admin check
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
+import { AddAnnouncementForm } from './add-announcement-form';
+
 
 // Initial static metrics (Total Employees, Average Salary, Average Tenure will be updated dynamically)
 const initialStaticMetrics: Metric[] = [
   { title: "Total Employees", value: "Loading...", icon: Users },
   { title: "Average Salary", value: "Loading...", icon: DollarSign },
   { title: "Average Tenure", value: "Loading...", icon: Clock },
-  { title: "Turnover Rate", value: "12%", change: "-1.2% vs last quarter", changeType: "positive", icon: TrendingUp },
+  { title: "Turnover Rate", value: "12%", icon: TrendingUp }, // Removed change for simplicity
 ];
 
 // Initial static chart data (Headcount by Department will be updated dynamically)
@@ -91,25 +96,12 @@ const chartColorCycle = [
   "hsl(var(--chart-5))",
 ];
 
-// Mock data for announcements
-interface MockAnnouncement {
-  id: string;
-  title: string;
-  date: string;
-  authorName?: string;
-  contentSnippet: string;
-}
-
-const mockAnnouncements: MockAnnouncement[] = [
-  { id: '1', title: 'New Q4 Company Goals Announced', date: 'October 26, 2023', authorName: 'HR Department', contentSnippet: 'We are excited to share the new strategic goals for Q4. Please review the attached document for full details and key performance indicators. Your manager will discuss these with you in your next team meeting.' },
-  { id: '2', title: 'Upcoming Holiday Schedule & Office Closure', date: 'October 25, 2023', contentSnippet: 'A reminder about the upcoming holiday schedule for November and December. All offices will be closed on Thanksgiving Day (Nov 23rd) and Christmas Day (Dec 25th). Further details on adjusted hours for other days are available on the intranet.' },
-  { id: '3', title: 'Welcome New Team Members!', date: 'October 24, 2023', authorName: 'CEO Office', contentSnippet: 'Please join us in giving a warm welcome to our newest members: Alice (Marketing), Bob (Engineering), and Charlie (Sales). We are thrilled to have them on board!' },
-  { id: '4', title: 'Annual Performance Review Cycle Kicks Off', date: 'October 23, 2023', authorName: 'HR Department', contentSnippet: 'The annual performance review cycle begins next week. Please ensure all your self-assessments are completed by November 10th. Check your email for detailed instructions and timelines.' },
-];
+const ANNOUNCEMENTS_FETCH_LIMIT = 5; // Max announcements to show
 
 
 export default function DashboardPage() {
   const { toast } = useToast();
+  const { user, isAdmin, loading: authLoading } = useAuth();
   const [wifiBills, setWifiBills] = useState<WifiBill[]>([]);
   const [isLoadingWifiBills, setIsLoadingWifiBills] = useState(true);
 
@@ -125,6 +117,39 @@ export default function DashboardPage() {
 
   const [dynamicGenderData, setDynamicGenderData] = useState<typeof initialGenderDiversityData>(initialGenderDiversityData);
   const [employeeStatusData, setEmployeeStatusData] = useState<{name: string, value: number, fill: string}[]>([]);
+
+  const [announcementsData, setAnnouncementsData] = useState<Announcement[]>([]);
+  const [isLoadingAnnouncements, setIsLoadingAnnouncements] = useState(true);
+  const [isAddAnnouncementDialogOpen, setIsAddAnnouncementDialogOpen] = useState(false);
+
+
+  const fetchAnnouncements = useCallback(async () => {
+    setIsLoadingAnnouncements(true);
+    try {
+      const announcementsCollectionRef = collection(db, "announcements");
+      const q = query(announcementsCollectionRef, orderBy("createdAt", "desc"), limit(ANNOUNCEMENTS_FETCH_LIMIT));
+      const querySnapshot = await getDocs(q);
+      const fetchedAnnouncements: Announcement[] = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt, // Ensure Timestamp is preserved
+        } as Announcement;
+      });
+      setAnnouncementsData(fetchedAnnouncements);
+    } catch (error) {
+      console.error("Error fetching announcements:", error);
+      toast({
+        title: "Error Fetching Announcements",
+        description: "Could not load company announcements.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingAnnouncements(false);
+    }
+  }, [toast]);
+
 
   const fetchWifiBills = useCallback(async () => {
     setIsLoadingWifiBills(true);
@@ -175,7 +200,8 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchWifiBills();
     fetchEmployees();
-  }, [fetchWifiBills, fetchEmployees]);
+    fetchAnnouncements();
+  }, [fetchWifiBills, fetchEmployees, fetchAnnouncements]);
 
   useEffect(() => {
     if (!isLoadingEmployees && employees.length > 0) {
@@ -202,9 +228,11 @@ export default function DashboardPage() {
             let startDateObj: Date | null = null;
             if (typeof emp.startDate === 'string') {
                 startDateObj = parseISO(emp.startDate);
-            } else if (emp.startDate instanceof Date) {
+            } else if (emp.startDate instanceof Date) { // Should not happen with current Firestore setup
                 startDateObj = emp.startDate;
-            } else if (typeof emp.startDate === 'object' && 'toDate' in emp.startDate && typeof emp.startDate.toDate === 'function') {
+            // @ts-ignore Firebase Timestamp check
+            } else if (emp.startDate && typeof emp.startDate.toDate === 'function') {
+                 // @ts-ignore
                  startDateObj = emp.startDate.toDate();
             }
 
@@ -417,6 +445,19 @@ export default function DashboardPage() {
     
     return combinedMetrics;
   }, [processedMetrics, dynamicWifiMetrics]);
+
+  const handleAnnouncementFormSuccess = (newAnnouncementId?: string) => {
+    fetchAnnouncements(); // Refetch announcements after a new one is added
+    setIsAddAnnouncementDialogOpen(false); // Close the dialog
+  };
+
+  const formatAnnouncementDate = (timestamp: Timestamp | undefined) => {
+    if (!timestamp) return 'Date not available';
+    if (timestamp instanceof Timestamp) {
+        return formatDateFn(timestamp.toDate(), 'PP'); // e.g., Oct 26, 2023
+    }
+    return 'Invalid Date';
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -652,29 +693,49 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-md hover:shadow-lg transition-shadow lg:col-span-1 xl:col-span-1"> {/* Adjust span as needed */}
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Megaphone className="h-5 w-5 text-primary" />Company Announcements</CardTitle>
-            <CardDescription>Latest news and updates from the company.</CardDescription>
+        <Card className="shadow-md hover:shadow-lg transition-shadow lg:col-span-1 xl:col-span-1">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div className="space-y-0.5">
+                <CardTitle className="flex items-center gap-2"><Megaphone className="h-5 w-5 text-primary" />Company Announcements</CardTitle>
+                <CardDescription>Latest news and updates from the company.</CardDescription>
+            </div>
+             {isAdmin && !authLoading && (
+                 <Dialog open={isAddAnnouncementDialogOpen} onOpenChange={setIsAddAnnouncementDialogOpen}>
+                    <DialogTrigger asChild>
+                        <Button variant="outline" size="sm">
+                            <PlusCircle className="mr-2 h-4 w-4" /> Add New
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-lg">
+                        <DialogHeader>
+                            <DialogTitle>Create New Announcement</DialogTitle>
+                            <DialogDescription>
+                                Share important updates with the company.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <AddAnnouncementForm onFormSubmissionSuccess={handleAnnouncementFormSuccess} />
+                    </DialogContent>
+                </Dialog>
+            )}
           </CardHeader>
           <CardContent>
-            {isLoadingEmployees ? ( // You might want a separate loading state for announcements
+            {isLoadingAnnouncements ? ( 
                 <div className="h-[300px] w-full flex items-center justify-center">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                   <p className="ml-2 text-muted-foreground">Loading announcements...</p>
                 </div>
-            ) : mockAnnouncements.length === 0 ? (
+            ) : announcementsData.length === 0 ? (
                 <div className="h-[300px] w-full flex items-center justify-center text-muted-foreground">
                     No announcements available at the moment.
                 </div>
             ) : (
-              <ScrollArea className="h-[300px] pr-3"> {/* Added ScrollArea */}
+              <ScrollArea className="h-[300px] pr-3"> 
                 <div className="space-y-4">
-                  {mockAnnouncements.map((announcement) => (
+                  {announcementsData.map((announcement) => (
                     <div key={announcement.id} className="pb-3 border-b last:border-b-0">
                       <h3 className="text-md font-semibold text-foreground mb-0.5">{announcement.title}</h3>
                       <div className="text-xs text-muted-foreground mb-1.5">
-                        <span>{formatDateFn(new Date(announcement.date), 'PP')}</span>
+                        <span>{formatAnnouncementDate(announcement.createdAt)}</span>
                         {announcement.authorName && (
                           <>
                             <span className="mx-1.5">·</span>
@@ -682,8 +743,7 @@ export default function DashboardPage() {
                           </>
                         )}
                       </div>
-                      <p className="text-sm text-foreground/80 line-clamp-3">{announcement.contentSnippet}</p>
-                      {/* Add a "Read more" button/link later if needed */}
+                      <p className="text-sm text-foreground/80 line-clamp-3">{announcement.content}</p>
                     </div>
                   ))}
                 </div>
@@ -696,5 +756,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
