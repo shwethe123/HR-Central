@@ -16,7 +16,7 @@ const initialStaticMetrics: Metric[] = [
   { title: "Total Employees", value: "Loading...", change: "+5% this month", changeType: "positive", icon: Users },
   { title: "Turnover Rate", value: "12%", change: "-1.2% vs last quarter", changeType: "positive", icon: TrendingUp },
   { title: "Average Tenure", value: "4.2 Years", icon: Clock },
-  { title: "Average Salary", value: "$75,200", change: "+2.5% this year", changeType: "positive", icon: DollarSign },
+  // Average Salary will be dynamically calculated if data exists
 ];
 
 // Initial static chart data (Headcount by Department will be updated dynamically)
@@ -44,10 +44,11 @@ const turnoverConfig = {
   rate: { label: "Turnover Rate (%)", color: "hsl(var(--chart-1))" },
 };
 
-const genderDiversityData = [
-  { name: "Male", value: 60, fill: "var(--color-male)" },
-  { name: "Female", value: 35, fill: "var(--color-female)" },
-  { name: "Other", value: 5, fill: "var(--color-other)" },
+// Initial Gender Diversity data (will be updated dynamically)
+const initialGenderDiversityData = [
+  { name: "Male", value: 0, fill: "var(--color-male)" },
+  { name: "Female", value: 0, fill: "var(--color-female)" },
+  { name: "Other", value: 0, fill: "var(--color-other)" },
 ];
 const genderDiversityConfig = {
   value: { label: "Percentage" },
@@ -110,6 +111,8 @@ export default function DashboardPage() {
   const [avgSalaryByDeptData, setAvgSalaryByDeptData] = useState<typeof initialAvgSalaryByDeptData>(initialAvgSalaryByDeptData);
   const [avgSalaryByDeptConfig, setAvgSalaryByDeptConfig] = useState(initialAvgSalaryByDeptConfig);
 
+  const [dynamicGenderData, setDynamicGenderData] = useState<typeof initialGenderDiversityData>(initialGenderDiversityData);
+
 
   const fetchWifiBills = useCallback(async () => {
     setIsLoadingWifiBills(true);
@@ -165,13 +168,31 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!isLoadingEmployees && employees.length > 0) {
       // Update Total Employees metric
-      setProcessedMetrics(prevMetrics =>
-        prevMetrics.map(metric =>
-          metric.title === "Total Employees"
-            ? { ...metric, value: employees.length.toLocaleString() }
-            : metric
-        )
-      );
+      const totalEmployeesMetric = { 
+          title: "Total Employees", 
+          value: employees.length.toLocaleString(), 
+          change: "+5% this month", // Static change for now
+          changeType: "positive" as "positive" | "negative", 
+          icon: Users 
+      };
+      
+      // Update Average Salary metric
+      const totalSalary = employees.reduce((sum, emp) => sum + (emp.salary || 0), 0);
+      const employeesWithSalary = employees.filter(emp => typeof emp.salary === 'number').length;
+      const avgSalaryValue = employeesWithSalary > 0 ? (totalSalary / employeesWithSalary) : 0;
+      const averageSalaryMetric = {
+          title: "Average Salary",
+          value: `$${avgSalaryValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`,
+          change: "+2.5% this year", // Static change for now
+          changeType: "positive" as "positive" | "negative",
+          icon: DollarSign
+      };
+
+      setProcessedMetrics(prevMetrics => {
+          const otherMetrics = prevMetrics.filter(m => m.title !== "Total Employees" && m.title !== "Average Salary");
+          return [totalEmployeesMetric, averageSalaryMetric, ...otherMetrics];
+      });
+
 
       // Process Headcount by Department
       const countsByDept: Record<string, number> = {};
@@ -194,7 +215,7 @@ export default function DashboardPage() {
         }
         
         newHeadcountConfig[deptSlug] = { label: deptName, color: color };
-        return { name: deptName, value: count, fill: color }; // Use direct color for Cell fill
+        return { name: deptName, value: count, fill: color }; 
       }).sort((a,b) => b.value - a.value); 
 
       setHeadcountChartData(newHeadcountData);
@@ -215,32 +236,48 @@ export default function DashboardPage() {
       let salaryColorIndex = 0;
       
       const newAvgSalaryData = Object.entries(salariesByDept)
-        .filter(([, data]) => data.count > 0) // Only include departments with at least one employee with salary
+        .filter(([, data]) => data.count > 0) 
         .map(([deptName, data]) => {
           const avgSalary = data.totalSalary / data.count;
           const deptSlugSalary = `${deptName.toLowerCase().replace(/\s+/g, '-')}-salary`;
           const colorKey = deptName.toLowerCase();
 
-          let color = departmentColorMap[colorKey]; // Try to get predefined color
-          if (!color) { // If no predefined color, cycle through chart colors
+          let color = departmentColorMap[colorKey]; 
+          if (!color) { 
             color = chartColorCycle[salaryColorIndex % chartColorCycle.length];
             salaryColorIndex++;
           }
           newAvgSalaryConfig[deptSlugSalary] = { label: deptName, color: color };
           return { department: deptName, avgSalary: Math.round(avgSalary), fill: color };
         })
-        .sort((a, b) => b.avgSalary - a.avgSalary); // Sort by average salary descending
+        .sort((a, b) => b.avgSalary - a.avgSalary); 
 
       setAvgSalaryByDeptData(newAvgSalaryData);
       setAvgSalaryByDeptConfig(newAvgSalaryConfig);
 
+      // Process Gender Diversity
+      let maleCount = 0;
+      let femaleCount = 0;
+      let otherCount = 0;
+      employees.forEach(emp => {
+        if (emp.gender === "Male") maleCount++;
+        else if (emp.gender === "Female") femaleCount++;
+        else otherCount++; // Includes "Other", "Prefer not to say", or undefined
+      });
+      
+      const newGenderData = [];
+      if (maleCount > 0) newGenderData.push({ name: "Male", value: maleCount, fill: genderDiversityConfig.male.color || "hsl(var(--chart-1))" });
+      if (femaleCount > 0) newGenderData.push({ name: "Female", value: femaleCount, fill: genderDiversityConfig.female.color || "hsl(var(--chart-2))" });
+      if (otherCount > 0) newGenderData.push({ name: "Other", value: otherCount, fill: genderDiversityConfig.other.color || "hsl(var(--chart-3))" });
+      
+      setDynamicGenderData(newGenderData);
 
     } else if (!isLoadingEmployees && employees.length === 0) {
-        // Handle case where there are no employees
         setProcessedMetrics(prevMetrics =>
             prevMetrics.map(metric =>
             metric.title === "Total Employees"
                 ? { ...metric, value: "0" }
+                : metric.title === "Average Salary" ? {...metric, value: "$0" }
                 : metric
             )
         );
@@ -248,6 +285,7 @@ export default function DashboardPage() {
         setHeadcountChartConfig({ value: { label: "Employees" } });
         setAvgSalaryByDeptData([]);
         setAvgSalaryByDeptConfig({ avgSalary: { label: "Average Salary ($)" } });
+        setDynamicGenderData([]);
     }
   }, [employees, isLoadingEmployees]);
 
@@ -288,16 +326,7 @@ export default function DashboardPage() {
   }, [wifiBills, isLoadingWifiBills]);
 
   const allMetrics = useMemo(() => {
-    const staticPortion = processedMetrics.filter(m => m.title !== "Total Employees" && m.title !== "Average Salary");
-    const dynamicTotalEmployees = processedMetrics.find(m => m.title === "Total Employees");
-    const dynamicAverageSalary = processedMetrics.find(m => m.title === "Average Salary"); // This will be updated later if needed
-
-    return [
-        ...(dynamicTotalEmployees ? [dynamicTotalEmployees] : [initialStaticMetrics.find(m => m.title === "Total Employees")!]),
-        ...(dynamicAverageSalary ? [dynamicAverageSalary] : [initialStaticMetrics.find(m => m.title === "Average Salary")!]),
-        ...staticPortion,
-        ...dynamicWifiMetrics
-    ].filter(metric => metric.title !== "Average Salary"); // Remove the static Average Salary if it's not updated by dynamic data
+    return processedMetrics.concat(dynamicWifiMetrics);
   }, [processedMetrics, dynamicWifiMetrics]);
 
 
@@ -397,21 +426,38 @@ export default function DashboardPage() {
             <CardDescription>Current gender distribution in the company.</CardDescription>
           </CardHeader>
           <CardContent>
+            {isLoadingEmployees ? (
+                <div className="h-[300px] w-full flex items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <p className="ml-2 text-muted-foreground">Loading gender data...</p>
+                </div>
+            ) : dynamicGenderData.length === 0 ? (
+                 <div className="h-[300px] w-full flex items-center justify-center text-muted-foreground">
+                    No gender data available.
+                </div>
+            ) : (
             <ChartContainer config={genderDiversityConfig} className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <RechartsPieChart accessibilityLayer>
                   <RechartsTooltip 
                     contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }} 
+                     formatter={(value: number, name: string, props: any) => {
+                        const total = dynamicGenderData.reduce((sum, entry) => sum + entry.value, 0);
+                        if (total === 0) return [`${value.toLocaleString()}`, name];
+                        const percentage = ((value / total) * 100).toFixed(1);
+                        return [`${value.toLocaleString()} (${percentage}%)`, name];
+                    }}
                   />
                   <ChartLegend content={<ChartLegendContent nameKey="name" />} />
-                  <Pie data={genderDiversityData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
-                     {genderDiversityData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                  <Pie data={dynamicGenderData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
+                     {dynamicGenderData.map((entry, index) => (
+                        <Cell key={`cell-gender-${index}`} fill={entry.fill} />
                       ))}
                   </Pie>
                 </RechartsPieChart>
               </ResponsiveContainer>
             </ChartContainer>
+            )}
           </CardContent>
         </Card>
 
