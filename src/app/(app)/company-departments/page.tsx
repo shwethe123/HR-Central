@@ -140,7 +140,7 @@ export default function CompanyDepartmentsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/50">
-                      <TableHead className="w-[50px] px-4 font-semibold sticky left-0 bg-card z-10">#</TableHead>
+                      <TableHead className="w-[50px] px-4 font-semibold sticky left-0 bg-muted/50 border-r z-10">#</TableHead>
                       {companyDepartments.map(dept => (
                         <TableHead key={dept} className="font-semibold min-w-[200px] px-4 text-left">{dept}</TableHead>
                       ))}
@@ -149,7 +149,7 @@ export default function CompanyDepartmentsPage() {
                   <TableBody>
                     {companyEmployees.map((employee, index) => (
                       <TableRow key={employee.id} className="hover:bg-muted/50">
-                        <TableCell className="font-medium py-3 px-4 sticky left-0 bg-card z-0">{index + 1}</TableCell>
+                        <TableCell className="font-medium py-3 px-4 sticky left-0 bg-card border-r z-0">{index + 1}</TableCell>
                         {companyDepartments.map(dept => (
                           <TableCell key={`${employee.id}-${dept}`} className="py-3 px-4 min-w-[200px]">
                             {(employee.department || "Unknown Department") === dept ? employee.name : ''}
