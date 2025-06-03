@@ -29,16 +29,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { deleteEmployee, type DeleteEmployeeFormState } from "./actions"; // Import the server action
+import { deleteEmployee, type DeleteEmployeeFormState } from "./actions"; 
 import { useActionState, startTransition } from "react";
-
-// This callback type needs to be passed down if DataTable is to trigger a refresh
-// For now, we rely on revalidatePath in the server action
-// type OnDataChangeCallback = () => Promise<void> | void;
 
 export const getColumns = (
     onViewDetails: (employee: Employee) => void,
-    // onDataChange?: OnDataChangeCallback // Optional: if explicit refresh needed beyond revalidatePath
+    onRefreshData: () => Promise<void> | void 
   ): ColumnDef<Employee>[] => [
   {
     id: "select",
@@ -188,7 +184,6 @@ export const getColumns = (
         if (typeof dateValue === 'string' && dateValue) {
             try {
                 const date = new Date(dateValue);
-                 // Format date to be more readable, e.g., "Jan 15, 2022"
                 return new Intl.DateTimeFormat("en-US", { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
             } catch (e) {
                 return "Invalid Date";
@@ -214,10 +209,8 @@ export const getColumns = (
             title: "Success",
             description: deleteState.message,
           });
-          setIsDeleteDialogOpen(false); // Close dialog on success
-          // Data refresh should be handled by revalidatePath in action,
-          // or by onDataChange callback if passed.
-          // onDataChange?.();
+          setIsDeleteDialogOpen(false); 
+          onRefreshData(); // Call refresh data on success
         } else if (!deleteState?.success && deleteState?.message && (deleteState.errors || deleteState.message.includes("failed:"))) {
           toast({
             title: "Error Deleting Employee",
@@ -225,11 +218,11 @@ export const getColumns = (
             variant: "destructive",
           });
         }
-      }, [deleteState, toast]);
+      }, [deleteState, toast, onRefreshData]);
 
       const handleDeleteConfirm = () => {
         const formData = new FormData();
-        formData.append('employeeId', employee.id); // Ensure employee.id is the Firestore document ID
+        formData.append('employeeId', employee.id); 
         startTransition(() => {
             formAction(formData);
         });
