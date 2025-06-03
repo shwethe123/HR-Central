@@ -5,7 +5,7 @@ import { z } from 'zod';
 import type { Employee } from '@/types';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/lib/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, deleteDoc } from 'firebase/firestore';
 
 const EmployeeFormSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -120,6 +120,69 @@ export async function addEmployee(
     
     return {
       message: `Adding employee failed: ${errorMessage}`,
+      errors: { _form: [errorMessage] },
+      success: false,
+    };
+  }
+}
+
+// Schema for deleting an employee
+const DeleteEmployeeSchema = z.object({
+  employeeId: z.string().min(1, { message: "Employee ID is required." }),
+});
+
+export type DeleteEmployeeFormState = {
+  message: string | null;
+  errors?: {
+    employeeId?: string[];
+    _form?: string[];
+  };
+  success?: boolean;
+  deletedEmployeeId?: string;
+};
+
+export async function deleteEmployee(
+  prevState: DeleteEmployeeFormState | undefined,
+  formData: FormData
+): Promise<DeleteEmployeeFormState> {
+  const validatedFields = DeleteEmployeeSchema.safeParse({
+    employeeId: formData.get('employeeId'),
+  });
+
+  if (!validatedFields.success) {
+    console.error("Validation failed for deleteEmployee:", validatedFields.error.flatten().fieldErrors);
+    return {
+      message: "Validation failed. Employee ID is required.",
+      errors: validatedFields.error.flatten().fieldErrors,
+      success: false,
+    };
+  }
+
+  const { employeeId } = validatedFields.data;
+  const employeeDocRef = doc(db, "employees", employeeId);
+
+  try {
+    await deleteDoc(employeeDocRef);
+    console.log(`Employee with ID: ${employeeId} successfully deleted from Firestore.`);
+    
+    revalidatePath('/employees');
+
+    return {
+      message: `Employee (ID: ${employeeId}) deleted successfully.`,
+      success: true,
+      deletedEmployeeId: employeeId,
+    };
+  } catch (error) {
+    console.error(`Error deleting employee with ID ${employeeId} from Firestore:`, error);
+    let errorMessage = "An unexpected error occurred while deleting the employee.";
+    if (error instanceof Error) {
+      errorMessage = error.message;
+       if ('code' in error && (error as any).code === 'permission-denied') {
+        errorMessage = `Firestore Permission Denied: ${error.message}. Please check your Firestore Security Rules for deleting documents in the 'employees' collection.`;
+      }
+    }
+    return {
+      message: `Deleting employee (ID: ${employeeId}) failed: ${errorMessage}`,
       errors: { _form: [errorMessage] },
       success: false,
     };
