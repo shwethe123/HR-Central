@@ -27,13 +27,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Badge } from '@/components/ui/badge';
 import { AddWifiBillForm, type WifiBillFormData } from "./add-wifi-bill-form";
 import { deleteWifiBill, type DeleteWifiBillFormState } from "./actions";
-import { Wifi, PlusCircle, Loader2, CalendarDays, DollarSign, Info, FileText, Building, Server, ListFilter, Trash2 } from 'lucide-react';
+import { Wifi, PlusCircle, Loader2, CalendarDays, DollarSign, Info, FileText, Building, Server, ListFilter, Trash2, UserCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, Timestamp, limit } from 'firebase/firestore';
 import { format as formatDateFns, differenceInDays, isToday, isFuture, isValid, formatDistanceToNowStrict, isPast, parseISO } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { useAuth } from '@/contexts/auth-context'; // Import useAuth
 
 const WIFI_BILLS_FETCH_LIMIT = 50;
 
@@ -78,6 +79,7 @@ const statusBadgeVariant = (status: WifiBill['status']) => {
 };
 
 export default function WifiBillsPage() {
+  const { isAdmin } = useAuth(); // Get isAdmin status
   const [bills, setBills] = useState<WifiBill[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddFormDialogOpen, setIsAddFormDialogOpen] = useState(false);
@@ -164,9 +166,6 @@ export default function WifiBillsPage() {
         description: deleteState.errors?._form?.[0] || deleteState.message,
         variant: "destructive",
       });
-      // Optionally keep dialog open on error or close it:
-      // setIsDeleteDialogOpen(false); 
-      // setBillToDeleteId(null);
     }
   }, [deleteState, toast, fetchWifiBills]);
 
@@ -214,7 +213,7 @@ export default function WifiBillsPage() {
               </DialogDescription>
             </DialogHeader>
             <AddWifiBillForm 
-                key={'new-bill-form'} // Ensures form resets if it was used for editing/renewal before
+                key={'new-bill-form'}
                 onFormSubmissionSuccess={handleAddFormSubmissionSuccess} 
             />
           </DialogContent>
@@ -342,7 +341,7 @@ export default function WifiBillsPage() {
                 <CardContent className="text-xs text-muted-foreground space-y-1.5 flex-grow pt-0 pb-3">
                   {bill.accountNumber && (
                       <div className="flex items-center gap-1.5">
-                          <Trash2 className="h-3.5 w-3.5" /> {/* Placeholder, will be UserCircle2 */}
+                          <UserCircle2 className="h-3.5 w-3.5" />
                           <span>Account: {bill.accountNumber}</span>
                       </div>
                   )}
@@ -385,7 +384,7 @@ export default function WifiBillsPage() {
                   ) : (
                       <p className="text-xs text-muted-foreground italic w-full text-center">No invoice URL provided</p>
                   )}
-                  {bill.status !== "Cancelled" && (
+                  {isAdmin && bill.status !== "Cancelled" && (
                      <Button
                         variant="destructive"
                         size="sm"
@@ -429,3 +428,5 @@ export default function WifiBillsPage() {
     </div>
   );
 }
+
+    
