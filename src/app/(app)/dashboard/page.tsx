@@ -102,6 +102,8 @@ const ANNOUNCEMENTS_FETCH_LIMIT = 5; // Max announcements to show
 export default function DashboardPage() {
   const { toast } = useToast();
   const { user, isAdmin, loading: authLoading } = useAuth();
+  const [isMounted, setIsMounted] = useState(false); // For client-side effects
+
   const [wifiBills, setWifiBills] = useState<WifiBill[]>([]);
   const [isLoadingWifiBills, setIsLoadingWifiBills] = useState(true);
 
@@ -122,6 +124,9 @@ export default function DashboardPage() {
   const [isLoadingAnnouncements, setIsLoadingAnnouncements] = useState(true);
   const [isAddAnnouncementDialogOpen, setIsAddAnnouncementDialogOpen] = useState(false);
 
+  useEffect(() => {
+    setIsMounted(true); // Component has mounted
+  }, []);
 
   const fetchAnnouncements = useCallback(async () => {
     setIsLoadingAnnouncements(true);
@@ -134,7 +139,7 @@ export default function DashboardPage() {
         return {
           id: doc.id,
           ...data,
-          createdAt: data.createdAt, // Ensure Timestamp is preserved
+          createdAt: data.createdAt, 
         } as Announcement;
       });
       setAnnouncementsData(fetchedAnnouncements);
@@ -155,7 +160,7 @@ export default function DashboardPage() {
     setIsLoadingWifiBills(true);
     try {
       const billsCollectionRef = collection(db, "wifiBills");
-      const q = query(billsCollectionRef);
+      const q = query(billsCollectionRef); // Consider adding orderBy and limit if needed
       const querySnapshot = await getDocs(q);
       const fetchedBills: WifiBill[] = querySnapshot.docs.map(doc => ({
         id: doc.id,
@@ -178,7 +183,7 @@ export default function DashboardPage() {
     setIsLoadingEmployees(true);
     try {
       const employeesCollectionRef = collection(db, "employees");
-      const q = query(employeesCollectionRef);
+      const q = query(employeesCollectionRef); // Consider adding orderBy and limit if needed
       const querySnapshot = await getDocs(q);
       const fetchedEmployees: Employee[] = querySnapshot.docs.map(doc => ({
         id: doc.id,
@@ -198,10 +203,12 @@ export default function DashboardPage() {
   }, [toast]);
 
   useEffect(() => {
-    fetchWifiBills();
-    fetchEmployees();
-    fetchAnnouncements();
-  }, [fetchWifiBills, fetchEmployees, fetchAnnouncements]);
+    if (isMounted) {
+      fetchWifiBills();
+      fetchEmployees();
+      fetchAnnouncements();
+    }
+  }, [isMounted, fetchWifiBills, fetchEmployees, fetchAnnouncements]);
 
   useEffect(() => {
     if (!isLoadingEmployees && employees.length > 0) {
@@ -228,12 +235,10 @@ export default function DashboardPage() {
             let startDateObj: Date | null = null;
             if (typeof emp.startDate === 'string') {
                 startDateObj = parseISO(emp.startDate);
-            } else if (emp.startDate instanceof Date) { // Should not happen with current Firestore setup
+            } else if (emp.startDate instanceof Date) { 
                 startDateObj = emp.startDate;
-            // @ts-ignore Firebase Timestamp check
-            } else if (emp.startDate && typeof emp.startDate.toDate === 'function') {
-                 // @ts-ignore
-                 startDateObj = emp.startDate.toDate();
+            } else if (emp.startDate && typeof (emp.startDate as any).toDate === 'function') {
+                 startDateObj = (emp.startDate as Timestamp).toDate();
             }
 
             if (startDateObj && isValid(startDateObj)) {
@@ -447,14 +452,14 @@ export default function DashboardPage() {
   }, [processedMetrics, dynamicWifiMetrics]);
 
   const handleAnnouncementFormSuccess = (newAnnouncementId?: string) => {
-    fetchAnnouncements(); // Refetch announcements after a new one is added
-    setIsAddAnnouncementDialogOpen(false); // Close the dialog
+    fetchAnnouncements(); 
+    setIsAddAnnouncementDialogOpen(false); 
   };
 
   const formatAnnouncementDate = (timestamp: Timestamp | undefined) => {
     if (!timestamp) return 'Date not available';
     if (timestamp instanceof Timestamp) {
-        return formatDateFn(timestamp.toDate(), 'PP'); // e.g., Oct 26, 2023
+        return formatDateFn(timestamp.toDate(), 'PP'); 
     }
     return 'Invalid Date';
   };
