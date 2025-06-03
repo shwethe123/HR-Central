@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAuth } from '@/contexts/auth-context'; // For admin check
+
 
 export const getColumns = (onViewDetails: (employee: Employee) => void): ColumnDef<Employee>[] => [
   {
@@ -171,6 +173,8 @@ export const getColumns = (onViewDetails: (employee: Employee) => void): ColumnD
     id: "actions",
     cell: ({ row }) => {
       const employee = row.original;
+      const { isAdmin } = useAuth(); // Get isAdmin status
+
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -190,7 +194,11 @@ export const getColumns = (onViewDetails: (employee: Employee) => void): ColumnD
             <DropdownMenuItem onClick={() => onViewDetails(employee)}>
               View details
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">Delete employee</DropdownMenuItem>
+            {isAdmin && ( // Conditionally render Delete option
+              <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                Delete employee
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       );

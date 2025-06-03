@@ -9,6 +9,7 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore'; // Added limit
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+// import { useAuth } from '@/contexts/auth-context'; // For admin check
 
 const EMPLOYEES_FETCH_LIMIT = 30; // Limit for initial fetch
 
@@ -16,6 +17,7 @@ export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  // const { user, isAdmin, loading: authLoading } = useAuth();
 
   const fetchEmployees = useCallback(async () => {
     setIsLoading(true);
