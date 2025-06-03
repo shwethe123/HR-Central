@@ -1,8 +1,9 @@
+
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
 import type { LeaveRequest } from "@/types";
-import { ArrowUpDown, MoreHorizontal, CheckCircle, XCircle, AlertTriangle, ExternalLink } from "lucide-react";
+import { ArrowUpDown, MoreHorizontal, CheckCircle, XCircle, AlertTriangle, ExternalLink, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -25,17 +26,14 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import React from "react";
 import { format as formatDateFns } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 import { useToast } from "@/hooks/use-toast";
 
-// --- IMPORTANT ---
-// This is a CLIENT-SIDE secret code. It is NOT secure for protecting sensitive operations
-// as it can be found in the browser's JavaScript source code.
-// For true security, authorization should be handled server-side.
-const ACTION_SECRET_CODE = "hr123"; // Replace with your desired secret code
+const ACTION_SECRET_CODE = "hr123"; 
 
 const formatDate = (dateInput: string | Timestamp | undefined): string => {
   if (!dateInput) return 'N/A';
@@ -148,66 +146,60 @@ export const getLeaveRequestColumns = (
     id: "actions",
     cell: ({ row }) => {
       const request = row.original;
-      const [rejectionReason, setRejectionReason] = React.useState("");
       const { toast } = useToast();
+      
+      const [isApproveDialogOpen, setIsApproveDialogOpen] = React.useState(false);
+      const [isRejectDialogOpen, setIsRejectDialogOpen] = React.useState(false);
+      const [secretCode, setSecretCode] = React.useState("");
+      const [rejectionReason, setRejectionReason] = React.useState("");
 
-      const handleActionWithSecretCode = async (action: () => void) => {
-        try {
-          const enteredCode = window.prompt("Please enter the secret code to proceed:");
-          
-          if (enteredCode === null) {
-            // User cancelled the prompt
-            return;
-          }
-          
-          if (enteredCode === ACTION_SECRET_CODE) {
-            action();
-          } else {
-            toast({
-              title: "Incorrect Code",
-              description: "The secret code entered was incorrect. Action denied.",
-              variant: "destructive",
-            });
-          }
-        } catch (error) {
+      const handleApproveConfirm = () => {
+        if (secretCode !== ACTION_SECRET_CODE) {
           toast({
-            title: "Error",
-            description: "An error occurred while processing your request.",
+            title: "Incorrect Code",
+            description: "The secret code entered was incorrect. Approval denied.",
             variant: "destructive",
           });
+          setSecretCode(""); // Clear the code for next attempt
+          return;
         }
-      };
-
-      const handleApprove = () => {
-        handleActionWithSecretCode(() => {
-          onUpdateRequestStatus(request.id, "Approved");
-          toast({
-            title: "Request Approved",
-            description: "The leave request has been approved successfully.",
-            variant: "default",
-          });
+        onUpdateRequestStatus(request.id, "Approved");
+        toast({
+          title: "Request Approved",
+          description: "The leave request has been approved successfully.",
+          variant: "default",
         });
+        setIsApproveDialogOpen(false);
+        setSecretCode("");
       };
 
       const handleRejectConfirm = () => {
-        handleActionWithSecretCode(() => {
-          if (!rejectionReason.trim()) {
-            toast({
-              title: "Reason Required",
-              description: "Please provide a reason for rejecting this request.",
-              variant: "destructive",
-            });
-            return;
-          }
-          
-          onUpdateRequestStatus(request.id, "Rejected", rejectionReason);
-          setRejectionReason("");
+        if (secretCode !== ACTION_SECRET_CODE) {
           toast({
-            title: "Request Rejected",
-            description: "The leave request has been rejected.",
-            variant: "default",
+            title: "Incorrect Code",
+            description: "The secret code entered was incorrect. Rejection denied.",
+            variant: "destructive",
           });
+          setSecretCode(""); 
+          return;
+        }
+        if (!rejectionReason.trim()) {
+          toast({
+            title: "Reason Required",
+            description: "Please provide a reason for rejecting this request.",
+            variant: "destructive",
+          });
+          return;
+        }
+        onUpdateRequestStatus(request.id, "Rejected", rejectionReason);
+        toast({
+          title: "Request Rejected",
+          description: "The leave request has been rejected.",
+          variant: "default",
         });
+        setIsRejectDialogOpen(false);
+        setSecretCode("");
+        setRejectionReason("");
       };
 
       return (
@@ -226,12 +218,41 @@ export const getLeaveRequestColumns = (
             <DropdownMenuSeparator />
             {request.status === "Pending" && (
               <>
-                <DropdownMenuItem onClick={handleApprove}>
-                  <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> Approve
-                </DropdownMenuItem>
-                <AlertDialog>
+                <AlertDialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
                   <AlertDialogTrigger asChild>
-                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600 focus:text-red-700 focus:bg-red-50">
+                    <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setIsApproveDialogOpen(true); setSecretCode(''); }}>
+                      <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> Approve
+                    </DropdownMenuItem>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Approve Leave Request?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Please enter the secret code to confirm approval.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="py-2 space-y-2">
+                      <Label htmlFor="approveSecretCode">Secret Code</Label>
+                      <Input
+                        id="approveSecretCode"
+                        type="password"
+                        placeholder="Enter secret code..."
+                        value={secretCode}
+                        onChange={(e) => setSecretCode(e.target.value)}
+                      />
+                    </div>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel onClick={() => { setIsApproveDialogOpen(false); setSecretCode(''); }}>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleApproveConfirm} className="bg-primary hover:bg-primary/90">
+                        Confirm Approval
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+
+                <AlertDialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
+                  <AlertDialogTrigger asChild>
+                    <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setIsRejectDialogOpen(true); setSecretCode(''); setRejectionReason('');}} className="text-red-600 focus:text-red-700 focus:bg-red-50">
                       <XCircle className="mr-2 h-4 w-4" /> Reject
                     </DropdownMenuItem>
                   </AlertDialogTrigger>
@@ -239,25 +260,39 @@ export const getLeaveRequestColumns = (
                     <AlertDialogHeader>
                       <AlertDialogTitle>Reject Leave Request?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Please provide a reason for rejecting this leave request. This reason will be recorded.
+                        Please provide a secret code and a reason for rejecting this leave request.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
-                    <div className="py-2">
-                      <Label htmlFor="rejectionReason" className="sr-only">Rejection Reason</Label>
-                      <Textarea
-                        id="rejectionReason"
-                        placeholder="Enter reason for rejection (required)..."
-                        value={rejectionReason}
-                        onChange={(e) => setRejectionReason(e.target.value)}
-                        rows={3}
-                        required
-                      />
+                    <div className="py-2 space-y-4">
+                      <div>
+                        <Label htmlFor="rejectSecretCode">Secret Code</Label>
+                        <Input
+                          id="rejectSecretCode"
+                          type="password"
+                          placeholder="Enter secret code..."
+                          value={secretCode}
+                          onChange={(e) => setSecretCode(e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="rejectionReason">Rejection Reason</Label>
+                        <Textarea
+                          id="rejectionReason"
+                          placeholder="Enter reason for rejection (required)..."
+                          value={rejectionReason}
+                          onChange={(e) => setRejectionReason(e.target.value)}
+                          rows={3}
+                          required
+                          className="mt-1"
+                        />
+                      </div>
                     </div>
                     <AlertDialogFooter>
-                      <AlertDialogCancel onClick={() => setRejectionReason("")}>Cancel</AlertDialogCancel>
+                      <AlertDialogCancel onClick={() => { setIsRejectDialogOpen(false); setSecretCode(''); setRejectionReason(''); }}>Cancel</AlertDialogCancel>
                       <AlertDialogAction
                         onClick={handleRejectConfirm}
-                        className="bg-red-600 hover:bg-red-700 text-white focus:bg-red-700 focus:ring-red-500"
+                        className="bg-destructive hover:bg-destructive/90"
                       >
                         Confirm Rejection
                       </AlertDialogAction>
@@ -272,3 +307,4 @@ export const getLeaveRequestColumns = (
     },
   },
 ];
+
