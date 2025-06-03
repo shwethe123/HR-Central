@@ -11,9 +11,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Sun, Moon, Laptop, Palette, Bell, UserCircle, Languages } from 'lucide-react';
 
+// Helper for cn, if not already globally available or imported
+// (Typically from '@/lib/utils')
+function cn(...classes: (string | undefined | null | false)[]) {
+  return classes.filter(Boolean).join(' ');
+}
+
 export default function SettingsPage() {
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState('en'); // Default to English
 
   // Ensure component is mounted before using theme, to avoid hydration mismatch
   useEffect(() => setMounted(true), []);
@@ -124,12 +131,16 @@ export default function SettingsPage() {
           <div className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
             <Label htmlFor="language-select" className="text-base font-medium mb-2 block">Language</Label>
              <p className="text-sm text-muted-foreground mb-3">Choose your preferred language for the application.</p>
-            <Select defaultValue="en" disabled>
+            <Select 
+              value={selectedLanguage} 
+              onValueChange={setSelectedLanguage}
+            >
               <SelectTrigger id="language-select" className="w-full md:w-[200px]">
                 <SelectValue placeholder="Select language..." />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="en">English</SelectItem>
+                <SelectItem value="my">မြန်မာ (Myanmar)</SelectItem>
                 <SelectItem value="es" disabled>Español (Coming Soon)</SelectItem>
                 <SelectItem value="fr" disabled>Français (Coming Soon)</SelectItem>
               </SelectContent>
@@ -144,10 +155,4 @@ export default function SettingsPage() {
       </Card>
     </div>
   );
-}
-
-// Helper for cn, if not already globally available or imported
-// (Typically from '@/lib/utils')
-function cn(...classes: (string | undefined | null | false)[]) {
-  return classes.filter(Boolean).join(' ');
 }
