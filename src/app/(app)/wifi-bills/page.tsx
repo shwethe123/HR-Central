@@ -1,7 +1,8 @@
 
+// src/app/(app)/wifi-bills/page.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useActionState, startTransition } from 'react';
 import type { WifiBill } from "@/types";
 import { Button } from '@/components/ui/button';
 import {
@@ -12,20 +13,30 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from '@/components/ui/badge';
 import { AddWifiBillForm, type WifiBillFormData } from "./add-wifi-bill-form";
-import { Wifi, PlusCircle, Loader2, CalendarDays, DollarSign, Info, FileText, Building, Server, UserCircle2, RefreshCw, ListFilter } from 'lucide-react';
+import { deleteWifiBill, type DeleteWifiBillFormState } from "./actions";
+import { Wifi, PlusCircle, Loader2, CalendarDays, DollarSign, Info, FileText, Building, Server, ListFilter, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, Timestamp, limit } from 'firebase/firestore';
-import { format as formatDateFns, differenceInDays, isToday, isFuture, isValid, formatDistanceToNowStrict, isPast, addMonths, addYears, parseISO } from 'date-fns';
+import { format as formatDateFns, differenceInDays, isToday, isFuture, isValid, formatDistanceToNowStrict, isPast, parseISO } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 
-const WIFI_BILLS_FETCH_LIMIT = 50; // Increased limit for more data to test filtering
+const WIFI_BILLS_FETCH_LIMIT = 50;
 
-// Helper to format dates, handling both string and Firestore Timestamp
 const formatDate = (dateInput: string | Timestamp | Date | undefined | null): string => {
   if (!dateInput) return 'N/A';
   let date: Date;
@@ -66,18 +77,22 @@ const statusBadgeVariant = (status: WifiBill['status']) => {
   }
 };
 
-
 export default function WifiBillsPage() {
   const [bills, setBills] = useState<WifiBill[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
+  const [isAddFormDialogOpen, setIsAddFormDialogOpen] = useState(false);
   const { toast } = useToast();
-  const [renewalInitialData, setRenewalInitialData] = useState<Partial<WifiBillFormData> | null>(null);
-  const [dialogTitle, setDialogTitle] = useState("Add New WiFi Bill");
+  
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [billToDeleteId, setBillToDeleteId] = useState<string | null>(null);
 
   // State for filters
   const [selectedCompany, setSelectedCompany] = useState<string>('all');
   const [selectedProvider, setSelectedProvider] = useState<string>('all');
+
+  // Action state for delete
+  const initialDeleteState: DeleteWifiBillFormState = { message: null, success: false };
+  const [deleteState, deleteAction] = useActionState(deleteWifiBill, initialDeleteState);
 
 
   const fetchWifiBills = useCallback(async () => {
@@ -95,7 +110,7 @@ export default function WifiBillsPage() {
        if (querySnapshot.docs.length >= WIFI_BILLS_FETCH_LIMIT) {
         toast({
           title: "Bill List Might Be Truncated",
-          description: `Showing up to ${WIFI_BILLS_FETCH_LIMIT} WiFi bills. Implement pagination or 'load more' for a full list if needed.`,
+          description: `Showing up to ${WIFI_BILLS_FETCH_LIMIT} WiFi bills.`,
           variant: "default",
         });
       }
@@ -115,65 +130,46 @@ export default function WifiBillsPage() {
     fetchWifiBills();
   }, [fetchWifiBills]);
 
-  const handleFormSubmissionSuccess = (newBillId?: string) => {
-    setIsFormDialogOpen(false);
-    setRenewalInitialData(null); 
-    setDialogTitle("Add New WiFi Bill"); 
+  const handleAddFormSubmissionSuccess = (newBillId?: string) => {
+    setIsAddFormDialogOpen(false);
     fetchWifiBills(); 
-    if (newBillId) {
-        // Optionally, scroll to new bill or highlight
-    }
   };
 
-  const calculateNextDueDate = (currentDueDateStr: string | Date | Timestamp, cycle: WifiBill['paymentCycle']): Date => {
-    let currentDueDate;
-    if (currentDueDateStr instanceof Timestamp) {
-        currentDueDate = currentDueDateStr.toDate();
-    } else if (typeof currentDueDateStr === 'string') {
-        currentDueDate = parseISO(currentDueDateStr);
-    } else if (currentDueDateStr instanceof Date) {
-        currentDueDate = currentDueDateStr;
-    } else {
-      currentDueDate = new Date(); 
-    }
-
-    if (!isValid(currentDueDate)) return new Date(); 
-
-    switch (cycle) {
-      case "Monthly":
-        return addMonths(currentDueDate, 1);
-      case "2 Months":
-        return addMonths(currentDueDate, 2);
-      case "Quarterly":
-        return addMonths(currentDueDate, 3);
-      case "Annually":
-        return addYears(currentDueDate, 1);
-      default: 
-        return addMonths(currentDueDate, 1); 
-    }
+  const openDeleteConfirmationDialog = (billId: string) => {
+    setBillToDeleteId(billId);
+    setIsDeleteDialogOpen(true);
   };
 
-  const handleOpenRenewDialog = (billToRenew: WifiBill) => {
-    const nextDueDate = calculateNextDueDate(billToRenew.dueDate, billToRenew.paymentCycle);
-    
-    const initialDataForForm: Partial<WifiBillFormData> = {
-        companyName: billToRenew.companyName,
-        wifiProvider: billToRenew.wifiProvider,
-        planName: billToRenew.planName,
-        accountNumber: billToRenew.accountNumber || '',
-        paymentCycle: billToRenew.paymentCycle,
-        billAmount: billToRenew.billAmount,
-        currency: billToRenew.currency || 'MMK',
-        dueDate: nextDueDate, 
-        paymentDate: null, 
-        status: 'Pending',
-        invoiceUrl: '', 
-        notes: billToRenew.notes || '', 
-    };
-    setRenewalInitialData(initialDataForForm);
-    setDialogTitle("Renew WiFi Bill");
-    setIsFormDialogOpen(true);
+  const confirmDeleteBill = () => {
+    if (!billToDeleteId) return;
+    const formData = new FormData();
+    formData.append('billId', billToDeleteId);
+    startTransition(() => {
+      deleteAction(formData);
+    });
   };
+
+  useEffect(() => {
+    if (deleteState?.success && deleteState.message) {
+      toast({
+        title: "Success",
+        description: deleteState.message,
+      });
+      fetchWifiBills();
+      setIsDeleteDialogOpen(false);
+      setBillToDeleteId(null);
+    } else if (!deleteState?.success && deleteState?.message) {
+      toast({
+        title: "Error Deleting Bill",
+        description: deleteState.errors?._form?.[0] || deleteState.message,
+        variant: "destructive",
+      });
+      // Optionally keep dialog open on error or close it:
+      // setIsDeleteDialogOpen(false); 
+      // setBillToDeleteId(null);
+    }
+  }, [deleteState, toast, fetchWifiBills]);
+
 
   const uniqueCompanies = useMemo(() => {
     return ['all', ...new Set(bills.map(bill => bill.companyName))].sort((a, b) => a === 'all' ? -1 : b === 'all' ? 1 : a.localeCompare(b));
@@ -191,7 +187,7 @@ export default function WifiBillsPage() {
     });
   }, [bills, selectedCompany, selectedProvider]);
 
-  const displayBills = filteredBills; // Use filteredBills for rendering
+  const displayBills = filteredBills;
 
   return (
     <div className="container mx-auto py-2 space-y-6">
@@ -201,48 +197,30 @@ export default function WifiBillsPage() {
           WiFi Bill Management
         </h1>
         <Dialog 
-            open={isFormDialogOpen} 
-            onOpenChange={(isOpen) => {
-                setIsFormDialogOpen(isOpen);
-                if (!isOpen) {
-                    setRenewalInitialData(null); 
-                    setDialogTitle("Add New WiFi Bill"); 
-                }
-            }}
+            open={isAddFormDialogOpen} 
+            onOpenChange={setIsAddFormDialogOpen}
         >
           <DialogTrigger asChild>
-            <Button 
-                onClick={() => {
-                    setRenewalInitialData(null); 
-                    setDialogTitle("Add New WiFi Bill");
-                }}
-                disabled={isFormDialogOpen && dialogTitle === "Add New WiFi Bill"} 
-            >
-              {isFormDialogOpen && dialogTitle === "Add New WiFi Bill" ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <PlusCircle className="mr-2 h-4 w-4" />
-              )}
+            <Button>
+              <PlusCircle className="mr-2 h-4 w-4" />
               Add New WiFi Bill
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[625px]">
             <DialogHeader>
-              <DialogTitle>{dialogTitle}</DialogTitle>
+              <DialogTitle>Add New WiFi Bill</DialogTitle>
               <DialogDescription>
-                {dialogTitle === "Renew WiFi Bill" ? "Confirm details for the renewal." : "Fill in the details for the new WiFi bill entry."}
+                Fill in the details for the new WiFi bill entry.
               </DialogDescription>
             </DialogHeader>
             <AddWifiBillForm 
-                key={renewalInitialData ? `renew-${renewalInitialData.dueDate?.toISOString()}` : 'new-bill'}
-                onFormSubmissionSuccess={handleFormSubmissionSuccess} 
-                initialData={renewalInitialData || undefined}
+                key={'new-bill-form'} // Ensures form resets if it was used for editing/renewal before
+                onFormSubmissionSuccess={handleAddFormSubmissionSuccess} 
             />
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Filters Section */}
       <Card className="shadow-md rounded-lg">
         <CardHeader>
           <CardTitle className="text-lg flex items-center"><ListFilter className="mr-2 h-5 w-5 text-primary/80"/>Filters</CardTitle>
@@ -281,7 +259,6 @@ export default function WifiBillsPage() {
         </CardContent>
       </Card>
 
-
       {isLoading ? (
         <div className="flex justify-center items-center py-20">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -300,19 +277,8 @@ export default function WifiBillsPage() {
                 ? "Get started by adding your first WiFi bill record." 
                 : "Try adjusting your filter criteria or add a new bill."}
             </p>
-            <Button 
-                onClick={() => {
-                    setRenewalInitialData(null);
-                    setDialogTitle("Add New WiFi Bill");
-                    setIsFormDialogOpen(true);
-                }} 
-                disabled={isFormDialogOpen && dialogTitle === "Add New WiFi Bill"}
-            >
-                {isFormDialogOpen && dialogTitle === "Add New WiFi Bill" ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                )}
+            <Button onClick={() => setIsAddFormDialogOpen(true)}>
+                 <PlusCircle className="mr-2 h-4 w-4" />
                  Add New WiFi Bill
             </Button>
           </CardContent>
@@ -376,7 +342,7 @@ export default function WifiBillsPage() {
                 <CardContent className="text-xs text-muted-foreground space-y-1.5 flex-grow pt-0 pb-3">
                   {bill.accountNumber && (
                       <div className="flex items-center gap-1.5">
-                          <UserCircle2 className="h-3.5 w-3.5" />
+                          <Trash2 className="h-3.5 w-3.5" /> {/* Placeholder, will be UserCircle2 */}
                           <span>Account: {bill.accountNumber}</span>
                       </div>
                   )}
@@ -421,12 +387,18 @@ export default function WifiBillsPage() {
                   )}
                   {bill.status !== "Cancelled" && (
                      <Button
-                        variant="default"
+                        variant="destructive"
                         size="sm"
                         className="w-full"
-                        onClick={() => handleOpenRenewDialog(bill)}
+                        onClick={() => openDeleteConfirmationDialog(bill.id)}
+                        disabled={deleteState?.pending && billToDeleteId === bill.id}
                       >
-                        <RefreshCw className="mr-2 h-4 w-4" /> Renew Bill
+                        {deleteState?.pending && billToDeleteId === bill.id ? (
+                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                           <Trash2 className="mr-2 h-4 w-4" />
+                        )}
+                        Delete Bill
                       </Button>
                   )}
                 </CardFooter>
@@ -435,6 +407,25 @@ export default function WifiBillsPage() {
           })}
         </div>
       )}
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this bill?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the WiFi bill record.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setBillToDeleteId(null)} disabled={deleteState?.pending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteBill} className="bg-destructive hover:bg-destructive/90" disabled={deleteState?.pending}>
+              {deleteState?.pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }
