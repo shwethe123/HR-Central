@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
@@ -30,7 +29,13 @@ import { Textarea } from "@/components/ui/textarea";
 import React from "react";
 import { format as formatDateFns } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
+import { useToast } from "@/hooks/use-toast";
 
+// --- IMPORTANT ---
+// This is a CLIENT-SIDE secret code. It is NOT secure for protecting sensitive operations
+// as it can be found in the browser's JavaScript source code.
+// For true security, authorization should be handled server-side.
+const ACTION_SECRET_CODE = "hr123"; // Replace with your desired secret code
 
 const formatDate = (dateInput: string | Timestamp | undefined): string => {
   if (!dateInput) return 'N/A';
@@ -40,14 +45,11 @@ const formatDate = (dateInput: string | Timestamp | undefined): string => {
   } else if (dateInput instanceof Timestamp) {
     date = dateInput.toDate();
   } else {
-    // Fallback for unexpected types, though shouldn't happen with proper data handling
     return 'Invalid Date';
   }
-  // Check if date is valid after conversion
   if (isNaN(date.getTime())) return 'Invalid Date';
-  return formatDateFns(date, "MMM d, yyyy"); // Shortened month format
+  return formatDateFns(date, "MMM d, yyyy");
 };
-
 
 const statusBadgeVariant = (status: LeaveRequest["status"]) => {
   switch (status) {
@@ -140,13 +142,73 @@ export const getLeaveRequestColumns = (
     accessorKey: "requestedDate",
     header: "Requested On",
     cell: ({ row }) => formatDate(row.original.requestedDate),
-    sortingFn: 'datetime', // Add if you want to sort by date correctly
+    sortingFn: 'datetime', 
   },
   {
     id: "actions",
     cell: ({ row }) => {
       const request = row.original;
       const [rejectionReason, setRejectionReason] = React.useState("");
+      const { toast } = useToast();
+
+      const handleActionWithSecretCode = async (action: () => void) => {
+        try {
+          const enteredCode = window.prompt("Please enter the secret code to proceed:");
+          
+          if (enteredCode === null) {
+            // User cancelled the prompt
+            return;
+          }
+          
+          if (enteredCode === ACTION_SECRET_CODE) {
+            action();
+          } else {
+            toast({
+              title: "Incorrect Code",
+              description: "The secret code entered was incorrect. Action denied.",
+              variant: "destructive",
+            });
+          }
+        } catch (error) {
+          toast({
+            title: "Error",
+            description: "An error occurred while processing your request.",
+            variant: "destructive",
+          });
+        }
+      };
+
+      const handleApprove = () => {
+        handleActionWithSecretCode(() => {
+          onUpdateRequestStatus(request.id, "Approved");
+          toast({
+            title: "Request Approved",
+            description: "The leave request has been approved successfully.",
+            variant: "default",
+          });
+        });
+      };
+
+      const handleRejectConfirm = () => {
+        handleActionWithSecretCode(() => {
+          if (!rejectionReason.trim()) {
+            toast({
+              title: "Reason Required",
+              description: "Please provide a reason for rejecting this request.",
+              variant: "destructive",
+            });
+            return;
+          }
+          
+          onUpdateRequestStatus(request.id, "Rejected", rejectionReason);
+          setRejectionReason("");
+          toast({
+            title: "Request Rejected",
+            description: "The leave request has been rejected.",
+            variant: "default",
+          });
+        });
+      };
 
       return (
         <DropdownMenu>
@@ -164,13 +226,13 @@ export const getLeaveRequestColumns = (
             <DropdownMenuSeparator />
             {request.status === "Pending" && (
               <>
-                <DropdownMenuItem onClick={() => onUpdateRequestStatus(request.id, "Approved")}>
+                <DropdownMenuItem onClick={handleApprove}>
                   <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> Approve
                 </DropdownMenuItem>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600 focus:text-red-700 focus:bg-red-50">
-                       <XCircle className="mr-2 h-4 w-4" /> Reject
+                      <XCircle className="mr-2 h-4 w-4" /> Reject
                     </DropdownMenuItem>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
@@ -184,19 +246,17 @@ export const getLeaveRequestColumns = (
                       <Label htmlFor="rejectionReason" className="sr-only">Rejection Reason</Label>
                       <Textarea
                         id="rejectionReason"
-                        placeholder="Enter reason for rejection (optional)..."
+                        placeholder="Enter reason for rejection (required)..."
                         value={rejectionReason}
                         onChange={(e) => setRejectionReason(e.target.value)}
                         rows={3}
+                        required
                       />
                     </div>
                     <AlertDialogFooter>
                       <AlertDialogCancel onClick={() => setRejectionReason("")}>Cancel</AlertDialogCancel>
                       <AlertDialogAction
-                        onClick={() => {
-                            onUpdateRequestStatus(request.id, "Rejected", rejectionReason);
-                            setRejectionReason("");
-                        }}
+                        onClick={handleRejectConfirm}
                         className="bg-red-600 hover:bg-red-700 text-white focus:bg-red-700 focus:ring-red-500"
                       >
                         Confirm Rejection
@@ -212,4 +272,3 @@ export const getLeaveRequestColumns = (
     },
   },
 ];
-

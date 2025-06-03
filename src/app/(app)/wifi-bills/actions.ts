@@ -4,7 +4,7 @@
 
 import { z } from 'zod';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, deleteDoc } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
 import type { WifiBill } from '@/types'; // Assuming WifiBill type is defined
 
@@ -128,6 +128,65 @@ export async function addWifiBill(
     }
     return {
       message: `Adding WiFi bill failed: ${errorMessage}`,
+      errors: { _form: [errorMessage] },
+      success: false,
+    };
+  }
+}
+
+const DeleteWifiBillSchema = z.object({
+  billId: z.string().min(1, { message: "Bill ID is required." }),
+});
+
+export type DeleteWifiBillFormState = {
+  message: string | null;
+  errors?: {
+    billId?: string[];
+    _form?: string[];
+  };
+  success?: boolean;
+  deletedBillId?: string;
+};
+
+export async function deleteWifiBill(
+  prevState: DeleteWifiBillFormState | undefined,
+  formData: FormData
+): Promise<DeleteWifiBillFormState> {
+  const validatedFields = DeleteWifiBillSchema.safeParse({
+    billId: formData.get('billId'),
+  });
+
+  if (!validatedFields.success) {
+    console.error("WiFi Bill Deletion Validation Errors:", validatedFields.error.flatten().fieldErrors);
+    return {
+      message: "Validation failed. Bill ID is required.",
+      errors: validatedFields.error.flatten().fieldErrors,
+      success: false,
+    };
+  }
+
+  const { billId } = validatedFields.data;
+
+  try {
+    const billDocRef = doc(db, 'wifiBills', billId);
+    await deleteDoc(billDocRef);
+    console.log("WiFi bill deleted from Firestore with ID:", billId);
+
+    revalidatePath('/wifi-bills');
+
+    return {
+      message: `WiFi bill (ID: ${billId}) deleted successfully.`,
+      success: true,
+      deletedBillId: billId,
+    };
+  } catch (error) {
+    console.error("Error deleting WiFi bill from Firestore:", error);
+    let errorMessage = "An unexpected error occurred while deleting the WiFi bill.";
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    return {
+      message: `Deleting WiFi bill failed: ${errorMessage}`,
       errors: { _form: [errorMessage] },
       success: false,
     };
