@@ -65,10 +65,15 @@ export type ChatMessage = {
   conversationId: string;
   senderId: string;
   senderName: string;
-  senderPhotoURL?: string | null; // Added sender's photo URL
-  text: string;
+  senderPhotoURL?: string | null;
+  text?: string; // Text is now optional
   createdAt: Timestamp;
-  readAt?: Timestamp | null; // Field for read receipt
+  readAt?: Timestamp | null;
+  messageType: 'text' | 'image' | 'file' | 'system'; // Added messageType, 'system' for future use
+  fileURL?: string;
+  fileName?: string;
+  fileType?: string; // MIME type
+  fileSize?: number; // in bytes
 };
 
 export type Team = {
