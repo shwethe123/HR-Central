@@ -56,12 +56,12 @@ import Papa from "papaparse";
 import { useAuth } from '@/contexts/auth-context'; // Import useAuth
 
 interface DataTableProps<TData extends Employee, TValue> { 
-  columnGenerator: (onViewDetails: (employee: TData) => void) => ColumnDef<TData, TValue>[];
+  columnGenerator: (onViewDetails: (employee: TData) => void, onRefreshData: () => Promise<void> | void) => ColumnDef<TData, TValue>[];
   data: TData[];
   uniqueDepartments: string[];
   uniqueRoles: string[];
   uniqueCompanies: string[];
-  onRefreshData: () => Promise<void>; // Callback to refresh data
+  onRefreshData: () => Promise<void> | void; // Callback to refresh data
 }
 
 export function DataTable<TData extends Employee, TValue>({
@@ -88,8 +88,14 @@ export function DataTable<TData extends Employee, TValue>({
   }, []);
 
   const memoizedColumns = React.useMemo(
-    () => columnGenerator(handleViewDetails),
-    [columnGenerator, handleViewDetails]
+    () => columnGenerator(
+      handleViewDetails,
+      onRefreshData || (() => { 
+        console.warn("DataTable: onRefreshData prop was undefined or not a function. Using a no-op function.");
+        return Promise.resolve(); 
+      })
+    ),
+    [columnGenerator, handleViewDetails, onRefreshData]
   );
 
   const table = useReactTable({
@@ -152,7 +158,11 @@ export function DataTable<TData extends Employee, TValue>({
   const handleAddEmployeeSuccess = async (newEmployeeId?: string) => {
     setIsAddEmployeeDialogOpen(false);
     if (newEmployeeId) { // Or just always refresh
-      await onRefreshData(); // Call the refresh function passed from parent
+      if (typeof onRefreshData === 'function') {
+        await onRefreshData(); // Call the refresh function passed from parent
+      } else {
+        console.warn("DataTable: onRefreshData is not a function in handleAddEmployeeSuccess. Cannot refresh data.");
+      }
     }
   };
 
@@ -376,3 +386,4 @@ export function DataTable<TData extends Employee, TValue>({
     </div>
   );
 }
+
