@@ -53,6 +53,7 @@ import { AddEmployeeForm } from "./add-employee-form";
 import { EmployeeDetailsDialog } from "./employee-details-dialog"; 
 import type { Employee } from "@/types"; 
 import Papa from "papaparse";
+import { useAuth } from '@/contexts/auth-context'; // Import useAuth
 
 interface DataTableProps<TData extends Employee, TValue> { 
   columnGenerator: (onViewDetails: (employee: TData) => void) => ColumnDef<TData, TValue>[];
@@ -71,6 +72,7 @@ export function DataTable<TData extends Employee, TValue>({
   uniqueCompanies,
   onRefreshData,
 }: DataTableProps<TData, TValue>) {
+  const { isAdmin } = useAuth(); // Get admin status
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
@@ -269,27 +271,29 @@ export function DataTable<TData extends Employee, TValue>({
           <Button variant="outline" onClick={handleExport}>
             <FileDown className="mr-2 h-4 w-4" /> Export
           </Button>
-          <Dialog open={isAddEmployeeDialogOpen} onOpenChange={setIsAddEmployeeDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <PlusCircle className="mr-2 h-4 w-4" /> Add Employee
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[625px]">
-              <DialogHeader>
-                <DialogTitle>Add New Employee</DialogTitle>
-                <DialogDescription>
-                  Fill in the details below to add a new employee to the directory.
-                </DialogDescription>
-              </DialogHeader>
-              <AddEmployeeForm 
-                uniqueDepartments={uniqueDepartments} 
-                uniqueRoles={uniqueRoles}
-                uniqueCompanies={uniqueCompanies}
-                onFormSubmissionSuccess={handleAddEmployeeSuccess} 
-              />
-            </DialogContent>
-          </Dialog>
+          {isAdmin && (
+            <Dialog open={isAddEmployeeDialogOpen} onOpenChange={setIsAddEmployeeDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <PlusCircle className="mr-2 h-4 w-4" /> Add Employee
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[625px]">
+                <DialogHeader>
+                  <DialogTitle>Add New Employee</DialogTitle>
+                  <DialogDescription>
+                    Fill in the details below to add a new employee to the directory.
+                  </DialogDescription>
+                </DialogHeader>
+                <AddEmployeeForm 
+                  uniqueDepartments={uniqueDepartments} 
+                  uniqueRoles={uniqueRoles}
+                  uniqueCompanies={uniqueCompanies}
+                  onFormSubmissionSuccess={handleAddEmployeeSuccess} 
+                />
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       </div>
       <div className="rounded-md border shadow-sm bg-card">

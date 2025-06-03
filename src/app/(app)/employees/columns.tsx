@@ -1,9 +1,10 @@
 
 "use client";
 
+import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { Employee } from "@/types";
-import { ArrowUpDown, MoreHorizontal } from "lucide-react";
+import { ArrowUpDown, MoreHorizontal, Trash2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -16,10 +17,29 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useAuth } from '@/contexts/auth-context'; // For admin check
+import { useAuth } from '@/contexts/auth-context';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
+import { deleteEmployee, type DeleteEmployeeFormState } from "./actions"; // Import the server action
+import { useActionState, startTransition } from "react";
 
+// This callback type needs to be passed down if DataTable is to trigger a refresh
+// For now, we rely on revalidatePath in the server action
+// type OnDataChangeCallback = () => Promise<void> | void;
 
-export const getColumns = (onViewDetails: (employee: Employee) => void): ColumnDef<Employee>[] => [
+export const getColumns = (
+    onViewDetails: (employee: Employee) => void,
+    // onDataChange?: OnDataChangeCallback // Optional: if explicit refresh needed beyond revalidatePath
+  ): ColumnDef<Employee>[] => [
   {
     id: "select",
     header: ({ table }) => (
@@ -164,43 +184,115 @@ export const getColumns = (onViewDetails: (employee: Employee) => void): ColumnD
     accessorKey: "startDate",
     header: "Start Date",
     cell: ({ row }) => {
-        const date = new Date(row.getValue("startDate"));
-        // Format date to be more readable, e.g., "Jan 15, 2022"
-        return new Intl.DateTimeFormat("en-US", { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
+        const dateValue = row.getValue("startDate");
+        if (typeof dateValue === 'string' && dateValue) {
+            try {
+                const date = new Date(dateValue);
+                 // Format date to be more readable, e.g., "Jan 15, 2022"
+                return new Intl.DateTimeFormat("en-US", { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
+            } catch (e) {
+                return "Invalid Date";
+            }
+        }
+        return "N/A";
     }
   },
   {
     id: "actions",
     cell: ({ row }) => {
       const employee = row.original;
-      const { isAdmin } = useAuth(); // Get isAdmin status
+      const { isAdmin } = useAuth();
+      const { toast } = useToast();
+      const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
+      
+      const initialDeleteState: DeleteEmployeeFormState = { message: null, errors: {}, success: false };
+      const [deleteState, formAction] = useActionState(deleteEmployee, initialDeleteState);
+
+      React.useEffect(() => {
+        if (deleteState?.success && deleteState.message) {
+          toast({
+            title: "Success",
+            description: deleteState.message,
+          });
+          setIsDeleteDialogOpen(false); // Close dialog on success
+          // Data refresh should be handled by revalidatePath in action,
+          // or by onDataChange callback if passed.
+          // onDataChange?.();
+        } else if (!deleteState?.success && deleteState?.message && (deleteState.errors || deleteState.message.includes("failed:"))) {
+          toast({
+            title: "Error Deleting Employee",
+            description: deleteState.errors?._form?.[0] || deleteState.message || "An unexpected error occurred.",
+            variant: "destructive",
+          });
+        }
+      }, [deleteState, toast]);
+
+      const handleDeleteConfirm = () => {
+        const formData = new FormData();
+        formData.append('employeeId', employee.id); // Ensure employee.id is the Firestore document ID
+        startTransition(() => {
+            formAction(formData);
+        });
+      };
 
       return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Open menu</span>
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem
-              onClick={() => navigator.clipboard.writeText(employee.email)}
-            >
-              Copy email
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onViewDetails(employee)}>
-              View details
-            </DropdownMenuItem>
-            {isAdmin && ( // Conditionally render Delete option
-              <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">
-                Delete employee
+        <>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <span className="sr-only">Open menu</span>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              <DropdownMenuItem
+                onClick={() => navigator.clipboard.writeText(employee.email)}
+              >
+                Copy email
               </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onViewDetails(employee)}>
+                View details
+              </DropdownMenuItem>
+              {isAdmin && (
+                <DropdownMenuItem 
+                  className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                  disabled={deleteState?.pending}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete employee
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {isAdmin && (
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="flex items-center">
+                    <AlertTriangle className="mr-2 h-6 w-6 text-destructive" />
+                    Confirm Deletion
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete employee "{employee.name}" (ID: {employee.employeeId})? This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={deleteState?.pending}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction 
+                    onClick={handleDeleteConfirm} 
+                    className="bg-destructive hover:bg-destructive/90"
+                    disabled={deleteState?.pending}
+                  >
+                    {deleteState?.pending ? "Deleting..." : "Delete"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </>
       );
     },
   },
