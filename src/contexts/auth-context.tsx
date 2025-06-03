@@ -32,6 +32,7 @@ interface AuthContextType {
   signUpWithEmailPassword: (email: string, password: string, displayName: string) => Promise<AuthResult>;
   loginWithGoogle: () => Promise<AuthResult>;
   logout: () => Promise<void>;
+  setUser: (user: User | null) => void; // Expose setUser for profile updates
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -55,118 +56,139 @@ async function upsertUserProfile(authUser: User) {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUserState] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // Initialize loading to true
   const router = useRouter();
   const pathname = usePathname();
 
+  // Custom setUser function to also update AuthProvider's internal state if needed
+  const setUser = (newUser: User | null) => {
+    setUserState(newUser);
+    // Potentially re-fetch admin status if user object changes significantly
+    // For now, direct update from Firebase Auth listener is the primary source.
+  };
+
+
   useEffect(() => {
+    // This effect is ONLY for Firebase auth state changes and initial load.
+    // It should run once on mount and then only when Firebase signals an auth change.
+    console.log("Auth Provider: Main auth listener effect setup.");
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setLoading(true); // Set loading to true at the start of auth state change processing
+      console.log("Auth Provider: onAuthStateChanged triggered. CurrentUser:", currentUser?.uid || null);
       if (currentUser) {
-        setUser(currentUser);
+        // Check if the user state actually needs updating to prevent redundant updates
+        if (user?.uid !== currentUser.uid || user?.photoURL !== currentUser.photoURL || user?.displayName !== currentUser.displayName) {
+          setUserState(currentUser); // Update with the potentially new user object from Firebase
+        }
         await upsertUserProfile(currentUser);
 
-        // Fetch role from 'userRoles' collection
         const roleDocRef = doc(db, 'userRoles', currentUser.uid);
         try {
           const roleDocSnap = await getDoc(roleDocRef);
           if (roleDocSnap.exists() && roleDocSnap.data().role === 'admin') {
             setIsAdmin(true);
-            console.log(`User ${currentUser.uid} is an admin.`);
           } else {
             setIsAdmin(false);
-            console.log(`User ${currentUser.uid} is not an admin or role document not found.`);
           }
         } catch (roleError) {
           console.error("Error fetching user role for UID:", currentUser.uid, roleError);
-          setIsAdmin(false); // Default to non-admin on error
-        }
-
-        if (pathname === '/login') {
-          router.push('/dashboard');
+          setIsAdmin(false);
         }
       } else {
-        setUser(null);
-        setIsAdmin(null); // Reset isAdmin for logged-out user
-        // Only redirect to /login if the current path is not /login and is not a Next.js internal path
-        if (pathname !== '/login' && !pathname.startsWith('/_next/')) {
-          router.push('/login');
-        }
+        setUserState(null);
+        setIsAdmin(null);
       }
-      setLoading(false); // Set loading to false after all async operations for the auth state are done
+      setLoading(false); // Set loading to false after the first auth state determination or change
     });
-    return () => unsubscribe();
-  }, [router, pathname]); // isAdmin state is managed internally, no need to add to deps
+    return () => {
+      console.log("Auth Provider: Main auth listener cleanup.");
+      unsubscribe();
+    }
+  }, []); // Empty dependency array: runs once on mount and cleans up on unmount.
+
+  useEffect(() => {
+    // This effect handles redirection logic.
+    // It runs when user, loading, pathname, or router changes.
+    // console.log(`Auth Provider: Redirection check. Loading: ${loading}, User: ${user?.uid || null}, Pathname: ${pathname}`);
+    if (loading) return; // Don't redirect if initial auth check is still in progress
+
+    if (user) {
+      if (pathname === '/login') {
+        console.log("Auth Provider: User logged in, on /login page. Redirecting to /dashboard.");
+        router.push('/dashboard');
+      }
+    } else {
+      if (pathname !== '/login' && !pathname.startsWith('/_next/')) {
+        console.log(`Auth Provider: User not logged in, not on /login page (current: ${pathname}). Redirecting to /login.`);
+        router.push('/login');
+      }
+    }
+  }, [user, loading, pathname, router]);
+
 
   const loginWithEmailPassword = async (email: string, password: string): Promise<AuthResult> => {
-    // setLoading(true) is handled by onAuthStateChanged listener
+    setLoading(true); // Set loading true for the duration of the login attempt
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      // User object and isAdmin status will be updated by onAuthStateChanged
+      // onAuthStateChanged will handle setting user, isAdmin, and setLoading(false)
       return { success: true, user: userCredential.user };
     } catch (error) {
       console.error("Error signing in with Email/Password:", error);
-      // Ensure loading state is reset if onAuthStateChanged doesn't fire or an early error occurs
-      if (!auth.currentUser) setLoading(false); 
+      setLoading(false); // Ensure loading is false if login fails
       return { success: false, error: error as AuthError };
     }
   };
 
   const signUpWithEmailPassword = async (email: string, password: string, displayName: string): Promise<AuthResult> => {
-    // setLoading(true) is handled by onAuthStateChanged listener
+    setLoading(true); // Set loading true for the duration of the sign-up attempt
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       if (userCredential.user) {
         await updateProfile(userCredential.user, { displayName: displayName });
-        // User object and isAdmin status will be updated by onAuthStateChanged after profile update and upsert
-        // Trigger upsert immediately for the new user with displayName
-        const updatedUser = { 
+        // Upsert immediately with the new display name
+        const updatedUserForFirestore = { 
             ...userCredential.user, 
-            displayName: displayName,
-            email: userCredential.user.email, 
-            photoURL: userCredential.user.photoURL 
-        } as User;
-        await upsertUserProfile(updatedUser); 
-        // Note: onAuthStateChanged will still run and potentially re-fetch role.
+            displayName: displayName 
+        } as User; // Cast because TS might not know displayName is updated yet
+        await upsertUserProfile(updatedUserForFirestore);
+        // onAuthStateChanged will handle setting user, isAdmin, and setLoading(false)
       }
       return { success: true, user: userCredential.user };
     } catch (error) {
       console.error("Error signing up with Email/Password:", error);
-      if (!auth.currentUser) setLoading(false);
+      setLoading(false); // Ensure loading is false if sign-up fails
       return { success: false, error: error as AuthError };
     }
   };
 
   const loginWithGoogle = async (): Promise<AuthResult> => {
-    // setLoading(true) is handled by onAuthStateChanged listener
+    setLoading(true); // Set loading true for the duration of the Google sign-in attempt
     const provider = new GoogleAuthProvider();
     try {
       const userCredential = await signInWithPopup(auth, provider);
-      // User object and isAdmin status will be updated by onAuthStateChanged
+      // onAuthStateChanged will handle setting user, isAdmin, and setLoading(false)
       return { success: true, user: userCredential.user };
     } catch (error) {
       console.error("Error signing in with Google:", error);
-      if (!auth.currentUser) setLoading(false);
+      setLoading(false); // Ensure loading is false if Google sign-in fails
       return { success: false, error: error as AuthError };
     }
   };
 
   const logout = async () => {
-    // setLoading(true) is handled by onAuthStateChanged when user becomes null
+    setLoading(true); // Optionally set loading true during logout process
     try {
       await signOut(auth);
-      // setUser(null) and redirect will be handled by onAuthStateChanged
+      // onAuthStateChanged will handle setting user to null, isAdmin to null, and setLoading(false)
     } catch (error) {
       console.error("Error signing out:", error);
-      // If sign out fails, reset loading state if user is still present (though unlikely)
-      if (auth.currentUser) setLoading(false);
+      setLoading(false); // Ensure loading is false if logout fails unexpectedly
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAdmin, loading, loginWithEmailPassword, signUpWithEmailPassword, loginWithGoogle, logout }}>
+    <AuthContext.Provider value={{ user, isAdmin, loading, loginWithEmailPassword, signUpWithEmailPassword, loginWithGoogle, logout, setUser }}>
       {children}
     </AuthContext.Provider>
   );
