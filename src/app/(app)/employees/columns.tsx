@@ -29,12 +29,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { deleteEmployee, type DeleteEmployeeFormState } from "./actions"; 
+import { deleteEmployee, type DeleteEmployeeFormState } from "./actions";
 import { useActionState, startTransition } from "react";
 
 export const getColumns = (
     onViewDetails: (employee: Employee) => void,
-    onRefreshData: () => Promise<void> | void 
+    onRefreshData: () => Promise<void> | void
   ): ColumnDef<Employee>[] => [
   {
     id: "select",
@@ -184,6 +184,10 @@ export const getColumns = (
         if (typeof dateValue === 'string' && dateValue) {
             try {
                 const date = new Date(dateValue);
+                // Check if date is valid after parsing
+                if (isNaN(date.getTime())) {
+                    return "Invalid Date";
+                }
                 return new Intl.DateTimeFormat("en-US", { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
             } catch (e) {
                 return "Invalid Date";
@@ -199,7 +203,7 @@ export const getColumns = (
       const { isAdmin } = useAuth();
       const { toast } = useToast();
       const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
-      
+
       const initialDeleteState: DeleteEmployeeFormState = { message: null, errors: {}, success: false };
       const [deleteState, formAction] = useActionState(deleteEmployee, initialDeleteState);
 
@@ -209,8 +213,17 @@ export const getColumns = (
             title: "Success",
             description: deleteState.message,
           });
-          setIsDeleteDialogOpen(false); 
-          onRefreshData(); // Call refresh data on success
+          setIsDeleteDialogOpen(false);
+          if (typeof onRefreshData === 'function') {
+            onRefreshData(); // Call refresh data on success
+          } else {
+            console.error("onRefreshData is not a function in columns.tsx. Value:", onRefreshData);
+            toast({
+              title: "Action Succeeded",
+              description: "Employee deleted. The list may not update automatically. Please refresh if needed.",
+              variant: "default",
+            });
+          }
         } else if (!deleteState?.success && deleteState?.message && (deleteState.errors || deleteState.message.includes("failed:"))) {
           toast({
             title: "Error Deleting Employee",
@@ -222,7 +235,7 @@ export const getColumns = (
 
       const handleDeleteConfirm = () => {
         const formData = new FormData();
-        formData.append('employeeId', employee.id); 
+        formData.append('employeeId', employee.id);
         startTransition(() => {
             formAction(formData);
         });
@@ -249,7 +262,7 @@ export const getColumns = (
                 View details
               </DropdownMenuItem>
               {isAdmin && (
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   className="text-destructive focus:text-destructive focus:bg-destructive/10"
                   onClick={() => setIsDeleteDialogOpen(true)}
                   disabled={deleteState?.pending}
@@ -274,8 +287,8 @@ export const getColumns = (
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel disabled={deleteState?.pending}>Cancel</AlertDialogCancel>
-                  <AlertDialogAction 
-                    onClick={handleDeleteConfirm} 
+                  <AlertDialogAction
+                    onClick={handleDeleteConfirm}
                     className="bg-destructive hover:bg-destructive/90"
                     disabled={deleteState?.pending}
                   >
@@ -290,3 +303,4 @@ export const getColumns = (
     },
   },
 ];
+
