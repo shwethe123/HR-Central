@@ -6,7 +6,8 @@ import { useFormStatus } from 'react-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { format } from 'date-fns';
+// format from date-fns is no longer needed for date inputs here, but might be used elsewhere if not removed.
+// For now, let's keep it in case of other uses, or remove if truly unused.
 
 import { submitLeaveRequest, type SubmitLeaveRequestFormState } from './actions';
 import { Button } from '@/components/ui/button';
@@ -21,18 +22,24 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Calendar as CalendarIcon, Loader2 } from 'lucide-react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
+import { Loader2 } from 'lucide-react'; // CalendarIcon removed
+// Popover, PopoverContent, PopoverTrigger, Calendar removed
 import { cn } from '@/lib/utils';
 import type { Employee } from '@/types';
 
 const ClientLeaveRequestSchema = z.object({
   employeeId: z.string().min(1, { message: "Employee is required." }),
-  startDate: z.date({ required_error: "Start date is required." }),
-  endDate: z.date({ required_error: "End date is required." }),
+  startDate: z.string()
+    .refine(val => val && !isNaN(Date.parse(val)), { message: "Start date is required and must be a valid date." }),
+  endDate: z.string()
+    .refine(val => val && !isNaN(Date.parse(val)), { message: "End date is required and must be a valid date." }),
   reason: z.string().min(5, { message: "Reason must be at least 5 characters." }).max(500, { message: "Reason cannot exceed 500 characters." }),
-}).refine(data => data.endDate >= data.startDate, {
+}).refine(data => {
+    if (data.startDate && data.endDate && !isNaN(Date.parse(data.startDate)) && !isNaN(Date.parse(data.endDate))) {
+        return new Date(data.endDate) >= new Date(data.startDate);
+    }
+    return true; // Let individual field validation handle empty/invalid dates before this check
+}, {
   message: "End date cannot be before start date.",
   path: ["endDate"],
 });
@@ -63,8 +70,8 @@ export function LeaveRequestForm({ employees, onFormSubmissionSuccess, className
     resolver: zodResolver(ClientLeaveRequestSchema),
     defaultValues: {
       employeeId: '',
-      startDate: undefined,
-      endDate: undefined,
+      startDate: '', // Changed from undefined to empty string for input type="date"
+      endDate: '',   // Changed from undefined to empty string
       reason: '',
     },
   });
@@ -93,8 +100,9 @@ export function LeaveRequestForm({ employees, onFormSubmissionSuccess, className
     formData.append('employeeId', data.employeeId);
     const selectedEmployee = employees.find(emp => emp.id === data.employeeId);
     formData.append('employeeName', selectedEmployee?.name || 'Unknown Employee');
-    formData.append('startDate', format(data.startDate, "yyyy-MM-dd"));
-    formData.append('endDate', format(data.endDate, "yyyy-MM-dd"));
+    // Dates are now already strings in YYYY-MM-DD format from input type="date"
+    formData.append('startDate', data.startDate);
+    formData.append('endDate', data.endDate);
     formData.append('reason', data.reason);
     
     startTransition(() => {
@@ -110,7 +118,7 @@ export function LeaveRequestForm({ employees, onFormSubmissionSuccess, className
           control={form.control}
           name="employeeId"
           render={({ field }) => (
-            <Select onValueChange={field.onChange} defaultValue={field.value}>
+            <Select onValueChange={field.onChange} value={field.value} defaultValue="">
               <SelectTrigger id="employeeId-leave">
                 <SelectValue placeholder="Select Employee" />
               </SelectTrigger>
@@ -131,21 +139,15 @@ export function LeaveRequestForm({ employees, onFormSubmissionSuccess, className
             control={form.control}
             name="startDate"
             render={({ field }) => (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant={"outline"}
-                    id="startDate-leave"
-                    className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}
-                  > <CalendarIcon className="mr-2 h-4 w-4" />
-                    {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
-                </PopoverContent>
-              </Popover>
-            )} />
+              <Input
+                type="date"
+                id="startDate-leave"
+                {...field}
+                value={field.value || ''} // Ensure value is a string, default to empty
+                className="block w-full" // Added block and w-full for consistent styling
+              />
+            )}
+          />
           {form.formState.errors.startDate && <p className="text-sm text-destructive mt-1">{form.formState.errors.startDate.message}</p>}
           {state?.errors?.startDate && <p className="text-sm text-destructive mt-1">{state.errors.startDate.join(', ')}</p>}
         </div>
@@ -155,21 +157,15 @@ export function LeaveRequestForm({ employees, onFormSubmissionSuccess, className
             control={form.control}
             name="endDate"
             render={({ field }) => (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant={"outline"}
-                    id="endDate-leave"
-                    className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}
-                  > <CalendarIcon className="mr-2 h-4 w-4" />
-                    {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
-                </PopoverContent>
-              </Popover>
-            )} />
+              <Input
+                type="date"
+                id="endDate-leave"
+                {...field}
+                value={field.value || ''} // Ensure value is a string, default to empty
+                className="block w-full" // Added block and w-full
+              />
+            )}
+          />
           {form.formState.errors.endDate && <p className="text-sm text-destructive mt-1">{form.formState.errors.endDate.message}</p>}
           {state?.errors?.endDate && <p className="text-sm text-destructive mt-1">{state.errors.endDate.join(', ')}</p>}
         </div>
@@ -194,4 +190,3 @@ export function LeaveRequestForm({ employees, onFormSubmissionSuccess, className
     </form>
   );
 }
-
