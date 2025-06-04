@@ -244,8 +244,8 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
                   <SelectValue placeholder="Select Role" />
                 </SelectTrigger>
                 <SelectContent>
-                  {["ခေါင်းဆောင်", "စာရင်းကိုင်", "Hစစ်", "ပစ္စည်းမှာ", "အဝင်", "ငွေကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ကားတင်", ].map(dep => <SelectItem key={dep} value={dep}>{dep}</SelectItem>)}
-                  {uniqueDepartments.filter(dep => !["ခေါင်းဆောင်", "စာရင်းကိုင်", "Hစစ်", "ပစ္စည်းမှာ", "အဝင်", "ပစ္စည်းမှာ", "ငွေကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ကားတင်"].includes(dep)).map(dep => (
+                  {["ခေါင်းဆောင်","ဈေးရောင်း", "စာရင်းကိုင်", "Hစစ်", "ပစ္စည်းမှာ", "အဝင်", "ငွေကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ကားတင်", ].map(dep => <SelectItem key={dep} value={dep}>{dep}</SelectItem>)}
+                  {uniqueDepartments.filter(dep => !["ခေါင်းဆောင်","ဈေးရောင်း", "စာရင်းကိုင်", "Hစစ်", "ပစ္စည်းမှာ", "အဝင်", "ပစ္စည်းမှာ", "ငွေကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ကားတင်"].includes(dep)).map(dep => (
                     <SelectItem key={dep} value={dep}>{dep}</SelectItem>
                   ))}
                 </SelectContent>
