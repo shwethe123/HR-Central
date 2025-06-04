@@ -5,8 +5,9 @@
 import React, { useState, useEffect, useRef, useActionState, useCallback } from 'react';
 import { useFormStatus } from 'react-dom';
 import type { User } from 'firebase/auth';
-import { db } from '@/lib/firebase';
+import { db, storage } from '@/lib/firebase'; // Added storage
 import { collection, query, where, orderBy, onSnapshot, Timestamp, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage'; // Added Firebase Storage functions
 import type { ChatMessage } from '@/types';
 import { sendMessage, type SendMessageFormState } from './actions';
 import { Button } from '@/components/ui/button';
@@ -15,7 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { format, isValid } from 'date-fns';
-import { Send, Loader2, MessageSquare, AlertTriangle, Check, CheckCheck, PanelRightClose, PanelLeftClose, BellRing, BellOff } from 'lucide-react';
+import { Send, Loader2, MessageSquare, AlertTriangle, Check, CheckCheck, PanelRightClose, PanelLeftClose, BellRing, BellOff, Paperclip, Image as ImageIcon, X } from 'lucide-react'; // Added Paperclip, ImageIcon, X
 import {
   Tooltip,
   TooltipContent,
@@ -23,6 +24,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useToast } from '@/hooks/use-toast';
+import { Input } from '@/components/ui/input'; // Added Input for file
+import NextImage from 'next/image'; // Renamed to avoid conflict with Lucide's Image
+import { Progress } from '@/components/ui/progress'; // Added Progress
 
 interface ChatInterfaceProps {
   conversationId: string | null;
@@ -34,15 +38,30 @@ interface ChatInterfaceProps {
   onToggleChatList?: () => void;
 }
 
-function SubmitButton() {
+function SubmitButton({ disabled }: { disabled?: boolean }) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending} size="icon">
+    <Button type="submit" disabled={pending || disabled} size="icon">
       {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
       <span className="sr-only">Send Message</span>
     </Button>
   );
 }
+
+const MAX_FILE_SIZE_MB = 5;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+const ALLOWED_FILE_TYPES = [
+    ...ALLOWED_IMAGE_TYPES,
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'text/plain',
+    'application/zip'
+];
+
 
 export default function ChatInterface({
   conversationId,
@@ -57,7 +76,14 @@ export default function ChatInterface({
   const [newMessage, setNewMessage] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null); // Ref for file input
   const { toast } = useToast();
+
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
 
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'default'>('default');
   const notifiedMessageIdsRef = useRef<Set<string>>(new Set());
@@ -87,7 +113,7 @@ export default function ChatInterface({
         }
       }
     }
-  }, [notificationPermission]); // Removed toast from dependencies as it's stable
+  }, [notificationPermission]); 
 
   const requestNotificationPermission = async () => {
     if (!('Notification' in window)) {
@@ -158,6 +184,11 @@ export default function ChatInterface({
           text: data.text,
           createdAt: data.createdAt,
           readAt: data.readAt || null,
+          messageType: data.messageType || 'text', // Default to text for older messages
+          fileURL: data.fileURL,
+          fileName: data.fileName,
+          fileType: data.fileType,
+          fileSize: data.fileSize,
         };
         fetchedMessages.push(message);
 
@@ -180,11 +211,16 @@ export default function ChatInterface({
 
       if (newUnreadMessagesForNotification.length > 0 && notificationPermission === 'granted' && document.hidden) {
         newUnreadMessagesForNotification.forEach(msg => {
-          if (!notifiedMessageIdsRef.current.has(msg.id)) {
+          if (!notifiedMessageIdsRef.current.has(msg.id) && msg.text) {
             const title = `New message from ${msg.senderName}`;
             const body = msg.text.length > 100 ? msg.text.substring(0, 97) + "..." : msg.text;
             showNotification(title, body, msg.senderPhotoURL || undefined);
             notifiedMessageIdsRef.current.add(msg.id);
+          } else if (!notifiedMessageIdsRef.current.has(msg.id) && msg.messageType !== 'text' && msg.fileName) {
+             const title = `New ${msg.messageType} from ${msg.senderName}`;
+             const body = msg.fileName;
+             showNotification(title, body, msg.senderPhotoURL || undefined);
+             notifiedMessageIdsRef.current.add(msg.id);
           }
         });
         clearOldNotifiedMessageIds();
@@ -221,12 +257,111 @@ export default function ChatInterface({
   useEffect(() => {
     if (state?.success) {
       setNewMessage('');
-      formRef.current?.reset();
+      setSelectedFile(null);
+      setFilePreview(null);
+      setUploadProgress(null);
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      formRef.current?.reset(); // Reset the form which includes hidden fields
     }
     if (state?.errors?._form) {
       console.error("Form error from sendMessage action:", state.errors._form.join(', '));
+      toast({ title: "Message Not Sent", description: state.errors._form.join(', ') || "An error occurred.", variant: "destructive"});
+      setIsUploading(false);
+      setUploadProgress(null);
+    } else if (state?.errors && Object.keys(state.errors).length > 0 && !state.success){
+        const firstErrorField = Object.keys(state.errors)[0] as keyof typeof state.errors;
+        const errorMessage = state.errors[firstErrorField]?.[0];
+        toast({ title: "Validation Error", description: errorMessage || "Please check your input.", variant: "destructive"});
+        setIsUploading(false);
+        setUploadProgress(null);
     }
-  }, [state]);
+  }, [state, toast]);
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        toast({ title: "File Too Large", description: `File size cannot exceed ${MAX_FILE_SIZE_MB}MB.`, variant: "destructive" });
+        return;
+      }
+      if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+        toast({ title: "Invalid File Type", description: `Only specific image and document types are allowed. You provided: ${file.type}`, variant: "destructive" });
+        return;
+      }
+      setSelectedFile(file);
+      if (ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        const reader = new FileReader();
+        reader.onloadend = () => setFilePreview(reader.result as string);
+        reader.readAsDataURL(file);
+      } else {
+        setFilePreview(null); // No preview for non-image files
+      }
+    }
+  };
+
+  const removeSelectedFile = () => {
+    setSelectedFile(null);
+    setFilePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault(); // Prevent default form submission
+
+    if (!currentUser || !currentUser.uid || !conversationId) {
+      toast({ title: "Error", description: "User or conversation not identified.", variant: "destructive" });
+      return;
+    }
+
+    const formData = new FormData(formRef.current!); // Use current form values
+
+    if (selectedFile) {
+      setIsUploading(true);
+      setUploadProgress(0);
+
+      const filePath = `chat_attachments/${conversationId}/${currentUser.uid}_${Date.now()}_${selectedFile.name}`;
+      const fileStorageRef = storageRef(storage, filePath);
+      const uploadTask = uploadBytesResumable(fileStorageRef, selectedFile);
+
+      uploadTask.on('state_changed',
+        (snapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setUploadProgress(progress);
+        },
+        (error) => {
+          console.error("Upload Error:", error);
+          toast({ title: "Upload Failed", description: error.message, variant: "destructive" });
+          setIsUploading(false);
+          setUploadProgress(null);
+        },
+        async () => {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          formData.set('fileURL', downloadURL);
+          formData.set('fileName', selectedFile.name);
+          formData.set('fileType', selectedFile.type);
+          formData.set('fileSize', String(selectedFile.size));
+          formData.set('messageType', ALLOWED_IMAGE_TYPES.includes(selectedFile.type) ? 'image' : 'file');
+          // Text can be caption for file/image
+          if (!newMessage.trim()) formData.delete('text');
+          else formData.set('text', newMessage);
+
+          formAction(formData); // Call the server action
+        }
+      );
+    } else {
+      if (!newMessage.trim()) {
+        toast({ title: "Empty Message", description: "Cannot send an empty message.", variant: "default" });
+        return;
+      }
+      formData.set('text', newMessage);
+      formData.set('messageType', 'text');
+      formAction(formData); // Call the server action
+    }
+  };
+
 
   if (!currentUser) {
      return (
@@ -344,7 +479,23 @@ export default function ChatInterface({
                     {msg.senderId !== currentUser?.uid && (
                        <p className="text-xs font-semibold mb-0.5 text-primary">{msg.senderName || 'Anonymous'}</p>
                     )}
-                    <p className="whitespace-pre-wrap">{msg.text}</p>
+                    {msg.messageType === 'image' && msg.fileURL && (
+                      <div className="my-1.5 max-w-xs max-h-64 overflow-hidden rounded-md cursor-pointer" onClick={() => window.open(msg.fileURL, '_blank')}>
+                        <NextImage src={msg.fileURL} alt={msg.fileName || 'Sent image'} width={200} height={200} className="object-contain rounded" data-ai-hint="chat image" />
+                      </div>
+                    )}
+                    {msg.messageType === 'file' && msg.fileURL && msg.fileName && (
+                      <a href={msg.fileURL} target="_blank" rel="noopener noreferrer" className="block my-1.5 p-2.5 rounded-md bg-muted hover:bg-muted/80 transition-colors">
+                        <div className="flex items-center gap-2">
+                          <Paperclip className="h-5 w-5 text-primary" />
+                          <div className="flex-grow overflow-hidden">
+                            <p className="font-medium truncate text-foreground">{msg.fileName}</p>
+                            <p className="text-xs text-muted-foreground">{msg.fileSize ? (msg.fileSize / 1024).toFixed(1) + ' KB' : ''}</p>
+                          </div>
+                        </div>
+                      </a>
+                    )}
+                    {msg.text && <p className="whitespace-pre-wrap">{msg.text}</p>}
                     <div className={`text-xs mt-1 flex items-center gap-1 ${msg.senderId === currentUser?.uid ? 'text-primary-foreground/70 justify-end' : 'text-muted-foreground/80 justify-start'}`}>
                       <span>{getFormattedTimestamp(msg.createdAt)}</span>
                       {msg.senderId === currentUser?.uid && (
@@ -376,7 +527,7 @@ export default function ChatInterface({
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Avatar className="h-8 w-8">
-                          <AvatarImage src={currentUser.photoURL || undefined} alt={currentUser.displayName || 'Me'} data-ai-hint="person avatar" />
+                          <AvatarImage src={currentUser.photoURL || undefined} alt={currentUser.displayName || 'Me'} data-ai-hint="person avatar"/>
                           <AvatarFallback>{currentUser.displayName?.substring(0, 1).toUpperCase() || 'M'}</AvatarFallback>
                         </Avatar>
                       </TooltipTrigger>
@@ -394,42 +545,82 @@ export default function ChatInterface({
           <form
             ref={formRef}
             action={formAction}
-            onSubmit={(e) => {
-              if (!newMessage.trim()) {
-                e.preventDefault();
-                return;
-              }
-              if (currentUser && currentUser.uid) {
-                console.log(`[ChatInterface onSubmit] Client currentUser.uid: ${currentUser.uid}, displayName: ${currentUser.displayName}, photoURL: ${currentUser.photoURL}`);
-              } else {
-                console.error("[ChatInterface onSubmit] Cannot send message: currentUser or currentUser.uid is missing.");
-                e.preventDefault();
-                return;
-              }
-            }}
-            className="flex w-full items-center gap-2"
+            onSubmit={handleFormSubmit}
+            className="flex flex-col w-full gap-2"
           >
+             {/* Hidden fields common to all message types */}
             <input type="hidden" name="conversationId" value={conversationId || ''} />
             <input type="hidden" name="senderId" value={currentUser.uid} />
             <input type="hidden" name="senderName" value={currentUser.displayName || 'Anonymous User'} />
             <input type="hidden" name="senderPhotoURL" value={currentUser.photoURL || ''} />
-            <Textarea
-              name="text"
-              placeholder="Type your message..."
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              rows={1}
-              className="flex-grow resize-none min-h-[40px]"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  if (newMessage.trim() && currentUser && currentUser.uid) {
-                    formRef.current?.requestSubmit();
+            {/* The messageType field will be dynamically set by handleFormSubmit if a file is attached,
+                otherwise, it should default to 'text' if only text is present.
+                For pure text messages, it's now set in handleFormSubmit before calling formAction. */}
+
+            {/* File Preview & Upload Progress */}
+            {selectedFile && (
+              <div className="p-2 border rounded-md bg-muted/50 relative">
+                <div className="flex items-center gap-2">
+                  {filePreview ? (
+                    <NextImage src={filePreview} alt="Preview" width={40} height={40} className="rounded object-cover" data-ai-hint="upload preview"/>
+                  ) : (
+                    <Paperclip className="h-8 w-8 text-muted-foreground" />
+                  )}
+                  <div className="flex-grow overflow-hidden">
+                    <p className="text-sm font-medium truncate">{selectedFile.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {(selectedFile.size / 1024).toFixed(1)} KB - {selectedFile.type}
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={removeSelectedFile} className="h-7 w-7">
+                    <X className="h-4 w-4" />
+                    <span className="sr-only">Remove file</span>
+                  </Button>
+                </div>
+                {isUploading && uploadProgress !== null && (
+                  <Progress value={uploadProgress} className="w-full h-1.5 mt-2" />
+                )}
+              </div>
+            )}
+            
+            {/* Message Input and Send Button */}
+            <div className="flex w-full items-center gap-2">
+              <Textarea
+                name="text"
+                placeholder={selectedFile ? "Add a caption... (optional)" : "Type your message..."}
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                rows={1}
+                className="flex-grow resize-none min-h-[40px]"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if ((newMessage.trim() || selectedFile) && currentUser && currentUser.uid) {
+                      formRef.current?.requestSubmit(); // Programmatically submit the form
+                    }
                   }
-                }
-              }}
-            />
-            <SubmitButton />
+                }}
+              />
+              <Input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileSelect}
+                className="hidden"
+                id="chat-file-input"
+                accept={ALLOWED_FILE_TYPES.join(',')}
+              />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button type="button" variant="outline" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                    <Paperclip className="h-4 w-4" />
+                    <span className="sr-only">Attach file</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Attach Image or File (Max {MAX_FILE_SIZE_MB}MB)</p></TooltipContent>
+              </Tooltip>
+              <SubmitButton disabled={isUploading || (!newMessage.trim() && !selectedFile)} />
+            </div>
+             <input type="hidden" name="messageType" value={selectedFile ? (ALLOWED_IMAGE_TYPES.includes(selectedFile.type) ? 'image' : 'file') : 'text'} />
           </form>
         </CardFooter>
       </Card>
@@ -437,3 +628,4 @@ export default function ChatInterface({
   );
 }
 
+    
