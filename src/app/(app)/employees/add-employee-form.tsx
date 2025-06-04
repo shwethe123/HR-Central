@@ -2,12 +2,13 @@
 // src/app/(app)/employees/add-employee-form.tsx
 'use client';
 
-import { useEffect, useActionState, startTransition, useState } from 'react';
+import { useEffect, useActionState, startTransition, useState, useRef } from 'react'; // Added useRef
 import { useFormStatus } from 'react-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
+import Image from 'next/image'; // Import Next.js Image component
 
 import { addEmployee, type AddEmployeeFormState } from './actions';
 import { Button } from '@/components/ui/button';
@@ -25,8 +26,8 @@ import { Calendar as CalendarIcon, Loader2 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import { storage } from '@/lib/firebase'; // Import storage
-import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage'; // Import storage functions
+import { storage } from '@/lib/firebase';
+import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 
 const ClientEmployeeSchema = z.object({
@@ -40,7 +41,7 @@ const ClientEmployeeSchema = z.object({
   startDate: z.date({ required_error: "Start date is required." }),
   status: z.enum(["Active", "Inactive"],{ required_error: "Status is required." }),
   gender: z.enum(["Male", "Female", "Other", "Prefer not to say"], { required_error: "Gender is required." }),
-  avatar: (typeof window !== 'undefined' ? z.instanceof(FileList) : z.any()) 
+  avatarFile: (typeof window !== 'undefined' ? z.instanceof(FileList) : z.any())
     .optional()
     .refine(
       (fileList) => !fileList || fileList.length === 0 || fileList.length === 1,
@@ -48,7 +49,19 @@ const ClientEmployeeSchema = z.object({
         message: "Only one avatar image can be uploaded.",
       }
     )
-    .transform((fileList) => (fileList && fileList.length > 0 ? fileList[0] : undefined)), 
+    .refine(
+      (fileList) => !fileList || fileList.length === 0 || (fileList[0]?.size <= 2 * 1024 * 1024), // Max 2MB
+      {
+        message: "Avatar image size must be 2MB or less.",
+      }
+    )
+    .refine(
+      (fileList) => !fileList || fileList.length === 0 || ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(fileList[0]?.type),
+      {
+        message: "Invalid file type. Only JPG, PNG, GIF, WEBP are allowed.",
+      }
+    )
+    .transform((fileList) => (fileList && fileList.length > 0 ? fileList[0] : undefined)),
   salary: z.string().optional().refine(val => val === undefined || val === "" || !isNaN(parseFloat(val)), {
     message: "Salary must be a number or empty.",
   }),
@@ -67,7 +80,7 @@ interface AddEmployeeFormProps {
 function SubmitButton({ isImageUploading }: { isImageUploading: boolean }) {
   const { pending: isActionPending } = useFormStatus();
   const isDisabled = isImageUploading || isActionPending;
-  
+
   let buttonText = "Add Employee";
   if (isImageUploading) {
     buttonText = "Uploading Image...";
@@ -87,6 +100,9 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
   const { toast } = useToast();
   const [state, formAction] = useActionState(addEmployee, { message: null, errors: {}, success: false });
   const [isImageUploading, setIsImageUploading] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null); // State for avatar preview
+  const avatarFileInputRef = useRef<HTMLInputElement>(null); // Ref for file input
+
 
   const form = useForm<EmployeeFormData>({
     resolver: zodResolver(ClientEmployeeSchema),
@@ -98,13 +114,45 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
       role: '',
       email: '',
       phone: '',
-      startDate: undefined, 
+      startDate: undefined,
       status: 'Active',
       gender: 'Prefer not to say',
-      avatar: undefined, 
+      avatarFile: undefined,
       salary: '',
     },
   });
+
+  const handleAvatarFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      // Validate file type and size again on client for immediate feedback, though Zod handles final validation
+      if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
+        toast({ title: "Invalid File Type", description: "Please select a JPG, PNG, GIF, or WEBP image.", variant: "destructive" });
+        setAvatarPreview(null);
+        if(avatarFileInputRef.current) avatarFileInputRef.current.value = ""; // Clear file input
+        form.setValue('avatarFile', undefined, { shouldValidate: true }); // Clear RHF value
+        return;
+      }
+      if (file.size > 2 * 1024 * 1024) { // 2MB
+        toast({ title: "File Too Large", description: "Avatar image must be 2MB or less.", variant: "destructive" });
+        setAvatarPreview(null);
+        if(avatarFileInputRef.current) avatarFileInputRef.current.value = "";
+        form.setValue('avatarFile', undefined, { shouldValidate: true });
+        return;
+      }
+
+      form.setValue('avatarFile', files, { shouldValidate: true });
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      form.setValue('avatarFile', undefined, { shouldValidate: true });
+      setAvatarPreview(null);
+    }
+  };
 
   useEffect(() => {
     if (state?.success && state.message) {
@@ -112,19 +160,21 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
         title: "Success",
         description: state.message,
       });
-      form.reset(); 
+      form.reset();
+      setAvatarPreview(null); // Clear preview on reset
+      if (avatarFileInputRef.current) avatarFileInputRef.current.value = ""; // Clear file input
       if (onFormSubmissionSuccess) {
-        onFormSubmissionSuccess(state.newEmployeeId); 
+        onFormSubmissionSuccess(state.newEmployeeId);
       }
     } else if (!state?.success && state?.message && (state.errors || state.message.startsWith("Adding employee failed:") || state.message.startsWith("Validation failed."))) {
        toast({
         title: "Error Adding Employee",
-        description: state.errors?._form?.[0] || state.message || "An unexpected error occurred.",
+        description: state.errors?._form?.[0] || state.errors?.avatar?.[0] || state.message || "An unexpected error occurred.",
         variant: "destructive",
       });
     }
   }, [state, toast, form, onFormSubmissionSuccess]);
-  
+
   const onSubmit = async (data: EmployeeFormData) => {
     const formData = new FormData();
     formData.append('name', data.name);
@@ -140,15 +190,15 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
     if (data.salary) formData.append('salary', data.salary);
 
     let avatarUrl = '';
-    const fileToUpload = data.avatar; 
+    const fileToUpload = data.avatarFile;
 
     if (fileToUpload) {
       setIsImageUploading(true);
       try {
         const sRef = storageRef(storage, `employee-avatars/${Date.now()}-${fileToUpload.name}`);
         const uploadTask = uploadBytesResumable(sRef, fileToUpload);
-        
-        await uploadTask; 
+
+        await uploadTask;
         avatarUrl = await getDownloadURL(uploadTask.snapshot.ref);
         toast({ title: "Avatar Uploaded", description: "Image successfully uploaded." });
       } catch (error) {
@@ -162,9 +212,9 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
         setIsImageUploading(false);
       }
     }
-    
+
     formData.append('avatar', avatarUrl);
-    
+
     startTransition(() => {
         formAction(formData);
     });
@@ -185,7 +235,7 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
         {form.formState.errors.employeeId && <p className="text-sm text-destructive mt-1">{form.formState.errors.employeeId.message}</p>}
         {state?.errors?.employeeId && <p className="text-sm text-destructive mt-1">{state.errors.employeeId.join(', ')}</p>}
       </div>
-      
+
       <div>
         <Label htmlFor="company-add">Company</Label>
         <Controller
@@ -270,7 +320,7 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
         {form.formState.errors.phone && <p className="text-sm text-destructive mt-1">{form.formState.errors.phone.message}</p>}
         {state?.errors?.phone && <p className="text-sm text-destructive mt-1">{state.errors.phone.join(', ')}</p>}
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <Label htmlFor="startDate-add">Start Date</Label>
@@ -352,10 +402,24 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
       </div>
 
       <div>
-        <Label htmlFor="avatar-add">Avatar Image (Optional)</Label>
-        <Input id="avatar-add" type="file" {...form.register('avatar')} accept="image/*" />
-        {form.formState.errors.avatar && <p className="text-sm text-destructive mt-1">{form.formState.errors.avatar.message}</p>}
+        <Label htmlFor="avatar-add">Avatar Image (Optional, Max 2MB: JPG, PNG, GIF, WEBP)</Label>
+        {/* Use a controlled input for file selection to allow clearing */}
+        <Input
+          id="avatar-add"
+          type="file"
+          accept="image/jpeg,image/png,image/gif,image/webp"
+          onChange={handleAvatarFileChange}
+          ref={avatarFileInputRef} // Assign ref here
+          className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+        />
+        {form.formState.errors.avatarFile && <p className="text-sm text-destructive mt-1">{form.formState.errors.avatarFile.message}</p>}
+        {/* Server-side 'avatar' field error (if any, though client schema uses 'avatarFile') */}
         {state?.errors?.avatar && <p className="text-sm text-destructive mt-1">{state.errors.avatar.join(', ')}</p>}
+        {avatarPreview && (
+          <div className="mt-2 p-2 border rounded-md inline-block bg-muted">
+            <Image src={avatarPreview} alt="Avatar preview" width={100} height={100} className="rounded-md object-cover" data-ai-hint="upload preview person"/>
+          </div>
+        )}
       </div>
 
       <div>
@@ -364,7 +428,7 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
         {form.formState.errors.salary && <p className="text-sm text-destructive mt-1">{form.formState.errors.salary.message}</p>}
         {state?.errors?.salary && <p className="text-sm text-destructive mt-1">{state.errors.salary.join(', ')}</p>}
       </div>
-      
+
       {state?.errors?._form && <p className="text-sm font-medium text-destructive mt-2">{state.errors._form.join(', ')}</p>}
 
       <div className="flex justify-end pt-2">
