@@ -31,6 +31,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { deleteEmployee, type DeleteEmployeeFormState } from "./actions";
 import { useActionState, startTransition } from "react";
+import { ImagePreviewDialog } from "./ImagePreviewDialog"; // New import
 
 export const getColumns = (
     onViewDetails: (employee: Employee) => void,
@@ -84,14 +85,39 @@ export const getColumns = (
     },
     cell: ({ row }) => {
       const employee = row.original;
+      const [isImagePreviewOpen, setIsImagePreviewOpen] = React.useState(false);
+      const [selectedImageUrl, setSelectedImageUrl] = React.useState<string | null | undefined>(null);
+
+      const handleAvatarClick = (e: React.MouseEvent) => {
+        // Stop propagation if the click is on the avatar,
+        // to prevent row selection or other row-level events if any.
+        e.stopPropagation(); 
+        if (employee.avatar) {
+          setSelectedImageUrl(employee.avatar);
+          setIsImagePreviewOpen(true);
+        }
+      };
+
       return (
-        <div className="flex items-center gap-3">
-          <Avatar className="h-8 w-8">
-            <AvatarImage src={employee.avatar || undefined} alt={employee.name} data-ai-hint="person avatar" />
-            <AvatarFallback>{employee.name.substring(0, 2).toUpperCase()}</AvatarFallback>
-          </Avatar>
-          <span className="font-medium">{employee.name}</span>
-        </div>
+        <>
+          <div className="flex items-center gap-3">
+            <Avatar
+              className={`h-8 w-8 ${employee.avatar ? 'cursor-pointer hover:ring-2 hover:ring-primary hover:ring-offset-1' : ''}`}
+              onClick={handleAvatarClick}
+              title={employee.avatar ? "Click to view larger image" : employee.name}
+            >
+              <AvatarImage src={employee.avatar || undefined} alt={employee.name} data-ai-hint="person avatar" />
+              <AvatarFallback>{employee.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+            </Avatar>
+            <span className="font-medium">{employee.name}</span>
+          </div>
+          <ImagePreviewDialog
+            isOpen={isImagePreviewOpen}
+            onOpenChange={setIsImagePreviewOpen}
+            imageUrl={selectedImageUrl}
+            altText={`${employee.name}'s avatar`}
+          />
+        </>
       );
     }
   },
@@ -215,7 +241,7 @@ export const getColumns = (
           });
           setIsDeleteDialogOpen(false);
           if (typeof onRefreshData === 'function') {
-            onRefreshData(); // Call refresh data on success
+            onRefreshData(); 
           } else {
             console.error("onRefreshData is not a function in columns.tsx. Value:", onRefreshData);
             toast({
@@ -303,4 +329,3 @@ export const getColumns = (
     },
   },
 ];
-
