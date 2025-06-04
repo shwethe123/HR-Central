@@ -6,12 +6,12 @@ import type { Employee } from "@/types";
 import { getColumns } from "./columns";
 import { DataTable } from "./data-table";
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore'; // Added limit
+import { collection, getDocs, query, orderBy } from 'firebase/firestore'; // Removed limit
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 // import { useAuth } from '@/contexts/auth-context'; // For admin check
 
-const EMPLOYEES_FETCH_LIMIT = 30; // Limit for initial fetch
+// const EMPLOYEES_FETCH_LIMIT = 30; // Limit for initial fetch - REMOVED
 
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -23,8 +23,8 @@ export default function EmployeesPage() {
     setIsLoading(true);
     try {
       const employeesCollectionRef = collection(db, "employees");
-      // Apply limit to the query
-      const q = query(employeesCollectionRef, orderBy("name", "asc"), limit(EMPLOYEES_FETCH_LIMIT));
+      // Apply limit to the query - REMOVED LIMIT
+      const q = query(employeesCollectionRef, orderBy("name", "asc"));
       const querySnapshot = await getDocs(q);
       const fetchedEmployees: Employee[] = querySnapshot.docs.map(doc => {
         const data = doc.data();
@@ -47,13 +47,14 @@ export default function EmployeesPage() {
       });
       setEmployees(fetchedEmployees);
 
-      if (querySnapshot.docs.length >= EMPLOYEES_FETCH_LIMIT) {
-        toast({
-          title: "Employee List Truncated",
-          description: `Showing the first ${EMPLOYEES_FETCH_LIMIT} employees. Full list view requires pagination or 'load more'.`,
-          variant: "default",
-        });
-      }
+      // Removed the toast message about truncated list
+      // if (querySnapshot.docs.length >= EMPLOYEES_FETCH_LIMIT) {
+      //   toast({
+      //     title: "Employee List Truncated",
+      //     description: `Showing the first ${EMPLOYEES_FETCH_LIMIT} employees. Full list view requires pagination or 'load more'.`,
+      //     variant: "default",
+      //   });
+      // }
 
     } catch (error) {
       console.error("Error fetching employees:", error);
@@ -106,6 +107,4 @@ export default function EmployeesPage() {
     </div>
   );
 }
-
-
     
