@@ -2,7 +2,7 @@
 // src/app/(app)/chat/chat-interface.tsx
 'use client';
 
-import React, { useState, useEffect, useRef, useActionState, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useActionState, useCallback, startTransition } from 'react';
 import { useFormStatus } from 'react-dom';
 import type { User } from 'firebase/auth';
 import { db, storage } from '@/lib/firebase'; // Added storage
@@ -348,7 +348,9 @@ export default function ChatInterface({
           if (!newMessage.trim()) formData.delete('text');
           else formData.set('text', newMessage);
 
-          formAction(formData); // Call the server action
+          startTransition(() => {
+            formAction(formData); // Call the server action
+          });
         }
       );
     } else {
@@ -358,7 +360,9 @@ export default function ChatInterface({
       }
       formData.set('text', newMessage);
       formData.set('messageType', 'text');
-      formAction(formData); // Call the server action
+      startTransition(() => {
+        formAction(formData); // Call the server action
+      });
     }
   };
 
@@ -627,5 +631,7 @@ export default function ChatInterface({
     </TooltipProvider>
   );
 }
+
+    
 
     
