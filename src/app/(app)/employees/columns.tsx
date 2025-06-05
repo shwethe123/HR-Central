@@ -4,7 +4,7 @@
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { Employee } from "@/types";
-import { ArrowUpDown, MoreHorizontal, Trash2, AlertTriangle } from "lucide-react";
+import { ArrowUpDown, MoreHorizontal, Trash2, AlertTriangle, Edit } from "lucide-react"; // Added Edit icon
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -31,11 +31,12 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { deleteEmployee, type DeleteEmployeeFormState } from "./actions";
 import { useActionState, startTransition } from "react";
-import { ImagePreviewDialog } from "./ImagePreviewDialog"; // New import
+import { ImagePreviewDialog } from "./ImagePreviewDialog";
 
 export const getColumns = (
     onViewDetails: (employee: Employee) => void,
-    onRefreshData: () => Promise<void> | void
+    onRefreshData: () => Promise<void> | void,
+    onEditEmployee: (employee: Employee) => void // Added onEditEmployee callback
   ): ColumnDef<Employee>[] => [
   {
     id: "select",
@@ -89,8 +90,6 @@ export const getColumns = (
       const [selectedImageUrl, setSelectedImageUrl] = React.useState<string | null | undefined>(null);
 
       const handleAvatarClick = (e: React.MouseEvent) => {
-        // Stop propagation if the click is on the avatar,
-        // to prevent row selection or other row-level events if any.
         e.stopPropagation(); 
         if (employee.avatar) {
           setSelectedImageUrl(employee.avatar);
@@ -210,7 +209,6 @@ export const getColumns = (
         if (typeof dateValue === 'string' && dateValue) {
             try {
                 const date = new Date(dateValue);
-                // Check if date is valid after parsing
                 if (isNaN(date.getTime())) {
                     return "Invalid Date";
                 }
@@ -288,13 +286,18 @@ export const getColumns = (
                 View details
               </DropdownMenuItem>
               {isAdmin && (
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                  onClick={() => setIsDeleteDialogOpen(true)}
-                  disabled={deleteState?.pending}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" /> Delete employee
-                </DropdownMenuItem>
+                <>
+                  <DropdownMenuItem onClick={() => onEditEmployee(employee)}>
+                    <Edit className="mr-2 h-4 w-4" /> Edit employee
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                    onClick={() => setIsDeleteDialogOpen(true)}
+                    disabled={deleteState?.pending}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete employee
+                  </DropdownMenuItem>
+                </>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
