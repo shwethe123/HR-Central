@@ -35,8 +35,8 @@ export default function OneOnOneChatPage() {
   const [isChatListOpen, setIsChatListOpen] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({}); // Will only store general chat unread count
-  const [isLoadingCounts, setIsLoadingCounts] = useState(false); 
+  // const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({}); // Will only store general chat unread count
+  // const [isLoadingCounts, setIsLoadingCounts] = useState(false); 
 
   const fetchAppUsers = useCallback(async () => {
     if (!user) return; 
@@ -76,15 +76,15 @@ export default function OneOnOneChatPage() {
     }
   }, [user, toast]);
 
-
+  /*
   const fetchGeneralChatUnreadCount = useCallback(async () => {
     if (!user) {
-      setIsLoadingCounts(false); 
+      // setIsLoadingCounts(false); 
       return;
     }
     
     console.log(`[ChatUsersPage] Fetching unread count for General Chat. User: ${user.uid}`);
-    setIsLoadingCounts(true); 
+    // setIsLoadingCounts(true); 
     const counts: Record<string, number> = {};
     
     const generalChatConvId = GENERAL_CHAT_CONVERSATION_ID;
@@ -98,7 +98,7 @@ export default function OneOnOneChatPage() {
     try {
       const snapshot = await getCountFromServer(generalChatQuery);
       counts[generalChatConvId] = snapshot.data().count;
-      setUnreadCounts(counts);
+      // setUnreadCounts(counts);
     } catch (err) {
       console.error(`[ChatUsersPage] Error fetching unread count for General Chat (${generalChatConvId}):`, err);
       if ((err as any)?.code === 'resource-exhausted') {
@@ -115,12 +115,13 @@ export default function OneOnOneChatPage() {
           });
       }
       counts[generalChatConvId] = 0; // Set to 0 on error
-      setUnreadCounts(counts);
+      // setUnreadCounts(counts);
     } finally {
-      setIsLoadingCounts(false); 
+      // setIsLoadingCounts(false); 
       console.log("[ChatUsersPage] Finished fetching general chat unread count. Current counts:", counts);
     }
   }, [user, toast]); 
+  */
 
 
   useEffect(() => {
@@ -130,11 +131,13 @@ export default function OneOnOneChatPage() {
   }, [authLoading, user, fetchAppUsers]);
 
 
+  /*
   useEffect(() => {
     if (user && !isLoadingAppUsers && !isLoadingCounts) { 
-      fetchGeneralChatUnreadCount(); 
+      // fetchGeneralChatUnreadCount(); 
     }
   }, [user, isLoadingAppUsers, isLoadingCounts, fetchGeneralChatUnreadCount]); // appUsers removed as dependency
+  */
 
 
   const handleSelectConversation = (targetUser: AppUser | 'general') => {
@@ -149,7 +152,7 @@ export default function OneOnOneChatPage() {
       chatTitle = chatTargetName;
       // If general chat is selected, potentially clear its unread count visually
       if (conversationId) {
-        setUnreadCounts(prev => ({ ...prev, [conversationId!]: 0 })); 
+        // setUnreadCounts(prev => ({ ...prev, [conversationId!]: 0 })); 
       }
     } else {
       conversationId = getOneToOneConversationId(user.uid, targetUser.uid);
@@ -172,7 +175,7 @@ export default function OneOnOneChatPage() {
     (appUserItem.email?.toLowerCase() || '').includes(searchTerm.toLowerCase())
   );
 
-  const isLoading = authLoading || isLoadingAppUsers || isLoadingCounts;
+  const isLoading = authLoading || isLoadingAppUsers; // || isLoadingCounts;
 
 
   if (authLoading && !user) { 
@@ -246,11 +249,13 @@ export default function OneOnOneChatPage() {
                       <p className="text-xs text-muted-foreground">Talk with everyone</p>
                     </div>
                   </div>
+                  {/* 
                   {unreadCounts[GENERAL_CHAT_CONVERSATION_ID] > 0 && (
                     <Badge variant="destructive" className="h-5 min-w-[20px] px-1.5 rounded-full flex items-center justify-center text-xs">
                       {unreadCounts[GENERAL_CHAT_CONVERSATION_ID]}
                     </Badge>
                   )}
+                  */}
                 </div>
 
                 {isLoadingAppUsers ? (
