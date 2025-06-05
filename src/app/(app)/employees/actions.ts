@@ -5,7 +5,7 @@ import { z } from 'zod';
 import type { Employee } from '@/types';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, doc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore'; // Added updateDoc
 
 const EmployeeFormSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -79,7 +79,6 @@ export async function addEmployee(
   try {
     const employeesCollectionRef = collection(db, "employees");
     
-    // Explicitly define the structure for Firestore, omitting 'id' as it's auto-generated
     const employeeToSave: Omit<Employee, 'id'> = {
         name: newEmployeeData.name,
         employeeId: newEmployeeData.employeeId,
@@ -87,12 +86,12 @@ export async function addEmployee(
         department: newEmployeeData.department,
         role: newEmployeeData.role,
         email: newEmployeeData.email,
-        phone: newEmployeeData.phone || '', // Ensure phone is a string, even if empty
+        phone: newEmployeeData.phone || '', 
         startDate: newEmployeeData.startDate,
         status: newEmployeeData.status,
         gender: newEmployeeData.gender,
-        avatar: newEmployeeData.avatar || '', // Ensure avatar is a string, even if empty
-        salary: newEmployeeData.salary, // Salary is optional
+        avatar: newEmployeeData.avatar || '', 
+        salary: newEmployeeData.salary, 
     };
 
     const docRef = await addDoc(employeesCollectionRef, employeeToSave);
@@ -110,7 +109,6 @@ export async function addEmployee(
     let errorMessage = "An unexpected error occurred while adding the employee.";
     if (error instanceof Error) {
       errorMessage = error.message;
-       // Check if it's a FirebaseError and has a code for permission denied
       if ('code' in error && (error as any).code === 'permission-denied') {
         errorMessage = `Firestore Permission Denied: ${error.message}. Please check your Firestore Security Rules.`;
       }
@@ -126,7 +124,6 @@ export async function addEmployee(
   }
 }
 
-// Schema for deleting an employee
 const DeleteEmployeeSchema = z.object({
   employeeId: z.string().min(1, { message: "Employee ID is required." }),
 });
@@ -183,6 +180,125 @@ export async function deleteEmployee(
     }
     return {
       message: `Deleting employee (ID: ${employeeId}) failed: ${errorMessage}`,
+      errors: { _form: [errorMessage] },
+      success: false,
+    };
+  }
+}
+
+// Schema for updating an employee - reuses EmployeeFormSchema and adds document ID
+const UpdateEmployeeFormSchema = EmployeeFormSchema.extend({
+  id: z.string().min(1, { message: "Document ID is required for update." }),
+});
+
+export type UpdateEmployeeFormState = {
+  message: string | null;
+  errors?: {
+    id?: string[]; // For errors related to the document ID itself
+    name?: string[];
+    employeeId?: string[];
+    company?: string[];
+    department?: string[];
+    role?: string[];
+    email?: string[];
+    phone?: string[];
+    startDate?: string[];
+    status?: string[];
+    gender?: string[];
+    avatar?: string[];
+    salary?: string[];
+    _form?: string[];
+  };
+  success?: boolean;
+  updatedEmployeeId?: string; // Firestore document ID
+};
+
+export async function updateEmployee(
+  prevState: UpdateEmployeeFormState | undefined,
+  formData: FormData
+): Promise<UpdateEmployeeFormState> {
+  const employeeDocumentId = formData.get('id') as string;
+
+  const validatedFields = EmployeeFormSchema.safeParse({ // Use EmployeeFormSchema for data fields
+    name: formData.get('name'),
+    employeeId: formData.get('employeeId'),
+    company: formData.get('company'),
+    department: formData.get('department'),
+    role: formData.get('role'),
+    email: formData.get('email'),
+    phone: formData.get('phone') || undefined,
+    startDate: formData.get('startDate'),
+    status: formData.get('status'),
+    gender: formData.get('gender'),
+    avatar: formData.get('avatar') || undefined,
+    salary: formData.get('salary') || undefined,
+  });
+
+  if (!employeeDocumentId) {
+    return {
+      message: "Employee document ID is missing.",
+      errors: { _form: ["Employee document ID is required for update."] },
+      success: false,
+    };
+  }
+
+  if (!validatedFields.success) {
+    return {
+      message: "Validation failed. Please check employee data.",
+      errors: validatedFields.error.flatten().fieldErrors,
+      success: false,
+    };
+  }
+
+  const employeeDataToUpdate = validatedFields.data;
+  console.log(`Attempting to update employee (Doc ID: ${employeeDocumentId}) in Firestore with data:`, employeeDataToUpdate);
+
+  try {
+    const employeeDocRef = doc(db, "employees", employeeDocumentId);
+    
+    // Prepare data for Firestore, ensuring correct types and handling optionals
+    const dataForFirestore: Partial<Employee> = {
+      name: employeeDataToUpdate.name,
+      employeeId: employeeDataToUpdate.employeeId,
+      company: employeeDataToUpdate.company,
+      department: employeeDataToUpdate.department,
+      role: employeeDataToUpdate.role,
+      email: employeeDataToUpdate.email,
+      phone: employeeDataToUpdate.phone || '',
+      startDate: employeeDataToUpdate.startDate,
+      status: employeeDataToUpdate.status,
+      gender: employeeDataToUpdate.gender,
+      // Only include avatar and salary if they have a value.
+      // If avatar is an empty string from form and you want to remove it, handle accordingly.
+      // For now, if it's undefined/empty string, it might not be sent or sent as empty.
+      ...(employeeDataToUpdate.avatar && { avatar: employeeDataToUpdate.avatar }),
+      ...(employeeDataToUpdate.salary !== undefined && { salary: employeeDataToUpdate.salary }),
+    };
+
+    await updateDoc(employeeDocRef, dataForFirestore);
+    console.log(`Employee (Doc ID: ${employeeDocumentId}) updated successfully in Firestore.`);
+    
+    revalidatePath('/employees'); 
+
+    return {
+      message: `Employee "${employeeDataToUpdate.name}" (Doc ID: ${employeeDocumentId}) updated successfully.`,
+      success: true,
+      updatedEmployeeId: employeeDocumentId,
+    };
+  } catch (error: any) {
+    console.error(`Error updating employee (Doc ID: ${employeeDocumentId}) in Firestore:`, error);
+    let errorMessage = "An unexpected error occurred while updating the employee.";
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      if ('code' in error && (error as any).code === 'permission-denied') {
+        errorMessage = `Firestore Permission Denied: ${error.message}. Check rules for 'employees' collection.`;
+      }
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    }
+    
+    return {
+      message: `Updating employee (Doc ID: ${employeeDocumentId}) failed: ${errorMessage}`,
       errors: { _form: [errorMessage] },
       success: false,
     };
