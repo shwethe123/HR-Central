@@ -56,12 +56,17 @@ import Papa from "papaparse";
 import { useAuth } from '@/contexts/auth-context'; // Import useAuth
 
 interface DataTableProps<TData extends Employee, TValue> { 
-  columnGenerator: (onViewDetails: (employee: TData) => void, onRefreshData: () => Promise<void> | void) => ColumnDef<TData, TValue>[];
+  columnGenerator: (
+    onViewDetails: (employee: TData) => void, 
+    onRefreshData: () => Promise<void> | void,
+    onEditEmployee: (employee: TData) => void // New prop
+  ) => ColumnDef<TData, TValue>[];
   data: TData[];
   uniqueDepartments: string[];
   uniqueRoles: string[];
   uniqueCompanies: string[];
   onRefreshData: () => Promise<void> | void; // Callback to refresh data
+  onEditEmployee: (employee: TData) => void; // New prop
 }
 
 export function DataTable<TData extends Employee, TValue>({
@@ -71,6 +76,7 @@ export function DataTable<TData extends Employee, TValue>({
   uniqueRoles,
   uniqueCompanies,
   onRefreshData,
+  onEditEmployee, // Destructure new prop
 }: DataTableProps<TData, TValue>) {
   const { isAdmin } = useAuth(); // Get admin status
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -93,9 +99,10 @@ export function DataTable<TData extends Employee, TValue>({
       onRefreshData || (() => { 
         console.warn("DataTable: onRefreshData prop was undefined or not a function. Using a no-op function.");
         return Promise.resolve(); 
-      })
+      }),
+      onEditEmployee // Pass the new prop
     ),
-    [columnGenerator, handleViewDetails, onRefreshData]
+    [columnGenerator, handleViewDetails, onRefreshData, onEditEmployee] // Add onEditEmployee to dependencies
   );
 
   const table = useReactTable({
