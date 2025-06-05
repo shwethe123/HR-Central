@@ -6,24 +6,24 @@ import type { Employee } from "@/types";
 import { getColumns } from "./columns";
 import { DataTable } from "./data-table";
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore'; // Removed limit
+import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-// import { useAuth } from '@/contexts/auth-context'; // For admin check
-
-// const EMPLOYEES_FETCH_LIMIT = 30; // Limit for initial fetch - REMOVED
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'; // Added Dialog components
+import { EditEmployeeForm } from './edit-employee-form'; // Added EditEmployeeForm import
 
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
-  // const { user, isAdmin, loading: authLoading } = useAuth();
+  
+  const [isEditEmployeeDialogOpen, setIsEditEmployeeDialogOpen] = useState(false);
+  const [employeeToEdit, setEmployeeToEdit] = useState<Employee | null>(null);
 
   const fetchEmployees = useCallback(async () => {
     setIsLoading(true);
     try {
       const employeesCollectionRef = collection(db, "employees");
-      // Apply limit to the query - REMOVED LIMIT
       const q = query(employeesCollectionRef, orderBy("name", "asc"));
       const querySnapshot = await getDocs(q);
       const fetchedEmployees: Employee[] = querySnapshot.docs.map(doc => {
@@ -46,16 +46,6 @@ export default function EmployeesPage() {
         } as Employee;
       });
       setEmployees(fetchedEmployees);
-
-      // Removed the toast message about truncated list
-      // if (querySnapshot.docs.length >= EMPLOYEES_FETCH_LIMIT) {
-      //   toast({
-      //     title: "Employee List Truncated",
-      //     description: `Showing the first ${EMPLOYEES_FETCH_LIMIT} employees. Full list view requires pagination or 'load more'.`,
-      //     variant: "default",
-      //   });
-      // }
-
     } catch (error) {
       console.error("Error fetching employees:", error);
       toast({
@@ -84,9 +74,20 @@ export default function EmployeesPage() {
     return [...new Set(employees.map(emp => emp.company).filter(Boolean) as string[])].sort();
   }, [employees]);
 
-  if (isLoading) {
+  const handleEditEmployee = (employee: Employee) => {
+    setEmployeeToEdit(employee);
+    setIsEditEmployeeDialogOpen(true);
+  };
+
+  const handleEditFormSuccess = async (updatedEmployeeId?: string) => {
+    setIsEditEmployeeDialogOpen(false);
+    setEmployeeToEdit(null); 
+    await fetchEmployees(); // Refresh the list
+  };
+
+  if (isLoading && !isEditEmployeeDialogOpen) { // Avoid showing main loader when dialog is open
     return (
-      <div className="container mx-auto py-10 flex justify-center items-center">
+      <div className="container mx-auto py-10 flex justify-center items-center h-[calc(100vh-200px)]">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
         <p className="ml-3 text-muted-foreground">Loading employees...</p>
       </div>
@@ -102,9 +103,32 @@ export default function EmployeesPage() {
         uniqueDepartments={uniqueDepartments} 
         uniqueRoles={uniqueRoles} 
         uniqueCompanies={uniqueCompanies}
-        onRefreshData={fetchEmployees} 
+        onRefreshData={fetchEmployees}
+        onEditEmployee={handleEditEmployee} 
       />
+
+      {employeeToEdit && (
+        <Dialog open={isEditEmployeeDialogOpen} onOpenChange={(isOpen) => {
+            setIsEditEmployeeDialogOpen(isOpen);
+            if (!isOpen) setEmployeeToEdit(null); // Clear employeeToEdit when dialog closes
+        }}>
+          <DialogContent className="sm:max-w-[625px]">
+            <DialogHeader>
+              <DialogTitle>Edit Employee Details</DialogTitle>
+              <DialogDescription>
+                Update the information for {employeeToEdit.name}. Click save when you're done.
+              </DialogDescription>
+            </DialogHeader>
+            <EditEmployeeForm
+              employeeToEdit={employeeToEdit}
+              uniqueDepartments={uniqueDepartments}
+              uniqueRoles={uniqueRoles}
+              uniqueCompanies={uniqueCompanies}
+              onFormSubmissionSuccess={handleEditFormSuccess}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
-    
