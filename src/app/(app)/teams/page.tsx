@@ -2,7 +2,7 @@
 // src/app/(app)/teams/page.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Team, Employee } from "@/types";
 import { Button } from '@/components/ui/button';
 import {
@@ -15,12 +15,13 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { CreateTeamForm } from "./create-team-form";
-import { Users, PlusCircle, Loader2, MoreHorizontal, CalendarDays, Info } from 'lucide-react'; // Added CalendarDays, Info
+import { Users, PlusCircle, Loader2, MoreHorizontal, CalendarDays, Info, Search } from 'lucide-react'; // Added Search
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, Timestamp, limit } from 'firebase/firestore';
 import { format } from 'date-fns';
-import { Badge } from '@/components/ui/badge'; // Added Badge
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input'; // Added Input
 
 const TEAMS_FETCH_LIMIT = 20;
 const EMPLOYEES_FOR_FORM_FETCH_LIMIT = 100;
@@ -49,6 +50,7 @@ export default function TeamsPage() {
   const [isLoadingTeams, setIsLoadingTeams] = useState(true);
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(true);
   const { toast } = useToast();
+  const [searchTerm, setSearchTerm] = useState(''); // State for search term
 
   const fetchTeams = useCallback(async () => {
     setIsLoadingTeams(true);
@@ -120,9 +122,18 @@ export default function TeamsPage() {
   }, [fetchTeams, fetchEmployees]);
 
   const handleFormSubmissionSuccess = () => {
-    fetchTeams(); 
+    fetchTeams();
     setIsFormDialogOpen(false);
   };
+
+  const filteredTeams = useMemo(() => {
+    if (!searchTerm) {
+      return teams;
+    }
+    return teams.filter(team =>
+      team.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [teams, searchTerm]);
 
   const isLoading = isLoadingTeams || isLoadingEmployees;
 
@@ -161,23 +172,42 @@ export default function TeamsPage() {
         </Dialog>
       </div>
 
+      <div className="mb-4">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Search by team name..."
+            className="w-full rounded-lg bg-background pl-8 md:w-[300px]"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+      </div>
+
       {isLoading ? (
         <div className="flex justify-center items-center py-20">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
           <p className="ml-3 text-muted-foreground">Loading teams...</p>
         </div>
-      ) : teams.length === 0 ? (
+      ) : filteredTeams.length === 0 ? (
         <div className="text-center py-10 bg-card shadow-md rounded-lg">
             <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-xl font-semibold text-foreground">No Teams Found</h3>
-            <p className="text-muted-foreground mt-2">Get started by creating a new team.</p>
-            <Button onClick={() => setIsFormDialogOpen(true)} className="mt-4">
+            <h3 className="text-xl font-semibold text-foreground">
+              {teams.length === 0 ? "No Teams Found" : "No Teams Match Your Search"}
+            </h3>
+            <p className="text-muted-foreground mt-2">
+              {teams.length === 0
+                ? "Get started by creating a new team."
+                : "Try a different search term or create a new team."}
+            </p>
+            <Button onClick={() => setIsFormDialogOpen(true)} className="mt-4" disabled={isLoadingEmployees}>
                 <PlusCircle className="mr-2 h-4 w-4" /> Create New Team
             </Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {teams.map((team) => (
+          {filteredTeams.map((team) => (
             <Card key={team.id} className="flex flex-col shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-lg overflow-hidden">
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-2">
