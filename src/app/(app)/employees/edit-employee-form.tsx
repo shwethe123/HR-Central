@@ -349,24 +349,24 @@ export function EditEmployeeForm({
             control={form.control}
             name="startDate"
             render={({ field }) => (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant={"outline"}
-                    id="startDate-edit"
-                    className={cn("w-full justify-start text-left font-normal",!field.value && "text-muted-foreground")}>
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {field.value && isDateValid(field.value) ? format(field.value, "PPP") : <span>Pick a date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
-                </PopoverContent>
-              </Popover>
+              <input
+                type="date"
+                id="startDate-edit"
+                className="w-full border rounded px-3 py-2 text-sm"
+                value={field.value ? format(field.value, 'yyyy-MM-dd') : ''}
+                onChange={(e) =>
+                  field.onChange(e.target.value ? new Date(e.target.value) : null)
+                }
+              />
             )}
           />
-          {form.formState.errors.startDate && <p className="text-sm text-destructive mt-1">{form.formState.errors.startDate.message}</p>}
+          {form.formState.errors.startDate && (
+            <p className="text-sm text-destructive mt-1">
+              {form.formState.errors.startDate.message}
+            </p>
+          )}
         </div>
+
 
         <div>
           <Label htmlFor="status-edit">Status</Label>
