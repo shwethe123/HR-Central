@@ -15,13 +15,14 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { CreateTeamForm } from "./create-team-form";
-import { Users, PlusCircle, Loader2, MoreHorizontal, CalendarDays, Info, Search } from 'lucide-react'; // Added Search
+import { Users, PlusCircle, Loader2, MoreHorizontal, CalendarDays, Info, ListFilter } from 'lucide-react'; // Changed Search to ListFilter
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, Timestamp, limit } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input'; // Added Input
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Added Select components
+import { Label } from '@/components/ui/label'; // Added Label
 
 const TEAMS_FETCH_LIMIT = 20;
 const EMPLOYEES_FOR_FORM_FETCH_LIMIT = 100;
@@ -50,7 +51,7 @@ export default function TeamsPage() {
   const [isLoadingTeams, setIsLoadingTeams] = useState(true);
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(true);
   const { toast } = useToast();
-  const [searchTerm, setSearchTerm] = useState(''); // State for search term
+  const [selectedTeamName, setSelectedTeamName] = useState<string>('all'); // State for selected team name filter
 
   const fetchTeams = useCallback(async () => {
     setIsLoadingTeams(true);
@@ -126,14 +127,16 @@ export default function TeamsPage() {
     setIsFormDialogOpen(false);
   };
 
+  const uniqueTeamNamesForFilter = useMemo(() => {
+    return ['all', ...new Set(teams.map(team => team.name))].sort((a, b) => a === 'all' ? -1 : b === 'all' ? 1 : a.localeCompare(b));
+  }, [teams]);
+
   const filteredTeams = useMemo(() => {
-    if (!searchTerm) {
+    if (selectedTeamName === 'all') {
       return teams;
     }
-    return teams.filter(team =>
-      team.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [teams, searchTerm]);
+    return teams.filter(team => team.name === selectedTeamName);
+  }, [teams, selectedTeamName]);
 
   const isLoading = isLoadingTeams || isLoadingEmployees;
 
@@ -172,18 +175,29 @@ export default function TeamsPage() {
         </Dialog>
       </div>
 
-      <div className="mb-4">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Search by team name..."
-            className="w-full rounded-lg bg-background pl-8 md:w-[300px]"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-      </div>
+      <Card className="shadow-md rounded-lg">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center"><ListFilter className="mr-2 h-5 w-5 text-primary/80"/>Filter by Team Name</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div>
+            <Label htmlFor="filter-team-name" className="text-sm font-medium sr-only">Team Name</Label>
+            <Select value={selectedTeamName} onValueChange={setSelectedTeamName}>
+              <SelectTrigger id="filter-team-name" className="w-full md:w-[300px]">
+                <SelectValue placeholder="Filter by Team Name" />
+              </SelectTrigger>
+              <SelectContent>
+                {uniqueTeamNamesForFilter.map(name => (
+                  <SelectItem key={name} value={name}>
+                    {name === 'all' ? 'All Teams' : name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
 
       {isLoading ? (
         <div className="flex justify-center items-center py-20">
@@ -194,12 +208,12 @@ export default function TeamsPage() {
         <div className="text-center py-10 bg-card shadow-md rounded-lg">
             <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-xl font-semibold text-foreground">
-              {teams.length === 0 ? "No Teams Found" : "No Teams Match Your Search"}
+              {teams.length === 0 ? "No Teams Found" : "No Teams Match Your Filter"}
             </h3>
             <p className="text-muted-foreground mt-2">
               {teams.length === 0
                 ? "Get started by creating a new team."
-                : "Try a different search term or create a new team."}
+                : "Try a different filter selection or create a new team."}
             </p>
             <Button onClick={() => setIsFormDialogOpen(true)} className="mt-4" disabled={isLoadingEmployees}>
                 <PlusCircle className="mr-2 h-4 w-4" /> Create New Team
@@ -260,3 +274,4 @@ export default function TeamsPage() {
     </div>
   );
 }
+
