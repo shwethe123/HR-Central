@@ -15,14 +15,14 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { CreateTeamForm } from "./create-team-form";
-import { Users, PlusCircle, Loader2, MoreHorizontal, CalendarDays, Info, ListFilter } from 'lucide-react'; // Changed Search to ListFilter
+import { Users, PlusCircle, Loader2, MoreHorizontal, CalendarDays, Info, ListFilter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, Timestamp, limit } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Added Select components
-import { Label } from '@/components/ui/label'; // Added Label
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 
 const TEAMS_FETCH_LIMIT = 20;
 const EMPLOYEES_FOR_FORM_FETCH_LIMIT = 100;
@@ -51,7 +51,7 @@ export default function TeamsPage() {
   const [isLoadingTeams, setIsLoadingTeams] = useState(true);
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(true);
   const { toast } = useToast();
-  const [selectedTeamName, setSelectedTeamName] = useState<string>('all'); // State for selected team name filter
+  const [selectedTeamName, setSelectedTeamName] = useState<string>('all');
 
   const fetchTeams = useCallback(async () => {
     setIsLoadingTeams(true);
@@ -228,19 +228,18 @@ export default function TeamsPage() {
                   <CardTitle className="text-xl font-semibold truncate" title={team.name}>
                     {team.name}
                   </CardTitle>
-                  {/* Placeholder for future actions */}
                   <Button variant="ghost" size="icon" className="h-8 w-8" disabled>
                     <MoreHorizontal className="h-4 w-4" />
                     <span className="sr-only">Team Actions</span>
                   </Button>
                 </div>
                 {team.description && (
-                  <CardDescription className="text-sm text-muted-foreground line-clamp-2 pt-1" title={team.description}>
+                  <CardDescription className="text-sm text-muted-foreground italic line-clamp-2 pt-1" title={team.description}>
                     {team.description}
                   </CardDescription>
                 )}
               </CardHeader>
-              <CardContent className="flex-grow space-y-3 pt-0">
+              <CardContent className="flex-grow space-y-3 pt-0 pb-4">
                 <div className="flex items-center text-sm text-muted-foreground">
                   <Users className="mr-2 h-4 w-4 text-primary" />
                   <span>{team.memberIds.length} Member{team.memberIds.length !== 1 ? 's' : ''}</span>
@@ -263,10 +262,7 @@ export default function TeamsPage() {
                   </div>
                 )}
               </CardContent>
-              <CardFooter className="border-t pt-3 pb-3">
-                {/* Placeholder for a "View Details" button or similar */}
-                <Button variant="outline" size="sm" className="w-full" disabled>View Details</Button>
-              </CardFooter>
+              {/* CardFooter with View Details button is removed */}
             </Card>
           ))}
         </div>
