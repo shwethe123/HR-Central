@@ -13,20 +13,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { CreateTeamForm } from "./create-team-form";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Users, PlusCircle, Loader2, MoreHorizontal } from 'lucide-react';
+import { Users, PlusCircle, Loader2, MoreHorizontal, CalendarDays, Info } from 'lucide-react'; // Added CalendarDays, Info
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, Timestamp, limit } from 'firebase/firestore';
 import { format } from 'date-fns';
+import { Badge } from '@/components/ui/badge'; // Added Badge
 
 const TEAMS_FETCH_LIMIT = 20;
 const EMPLOYEES_FOR_FORM_FETCH_LIMIT = 100;
@@ -69,7 +63,7 @@ export default function TeamsPage() {
           name: data.name || "Unnamed Team",
           description: data.description || "",
           memberIds: data.memberIds || [],
-          memberNames: data.memberNames || [], // Assuming memberNames might be stored
+          memberNames: data.memberNames || [],
           createdAt: data.createdAt,
         } as Team;
       });
@@ -130,6 +124,8 @@ export default function TeamsPage() {
     setIsFormDialogOpen(false);
   };
 
+  const isLoading = isLoadingTeams || isLoadingEmployees;
+
   return (
     <div className="container mx-auto py-2 space-y-6">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -165,50 +161,70 @@ export default function TeamsPage() {
         </Dialog>
       </div>
 
-      {isLoadingTeams ? (
+      {isLoading ? (
         <div className="flex justify-center items-center py-20">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
           <p className="ml-3 text-muted-foreground">Loading teams...</p>
         </div>
+      ) : teams.length === 0 ? (
+        <div className="text-center py-10 bg-card shadow-md rounded-lg">
+            <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-xl font-semibold text-foreground">No Teams Found</h3>
+            <p className="text-muted-foreground mt-2">Get started by creating a new team.</p>
+            <Button onClick={() => setIsFormDialogOpen(true)} className="mt-4">
+                <PlusCircle className="mr-2 h-4 w-4" /> Create New Team
+            </Button>
+        </div>
       ) : (
-        <div className="rounded-md border shadow-lg bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[250px]">Team Name</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead className="text-center">Members</TableHead>
-                <TableHead>Created At</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {teams.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                    No teams found. Start by creating a new team.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                teams.map((team) => (
-                  <TableRow key={team.id}>
-                    <TableCell className="font-medium truncate" title={team.name}>{team.name}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground truncate max-w-xs" title={team.description}>
-                      {team.description || "N/A"}
-                    </TableCell>
-                    <TableCell className="text-center">{team.memberIds.length}</TableCell>
-                    <TableCell>{formatDateFromTimestamp(team.createdAt)}</TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" disabled> {/* Placeholder for future actions */}
-                        <MoreHorizontal className="h-4 w-4" />
-                        <span className="sr-only">Team Actions</span>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {teams.map((team) => (
+            <Card key={team.id} className="flex flex-col shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-lg overflow-hidden">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between gap-2">
+                  <CardTitle className="text-xl font-semibold truncate" title={team.name}>
+                    {team.name}
+                  </CardTitle>
+                  {/* Placeholder for future actions */}
+                  <Button variant="ghost" size="icon" className="h-8 w-8" disabled>
+                    <MoreHorizontal className="h-4 w-4" />
+                    <span className="sr-only">Team Actions</span>
+                  </Button>
+                </div>
+                {team.description && (
+                  <CardDescription className="text-sm text-muted-foreground line-clamp-2 pt-1" title={team.description}>
+                    {team.description}
+                  </CardDescription>
+                )}
+              </CardHeader>
+              <CardContent className="flex-grow space-y-3 pt-0">
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <Users className="mr-2 h-4 w-4 text-primary" />
+                  <span>{team.memberIds.length} Member{team.memberIds.length !== 1 ? 's' : ''}</span>
+                </div>
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <CalendarDays className="mr-2 h-4 w-4 text-primary" />
+                  <span>Created: {formatDateFromTimestamp(team.createdAt)}</span>
+                </div>
+                {team.memberNames && team.memberNames.length > 0 && (
+                  <div className="pt-2">
+                    <h4 className="text-xs font-medium text-muted-foreground mb-1.5">Members:</h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      {team.memberNames.slice(0, 5).map((name, index) => (
+                        <Badge key={index} variant="secondary" className="font-normal">{name}</Badge>
+                      ))}
+                      {team.memberNames.length > 5 && (
+                        <Badge variant="outline" className="font-normal">+{team.memberNames.length - 5} more</Badge>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+              <CardFooter className="border-t pt-3 pb-3">
+                {/* Placeholder for a "View Details" button or similar */}
+                <Button variant="outline" size="sm" className="w-full" disabled>View Details</Button>
+              </CardFooter>
+            </Card>
+          ))}
         </div>
       )}
     </div>
