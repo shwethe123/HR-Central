@@ -14,18 +14,22 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { CreateTeamForm } from "./create-team-form";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Users, PlusCircle, Loader2, User, Edit, Trash2 } from 'lucide-react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Users, PlusCircle, Loader2, MoreHorizontal } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, orderBy, Timestamp, doc, getDoc, limit } from 'firebase/firestore'; // Added limit
+import { collection, getDocs, query, orderBy, Timestamp, limit } from 'firebase/firestore';
 import { format } from 'date-fns';
 
-const TEAMS_FETCH_LIMIT = 20; // Limit for initial fetch
-const EMPLOYEES_FOR_FORM_FETCH_LIMIT = 100; // Limit for employees in the form dropdown
-
+const TEAMS_FETCH_LIMIT = 20;
+const EMPLOYEES_FOR_FORM_FETCH_LIMIT = 100;
 
 const formatDateFromTimestamp = (timestamp: Timestamp | string | undefined): string => {
   if (!timestamp) return 'N/A';
@@ -56,7 +60,6 @@ export default function TeamsPage() {
     setIsLoadingTeams(true);
     try {
       const teamsCollectionRef = collection(db, "teams");
-      // Apply limit to the query
       const q = query(teamsCollectionRef, orderBy("createdAt", "desc"), limit(TEAMS_FETCH_LIMIT));
       const querySnapshot = await getDocs(q);
       const fetchedTeams: Team[] = querySnapshot.docs.map(doc => {
@@ -66,7 +69,7 @@ export default function TeamsPage() {
           name: data.name || "Unnamed Team",
           description: data.description || "",
           memberIds: data.memberIds || [],
-          memberNames: data.memberNames || [],
+          memberNames: data.memberNames || [], // Assuming memberNames might be stored
           createdAt: data.createdAt,
         } as Team;
       });
@@ -74,7 +77,7 @@ export default function TeamsPage() {
       if (querySnapshot.docs.length >= TEAMS_FETCH_LIMIT) {
         toast({
           title: "Team List Truncated",
-          description: `Showing the first ${TEAMS_FETCH_LIMIT} teams. Full list view requires pagination or 'load more'.`,
+          description: `Showing the first ${TEAMS_FETCH_LIMIT} teams.`,
           variant: "default",
         });
       }
@@ -94,7 +97,6 @@ export default function TeamsPage() {
     setIsLoadingEmployees(true);
     try {
       const employeesCollectionRef = collection(db, "employees");
-      // Limit employees fetched for the form dropdown
       const q = query(employeesCollectionRef, orderBy("name", "asc"), limit(EMPLOYEES_FOR_FORM_FETCH_LIMIT));
       const querySnapshot = await getDocs(q);
       const fetchedEmployees: Employee[] = querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Employee));
@@ -127,8 +129,6 @@ export default function TeamsPage() {
     fetchTeams(); 
     setIsFormDialogOpen(false);
   };
-
-  const isLoading = isLoadingTeams || isLoadingEmployees;
 
   return (
     <div className="container mx-auto py-2 space-y-6">
@@ -170,86 +170,47 @@ export default function TeamsPage() {
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
           <p className="ml-3 text-muted-foreground">Loading teams...</p>
         </div>
-      ) : teams.length === 0 ? (
-        <Card className="text-center py-10">
-          <CardHeader>
-            <CardTitle className="text-2xl">No Teams Found</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground mb-4">
-              Get started by creating your first team.
-            </p>
-            <Button onClick={() => setIsFormDialogOpen(true)} disabled={isLoadingEmployees}>
-              <PlusCircle className="mr-2 h-4 w-4" /> Create New Team
-            </Button>
-          </CardContent>
-        </Card>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {teams.map((team) => (
-            <Card key={team.id} className="shadow-lg rounded-lg flex flex-col">
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span className="truncate" title={team.name}>{team.name}</span>
-                  {/* Placeholder for team actions */}
-                  {/* 
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
+        <div className="rounded-md border shadow-lg bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[250px]">Team Name</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead className="text-center">Members</TableHead>
+                <TableHead>Created At</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {teams.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                    No teams found. Start by creating a new team.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                teams.map((team) => (
+                  <TableRow key={team.id}>
+                    <TableCell className="font-medium truncate" title={team.name}>{team.name}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground truncate max-w-xs" title={team.description}>
+                      {team.description || "N/A"}
+                    </TableCell>
+                    <TableCell className="text-center">{team.memberIds.length}</TableCell>
+                    <TableCell>{formatDateFromTimestamp(team.createdAt)}</TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" disabled> {/* Placeholder for future actions */}
                         <MoreHorizontal className="h-4 w-4" />
+                        <span className="sr-only">Team Actions</span>
                       </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem><Edit className="mr-2 h-4 w-4" /> Edit Team</DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive focus:text-destructive">
-                        <Trash2 className="mr-2 h-4 w-4" /> Delete Team
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu> 
-                  */}
-                </CardTitle>
-                <CardDescription className="h-10 overflow-y-auto text-sm">
-                  {team.description || "No description provided."}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex-grow">
-                <h4 className="font-semibold mb-2 text-sm text-muted-foreground">
-                  Members ({team.memberIds.length})
-                </h4>
-                {team.memberIds.length > 0 ? (
-                   <ScrollArea className="h-32">
-                    <ul className="space-y-1.5">
-                      {(team.memberNames && team.memberNames.length === team.memberIds.length ? team.memberNames : team.memberIds).map((item, index) => {
-                        const memberName = team.memberNames && team.memberNames[index] ? team.memberNames[index] : `ID: ${item}`;
-                        const employeeDetails = employees.find(emp => emp.id === team.memberIds[index]);
-                        return (
-                          <li key={team.memberIds[index]} className="flex items-center gap-2 text-sm">
-                            <Avatar className="h-6 w-6">
-                              <AvatarImage src={employeeDetails?.avatar || undefined} alt={employeeDetails?.name} data-ai-hint="person avatar"/>
-                              <AvatarFallback className="text-xs">
-                                {employeeDetails ? employeeDetails.name.substring(0,1).toUpperCase() : 'U'}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className="truncate" title={memberName}>{memberName}</span>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </ScrollArea>
-                ) : (
-                  <p className="text-sm text-muted-foreground italic">No members in this team yet.</p>
-                )}
-              </CardContent>
-              <CardFooter className="text-xs text-muted-foreground border-t pt-3">
-                Created: {formatDateFromTimestamp(team.createdAt)}
-              </CardFooter>
-            </Card>
-          ))}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>
   );
 }
-
-
-    
