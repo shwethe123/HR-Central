@@ -2,12 +2,11 @@
 'use client';
 
 import { useEffect, useActionState, startTransition } from 'react';
-import { useFormStatus } from 'react-dom';
+// useFormStatus is no longer needed if we use isPending from useActionState
+// import { useFormStatus } from 'react-dom'; 
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-// format from date-fns is no longer needed for date inputs here, but might be used elsewhere if not removed.
-// For now, let's keep it in case of other uses, or remove if truly unused.
 
 import { submitLeaveRequest, type SubmitLeaveRequestFormState } from './actions';
 import { Button } from '@/components/ui/button';
@@ -22,8 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react'; // CalendarIcon removed
-// Popover, PopoverContent, PopoverTrigger, Calendar removed
+import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Employee } from '@/types';
 
@@ -38,7 +36,7 @@ const ClientLeaveRequestSchema = z.object({
     if (data.startDate && data.endDate && !isNaN(Date.parse(data.startDate)) && !isNaN(Date.parse(data.endDate))) {
         return new Date(data.endDate) >= new Date(data.startDate);
     }
-    return true; // Let individual field validation handle empty/invalid dates before this check
+    return true; 
 }, {
   message: "End date cannot be before start date.",
   path: ["endDate"],
@@ -47,33 +45,41 @@ const ClientLeaveRequestSchema = z.object({
 type LeaveRequestFormData = z.infer<typeof ClientLeaveRequestSchema>;
 
 interface LeaveRequestFormProps {
-  employees: Employee[]; // To populate the employee select dropdown
+  employees: Employee[];
   onFormSubmissionSuccess?: (newRequestId?: string) => void;
   className?: string;
 }
 
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending} className="w-full sm:w-auto">
-      {pending && (
+function SubmitButton({ isSubmitting }: { isSubmitting: boolean }) {
+  const pending = isSubmitting; // Use the passed prop
+
+  if (pending) {
+    return (
+      <Button type="submit" disabled={true} className="w-full sm:w-auto">
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-      )}
-      <span>{pending ? "Submitting..." : "Submit Request"}</span>
+        Submitting...
+      </Button>
+    );
+  }
+
+  return (
+    <Button type="submit" disabled={false} className="w-full sm:w-auto">
+      Submit Request
     </Button>
   );
 }
 
 export function LeaveRequestForm({ employees, onFormSubmissionSuccess, className }: LeaveRequestFormProps) {
   const { toast } = useToast();
-  const [state, formAction] = useActionState(submitLeaveRequest, { message: null, errors: {}, success: false });
+  // useActionState returns [state, formAction, isPending]
+  const [state, formAction, isActionPending] = useActionState(submitLeaveRequest, { message: null, errors: {}, success: false });
 
   const form = useForm<LeaveRequestFormData>({
     resolver: zodResolver(ClientLeaveRequestSchema),
     defaultValues: {
       employeeId: '',
-      startDate: '', // Changed from undefined to empty string for input type="date"
-      endDate: '',   // Changed from undefined to empty string
+      startDate: '', 
+      endDate: '',   
       reason: '',
     },
   });
@@ -102,7 +108,6 @@ export function LeaveRequestForm({ employees, onFormSubmissionSuccess, className
     formData.append('employeeId', data.employeeId);
     const selectedEmployee = employees.find(emp => emp.id === data.employeeId);
     formData.append('employeeName', selectedEmployee?.name || 'Unknown Employee');
-    // Dates are now already strings in YYYY-MM-DD format from input type="date"
     formData.append('startDate', data.startDate);
     formData.append('endDate', data.endDate);
     formData.append('reason', data.reason);
@@ -145,8 +150,8 @@ export function LeaveRequestForm({ employees, onFormSubmissionSuccess, className
                 type="date"
                 id="startDate-leave"
                 {...field}
-                value={field.value || ''} // Ensure value is a string, default to empty
-                className="block w-full" // Added block and w-full for consistent styling
+                value={field.value || ''} 
+                className="block w-full"
               />
             )}
           />
@@ -163,8 +168,8 @@ export function LeaveRequestForm({ employees, onFormSubmissionSuccess, className
                 type="date"
                 id="endDate-leave"
                 {...field}
-                value={field.value || ''} // Ensure value is a string, default to empty
-                className="block w-full" // Added block and w-full
+                value={field.value || ''} 
+                className="block w-full"
               />
             )}
           />
@@ -187,7 +192,7 @@ export function LeaveRequestForm({ employees, onFormSubmissionSuccess, className
       {state?.errors?._form && <p className="text-sm font-medium text-destructive mt-2">{state.errors._form.join(', ')}</p>}
 
       <div className="flex justify-end pt-2">
-        <SubmitButton />
+        <SubmitButton isSubmitting={isActionPending} />
       </div>
     </form>
   );
