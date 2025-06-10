@@ -48,7 +48,7 @@ type LeaveRequestFormData = z.infer<typeof ClientLeaveRequestSchema>;
 
 interface LeaveRequestFormProps {
   employees: Employee[]; // To populate the employee select dropdown
-  onFormSubmissionSuccess?: (newRequestId?: string) => void; 
+  onFormSubmissionSuccess?: (newRequestId?: string) => void;
   className?: string;
 }
 
@@ -56,14 +56,10 @@ function SubmitButton() {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" disabled={pending} className="w-full sm:w-auto">
-      {pending ? (
-        <>
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          <span>Submitting...</span>
-        </>
-      ) : (
-        <span>Submit Request</span>
+      {pending && (
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
       )}
+      <span>{pending ? "Submitting..." : "Submit Request"}</span>
     </Button>
   );
 }
@@ -88,9 +84,9 @@ export function LeaveRequestForm({ employees, onFormSubmissionSuccess, className
         title: "Success",
         description: state.message,
       });
-      form.reset(); 
+      form.reset();
       if (onFormSubmissionSuccess) {
-        onFormSubmissionSuccess(state.newLeaveRequestId); 
+        onFormSubmissionSuccess(state.newLeaveRequestId);
       }
     } else if (!state?.success && state?.message && (state.errors || state.message.includes("failed:"))) {
        toast({
@@ -100,7 +96,7 @@ export function LeaveRequestForm({ employees, onFormSubmissionSuccess, className
       });
     }
   }, [state, toast, form, onFormSubmissionSuccess]);
-  
+
   const onSubmit = (data: LeaveRequestFormData) => {
     const formData = new FormData();
     formData.append('employeeId', data.employeeId);
@@ -110,7 +106,7 @@ export function LeaveRequestForm({ employees, onFormSubmissionSuccess, className
     formData.append('startDate', data.startDate);
     formData.append('endDate', data.endDate);
     formData.append('reason', data.reason);
-    
+
     startTransition(() => {
       formAction(formData);
     });
@@ -176,7 +172,7 @@ export function LeaveRequestForm({ employees, onFormSubmissionSuccess, className
           {state?.errors?.endDate && <p className="text-sm text-destructive mt-1">{state.errors.endDate.join(', ')}</p>}
         </div>
       </div>
-      
+
       <div>
         <Label htmlFor="reason-leave">Reason for Leave</Label>
         <Textarea
@@ -187,7 +183,7 @@ export function LeaveRequestForm({ employees, onFormSubmissionSuccess, className
         {form.formState.errors.reason && <p className="text-sm text-destructive mt-1">{form.formState.errors.reason.message}</p>}
         {state?.errors?.reason && <p className="text-sm text-destructive mt-1">{state.errors.reason.join(', ')}</p>}
       </div>
-      
+
       {state?.errors?._form && <p className="text-sm font-medium text-destructive mt-2">{state.errors._form.join(', ')}</p>}
 
       <div className="flex justify-end pt-2">
@@ -196,4 +192,3 @@ export function LeaveRequestForm({ employees, onFormSubmissionSuccess, className
     </form>
   );
 }
-
