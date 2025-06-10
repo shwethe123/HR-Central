@@ -56,8 +56,14 @@ function SubmitButton() {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" disabled={pending} className="w-full sm:w-auto">
-      {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-      Submit Request
+      {pending ? (
+        <>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          <span>Submitting...</span>
+        </>
+      ) : (
+        <span>Submit Request</span>
+      )}
     </Button>
   );
 }
@@ -190,3 +196,4 @@ export function LeaveRequestForm({ employees, onFormSubmissionSuccess, className
     </form>
   );
 }
+
