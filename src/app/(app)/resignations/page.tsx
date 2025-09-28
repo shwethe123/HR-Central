@@ -18,7 +18,7 @@ import { UserMinus, PlusCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, Timestamp, limit } from 'firebase/firestore';
-import { format } from 'date-fns';
+import { format, differenceInDays, isValid } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 
 const RESIGNATIONS_FETCH_LIMIT = 50;
@@ -40,7 +40,7 @@ const eligibilityVariant = (eligibility: Resignation['rehireEligibility']) => {
     case 'Eligible': return 'default';
     case 'Ineligible': return 'destructive';
     case 'Conditional': return 'secondary';
-    default: return 'outline';
+    default: 'outline';
   }
 };
 
@@ -137,22 +137,35 @@ export default function ResignationsPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {resignations.map(res => (
-                <div key={res.id} className="border rounded-lg p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-muted/50">
-                  <div className="space-y-1">
-                    <p className="font-semibold text-lg">{res.employeeName}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Notice Date: {formatDate(res.noticeDate)} | Resignation Date: {formatDate(res.resignationDate)}
-                    </p>
-                     {res.reason && <p className="text-sm italic text-muted-foreground">Reason: "{res.reason}"</p>}
+              {resignations.map(res => {
+                const noticeDate = new Date(res.noticeDate);
+                const resignationDate = new Date(res.resignationDate);
+                let noticeDays: number | null = null;
+                if (isValid(noticeDate) && isValid(resignationDate)) {
+                  noticeDays = differenceInDays(resignationDate, noticeDate);
+                }
+
+                return (
+                  <div key={res.id} className="border rounded-lg p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-muted/50">
+                    <div className="space-y-1">
+                      <p className="font-semibold text-lg">{res.employeeName}</p>
+                      <div className="text-sm text-muted-foreground flex items-center flex-wrap gap-x-3 gap-y-1">
+                        <span>Notice: {formatDate(res.noticeDate)}</span>
+                        <span>Last Day: {formatDate(res.resignationDate)}</span>
+                        {noticeDays !== null && noticeDays >= 0 && (
+                          <span className="font-medium text-primary">({noticeDays} days notice)</span>
+                        )}
+                      </div>
+                      {res.reason && <p className="text-sm italic text-muted-foreground">Reason: "{res.reason}"</p>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={eligibilityVariant(res.rehireEligibility)}>
+                        {res.rehireEligibility} for Re-hire
+                      </Badge>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={eligibilityVariant(res.rehireEligibility)}>
-                      {res.rehireEligibility} for Re-hire
-                    </Badge>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
