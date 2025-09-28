@@ -31,6 +31,10 @@ interface DepartmentInfo {
   employeeSamples: string[];
 }
 
+interface PivotRow {
+  [departmentName: string]: string | undefined;
+}
+
 export default function CompanyDepartmentsPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedCompany, setSelectedCompany] = useState<string | undefined>(undefined);
@@ -63,6 +67,12 @@ export default function CompanyDepartmentsPage() {
           } as Employee;
         });
         setEmployees(fetchedEmployees);
+        if (fetchedEmployees.length > 0 && !selectedCompany) {
+            const companies = [...new Set(fetchedEmployees.map(emp => emp.company).filter(Boolean) as string[])].sort();
+            if (companies.length > 0) {
+              setSelectedCompany(companies[0]);
+            }
+        }
       } catch (error) {
         console.error("Error fetching employees for Company Depts page:", error);
         toast({
@@ -82,92 +92,90 @@ export default function CompanyDepartmentsPage() {
     return [...new Set(employees.map(emp => emp.company).filter(Boolean) as string[])].sort();
   }, [employees]);
 
-  const departmentsInSelectedCompany = useMemo((): DepartmentInfo[] => {
-    if (!selectedCompany || employees.length === 0) return [];
-    const companyEmployees = employees.filter(emp => emp.company === selectedCompany);
-    const departmentMap: Record<string, { count: number; samples: string[] }> = {};
 
+  const companySpecificEmployeePivotTable = useMemo(() => {
+    if (!selectedCompany || employees.length === 0) return null;
+
+    const companyEmployees = employees.filter(emp => emp.company === selectedCompany);
+    if (companyEmployees.length === 0) {
+        return (
+             <Card className="shadow-lg rounded-lg overflow-hidden mt-6">
+                <CardHeader>
+                    <CardTitle className="flex items-center">
+                    Employees in {selectedCompany}
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-muted-foreground py-4 px-4">No employees found for {selectedCompany}.</p>
+                </CardContent>
+            </Card>
+        )
+    };
+
+    const employeesByDept: Record<string, Employee[]> = {};
     companyEmployees.forEach(emp => {
-      const deptName = emp.department || "Unknown Department";
-      if (!departmentMap[deptName]) {
-        departmentMap[deptName] = { count: 0, samples: [] };
+      const dept = emp.department || 'Unknown Department';
+      if (!employeesByDept[dept]) {
+        employeesByDept[dept] = [];
       }
-      departmentMap[deptName].count++;
-      if (departmentMap[deptName].samples.length < 2) { 
-        departmentMap[deptName].samples.push(emp.name);
-      }
+      employeesByDept[dept].push(emp);
     });
 
-    return Object.entries(departmentMap)
-      .map(([name, data]) => ({ 
-        name, 
-        employeeCount: data.count,
-        employeeSamples: data.samples,
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [employees, selectedCompany]);
-
-  const companySpecificEmployeePivotTables = useMemo(() => {
-    if (employees.length === 0) return null;
-
-    return uniqueCompanies.map(companyName => {
-      const companyEmployees = employees
-        .filter(emp => emp.company === companyName)
-        .sort((a, b) => {
-          const deptComparison = (a.department || "Unknown").localeCompare(b.department || "Unknown");
-          if (deptComparison !== 0) {
-            return deptComparison;
-          }
-          return (a.name || "Unknown").localeCompare(b.name || "Unknown");
+    const allDepartments = Object.keys(employeesByDept).sort();
+    const maxRows = Math.max(0, ...Object.values(employeesByDept).map(arr => arr.length));
+    
+    const pivotData: PivotRow[] = [];
+    for (let i = 0; i < maxRows; i++) {
+        const row: PivotRow = {};
+        allDepartments.forEach(dept => {
+            row[dept] = employeesByDept[dept][i]?.name || '';
         });
-      if (companyEmployees.length === 0) return null;
+        pivotData.push(row);
+    }
 
-      const companyDepartments = [...new Set(companyEmployees.map(emp => emp.department || "Unknown Department"))].sort();
-      
-      return (
-        <Card key={companyName} className="shadow-lg rounded-lg overflow-hidden mt-6">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              Employees in {companyName}
-            </CardTitle>
-            <CardDescription>
-              Departments are listed as columns. Employee names appear under their respective department if they belong to it.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {companyDepartments.length > 0 ? (
-              <div className="rounded-md border overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead className="w-[50px] px-4 font-semibold sticky left-0 bg-muted/50 border-r z-10">#</TableHead>
-                      {companyDepartments.map(dept => (
-                        <TableHead key={dept} className="font-semibold min-w-[200px] px-4 text-left">{dept}</TableHead>
+    return (
+      <Card key={selectedCompany} className="shadow-lg rounded-lg overflow-hidden mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            Employees in {selectedCompany}
+          </CardTitle>
+          <CardDescription>
+            Employee names are listed under their respective department.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {allDepartments.length > 0 ? (
+            <div className="rounded-md border overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="w-[50px] px-4 font-semibold sticky left-0 bg-muted/50 z-10 border-r">#</TableHead>
+                    {allDepartments.map(dept => (
+                      <TableHead key={dept} className="font-semibold min-w-[200px] px-4 text-left">{dept}</TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pivotData.map((row, index) => (
+                    <TableRow key={index} className="hover:bg-muted/50">
+                      <TableCell className="font-medium py-3 px-4 sticky left-0 bg-card z-0 border-r">{index + 1}</TableCell>
+                      {allDepartments.map(dept => (
+                        <TableCell key={`${dept}-${index}`} className="py-3 px-4 min-w-[200px]">
+                          {row[dept]}
+                        </TableCell>
                       ))}
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {companyEmployees.map((employee, index) => (
-                      <TableRow key={employee.id} className="hover:bg-muted/50">
-                        <TableCell className="font-medium py-3 px-4 sticky left-0 bg-card border-r z-0">{index + 1}</TableCell>
-                        {companyDepartments.map(dept => (
-                          <TableCell key={`${employee.id}-${dept}`} className="py-3 px-4 min-w-[200px]">
-                            {(employee.department || "Unknown Department") === dept ? employee.name : ''}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            ) : (
-              <p className="text-muted-foreground py-4 px-4">No departments with employees found for {companyName}.</p>
-            )}
-          </CardContent>
-        </Card>
-      );
-    }).filter(Boolean);
-  }, [employees, uniqueCompanies]);
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <p className="text-muted-foreground py-4 px-4">No departments with employees found for {selectedCompany}.</p>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }, [employees, selectedCompany]);
 
   if (isLoading) {
     return (
@@ -193,14 +201,14 @@ export default function CompanyDepartmentsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-semibold flex items-center">
           <Building2 className="mr-3 h-8 w-8 text-primary" />
-          Company Departments & Employees
+          Company Departments &amp; Employees
         </h1>
       </div>
 
       <Card className="shadow-lg rounded-lg overflow-hidden">
         <CardHeader>
           <CardTitle>Filter by Company</CardTitle>
-          <CardDescription>Choose a company to view its departments, employee counts, and employee list.</CardDescription>
+          <CardDescription>Choose a company to view its employee pivot table.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
@@ -224,118 +232,9 @@ export default function CompanyDepartmentsPage() {
           </div>
         </CardContent>
       </Card>
-
-      {selectedCompany && (
-        <>
-          <Card className="shadow-lg rounded-lg overflow-hidden">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Building2 className="mr-2 h-6 w-6 text-primary" />
-                Departments in {selectedCompany}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {departmentsInSelectedCompany.length > 0 ? (
-                <div className="rounded-md border overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-muted/50">
-                        <TableHead className="w-[60%] px-4 font-semibold text-left">Department Name</TableHead>
-                        <TableHead className="px-4 text-left font-semibold">Employees ({employees.filter(e => e.company === selectedCompany).length} total)</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {departmentsInSelectedCompany.map(dept => (
-                        <TableRow key={dept.name} className="hover:bg-muted/50">
-                          <TableCell className="font-medium py-3 px-4">{dept.name}</TableCell>
-                          <TableCell className="py-3 px-4">
-                            {dept.employeeSamples.join(", ")}
-                            {dept.employeeCount > dept.employeeSamples.length && (
-                              <span>
-                                {dept.employeeSamples.length > 0 ? ", " : ""}
-                                (+{dept.employeeCount - dept.employeeSamples.length} more)
-                              </span>
-                            )}
-                             {dept.employeeCount === 0 && <span>No employees</span>}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              ) : (
-                <p className="text-muted-foreground py-4 px-4">No departments found for {selectedCompany}, or no employees currently in this company.</p>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-lg rounded-lg overflow-hidden">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Users className="mr-2 h-6 w-6 text-primary" />
-                Employees in {selectedCompany}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {departmentsInSelectedCompany.filter(d => d.employeeCount > 0).length > 0 ? (
-                departmentsInSelectedCompany.map(dept => {
-                  if (dept.employeeCount === 0) return null;
-
-                  const deptEmployees = employees
-                    .filter(emp => emp.company === selectedCompany && (emp.department || "Unknown Department") === dept.name)
-                    .sort((a, b) => (a.name || "Unknown").localeCompare(b.name || "Unknown"));
-
-                  if (deptEmployees.length === 0) return null; 
-
-                  return (
-                    <div key={dept.name} className="mb-8 last:mb-0">
-                      <h3 className="text-xl font-semibold mb-3 border-b pb-2 text-foreground/90">{dept.name} ({dept.employeeCount})</h3>
-                      <div className="rounded-md border overflow-x-auto bg-card">
-                        <Table>
-                          <TableHeader>
-                            <TableRow className="bg-muted/50">
-                              <TableHead className="w-[50px] px-4 font-semibold text-left">#</TableHead>
-                              <TableHead className="px-4 font-semibold text-left">Name</TableHead>
-                              <TableHead className="px-4 font-semibold text-left">Role</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {deptEmployees.map((emp, empIndex) => (
-                              <TableRow key={emp.id} className="hover:bg-muted/50">
-                                <TableCell className="font-medium py-3 px-4">{empIndex + 1}</TableCell>
-                                <TableCell className="font-medium py-3 px-4">{emp.name}</TableCell>
-                                <TableCell className="py-3 px-4">{emp.role}</TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <p className="text-muted-foreground py-4 px-4">No employees found in any department for {selectedCompany}.</p>
-              )}
-            </CardContent>
-          </Card>
-        </>
-      )}
-
-       {!selectedCompany && employees.length > 0 && (
-        <Card className="shadow-lg rounded-lg overflow-hidden">
-          <CardHeader>
-            <CardTitle>Overview</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground px-4">Please select a company from the dropdown above to view its department summary and employee list.</p>
-          </CardContent>
-        </Card>
-      )}
       
-      {employees.length > 0 && companySpecificEmployeePivotTables}
+      {companySpecificEmployeePivotTable}
       
     </div>
   );
 }
-
-    
