@@ -280,6 +280,31 @@ export default function DashboardPage() {
       };
     }).sort((a,b) => a.employeeName.localeCompare(b.employeeName));
   }, [leaveRequests, employees, isLoadingLeaveRequests, isLoadingEmployees]);
+  
+  const absencesByCompanyAndDept = useMemo(() => {
+    if (isLoadingLeaveRequests || isLoadingEmployees) return {};
+
+    type GroupedAbsences = {
+        [company: string]: {
+            [department: string]: typeof employeesOnLeaveToday;
+        };
+    };
+
+    return employeesOnLeaveToday.reduce<GroupedAbsences>((acc, req) => {
+        const company = req.employeeCompany || 'Unknown Company';
+        const department = req.employeeDepartment || 'Unknown Department';
+
+        if (!acc[company]) {
+            acc[company] = {};
+        }
+        if (!acc[company][department]) {
+            acc[company][department] = [];
+        }
+        acc[company][department].push(req);
+        
+        return acc;
+    }, {});
+}, [employeesOnLeaveToday, isLoadingLeaveRequests, isLoadingEmployees]);
 
 
   useEffect(() => {
@@ -830,7 +855,7 @@ export default function DashboardPage() {
         </Card>
 
       </div>
-      <Card className="shadow-md hover:shadow-lg transition-shadow lg:col-span-1 xl:col-span-full">
+       <Card className="shadow-md hover:shadow-lg transition-shadow lg:col-span-1 xl:col-span-full">
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><UserX className="h-5 w-5 text-primary" />Today's Absences & Leaves</CardTitle>
           <CardDescription>Employees with approved leave for today.</CardDescription>
@@ -842,34 +867,47 @@ export default function DashboardPage() {
               <p className="ml-2 text-muted-foreground">Loading leave data...</p>
             </div>
           ) : employeesOnLeaveToday.length === 0 ? (
-            <div className="h-[200px] w-full flex flex-col items-center justify-center text-muted-foreground">
+            <div className="h-auto w-full flex flex-col items-center justify-center text-muted-foreground py-10">
               <UserX className="h-10 w-10 mb-2"/>
               <p>No one is on leave today.</p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {employeesOnLeaveToday.map(req => (
-                <div key={req.id} className="flex flex-col p-3 rounded-md border bg-card hover:bg-muted/50">
-                  <div className="flex items-start justify-between">
-                      <div>
-                          <p className="font-semibold text-sm">{req.employeeName}</p>
-                          <p className="text-xs text-muted-foreground">{req.employeeDepartment} / {req.employeeCompany}</p>
-                      </div>
-                      <Badge variant="outline" className="text-xs whitespace-nowrap capitalize">{req.leaveType}</Badge>
-                  </div>
-                  <div className="border-t my-2"></div>
-                  <div className="space-y-1.5 text-xs">
-                      <div className="flex items-center text-muted-foreground">
-                          <Calendar className="mr-2 h-3.5 w-3.5" />
-                          <span>
-                              {formatDateFn(parseISO(req.startDate), 'MMM d')} - {formatDateFn(parseISO(req.endDate), 'MMM d')}
-                              <span className="text-primary ml-1.5 font-medium">({req.leaveDuration} day{req.leaveDuration > 1 ? 's' : ''})</span>
-                          </span>
-                      </div>
-                       <div className="flex items-start text-muted-foreground">
-                          <Info className="mr-2 h-3.5 w-3.5 mt-0.5 shrink-0" />
-                          <p className="whitespace-pre-wrap">{req.reason}</p>
-                      </div>
+            <div className="space-y-6">
+              {Object.entries(absencesByCompanyAndDept).map(([company, depts]) => (
+                <div key={company}>
+                  <h3 className="font-semibold text-md text-foreground mb-2">{company}</h3>
+                  <div className="space-y-4 pl-4 border-l-2 border-primary/20">
+                     {Object.entries(depts).map(([department, requests]) => (
+                       <div key={department}>
+                          <h4 className="font-medium text-sm text-muted-foreground mb-2">{department}</h4>
+                           <div className="space-y-4">
+                            {requests.map(req => (
+                                <div key={req.id} className="flex flex-col p-3 rounded-md border bg-card hover:bg-muted/50">
+                                <div className="flex items-start justify-between">
+                                    <div>
+                                        <p className="font-semibold text-sm">{req.employeeName}</p>
+                                    </div>
+                                    <Badge variant="outline" className="text-xs whitespace-nowrap capitalize">{req.leaveType}</Badge>
+                                </div>
+                                <div className="border-t my-2"></div>
+                                <div className="space-y-1.5 text-xs">
+                                    <div className="flex items-center text-muted-foreground">
+                                        <Calendar className="mr-2 h-3.5 w-3.5" />
+                                        <span>
+                                            {formatDateFn(parseISO(req.startDate), 'MMM d')} - {formatDateFn(parseISO(req.endDate), 'MMM d')}
+                                            <span className="text-primary ml-1.5 font-medium">({req.leaveDuration} day{req.leaveDuration > 1 ? 's' : ''})</span>
+                                        </span>
+                                    </div>
+                                    <div className="flex items-start text-muted-foreground">
+                                        <Info className="mr-2 h-3.5 w-3.5 mt-0.5 shrink-0" />
+                                        <p className="whitespace-pre-wrap">{req.reason}</p>
+                                    </div>
+                                </div>
+                                </div>
+                            ))}
+                          </div>
+                       </div>
+                     ))}
                   </div>
                 </div>
               ))}
@@ -877,11 +915,8 @@ export default function DashboardPage() {
           )}
         </CardContent>
       </Card>
-
     </div>
   );
 }
-
-    
 
     
