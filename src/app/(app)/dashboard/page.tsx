@@ -3,19 +3,20 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, Briefcase, TrendingUp, Clock, Building, Percent, DollarSign, Activity, Wifi, Loader2, Megaphone, PlusCircle } from "lucide-react";
-import type { Metric, WifiBill, Employee, Announcement } from "@/types"; // Added Announcement
+import { Users, Briefcase, TrendingUp, Clock, Building, Percent, DollarSign, Activity, Wifi, Loader2, Megaphone, PlusCircle, UserX } from "lucide-react";
+import type { Metric, WifiBill, Employee, Announcement, LeaveRequest } from "@/types"; // Added LeaveRequest
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { Bar, Line, Pie, Cell, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend as RechartsLegend, BarChart, LineChart, PieChart as RechartsPieChart } from "recharts";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, Timestamp, limit } from 'firebase/firestore'; // Added limit, Timestamp
 import { useToast } from '@/hooks/use-toast';
-import { isValid, parseISO, differenceInMilliseconds, format as formatDateFn } from 'date-fns';
+import { isValid, parseISO, differenceInMilliseconds, format as formatDateFn, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/contexts/auth-context'; // For admin check
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { AddAnnouncementForm } from './add-announcement-form';
+import { Badge } from '@/components/ui/badge';
 
 
 // Initial static metrics (Total Employees, Average Salary, Average Tenure will be updated dynamically)
@@ -124,6 +125,9 @@ export default function DashboardPage() {
   const [isLoadingAnnouncements, setIsLoadingAnnouncements] = useState(true);
   const [isAddAnnouncementDialogOpen, setIsAddAnnouncementDialogOpen] = useState(false);
 
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
+  const [isLoadingLeaveRequests, setIsLoadingLeaveRequests] = useState(true);
+
   useEffect(() => {
     setIsMounted(true); // Component has mounted
   }, []);
@@ -202,13 +206,70 @@ export default function DashboardPage() {
     }
   }, [toast]);
 
+  const fetchLeaveRequests = useCallback(async () => {
+    setIsLoadingLeaveRequests(true);
+    try {
+      const leaveRequestsCollectionRef = collection(db, "leaveRequests");
+      const q = query(leaveRequestsCollectionRef, orderBy("startDate", "desc"), limit(50));
+      const querySnapshot = await getDocs(q);
+      const fetchedRequests: LeaveRequest[] = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      } as LeaveRequest));
+      setLeaveRequests(fetchedRequests);
+    } catch (error) {
+      console.error("Error fetching leave requests:", error);
+      toast({
+        title: "Error Fetching Leave Data",
+        description: "Could not load leave requests for the dashboard.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingLeaveRequests(false);
+    }
+  }, [toast]);
+
   useEffect(() => {
     if (isMounted) {
       fetchWifiBills();
       fetchEmployees();
       fetchAnnouncements();
+      fetchLeaveRequests();
     }
-  }, [isMounted, fetchWifiBills, fetchEmployees, fetchAnnouncements]);
+  }, [isMounted, fetchWifiBills, fetchEmployees, fetchAnnouncements, fetchLeaveRequests]);
+
+  const employeesOnLeaveToday = useMemo(() => {
+    if (isLoadingLeaveRequests || isLoadingEmployees) return [];
+    
+    const today = new Date();
+    const todayStart = startOfDay(today);
+    
+    const todaysLeaveRequests = leaveRequests.filter(req => {
+      // Only consider Approved requests
+      if (req.status !== 'Approved') return false;
+      
+      try {
+        const startDate = parseISO(req.startDate);
+        const endDate = parseISO(req.endDate);
+        if (isValid(startDate) && isValid(endDate)) {
+          return isWithinInterval(todayStart, { start: startDate, end: endOfDay(endDate) });
+        }
+        return false;
+      } catch (e) {
+        return false;
+      }
+    });
+
+    return todaysLeaveRequests.map(req => {
+      const employee = employees.find(emp => emp.id === req.employeeId);
+      return {
+        ...req,
+        employeeName: employee?.name || req.employeeName, // Fallback to name on request
+        employeeDepartment: employee?.department || 'Unknown',
+      };
+    }).sort((a,b) => a.employeeName.localeCompare(b.employeeName));
+  }, [leaveRequests, employees, isLoadingLeaveRequests, isLoadingEmployees]);
+
 
   useEffect(() => {
     if (!isLoadingEmployees && employees.length > 0) {
@@ -758,6 +819,42 @@ export default function DashboardPage() {
         </Card>
 
       </div>
+      <Card className="shadow-md hover:shadow-lg transition-shadow lg:col-span-1 xl:col-span-full">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><UserX className="h-5 w-5 text-primary" />Today's Absences & Leaves</CardTitle>
+          <CardDescription>Employees with approved leave for today.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoadingLeaveRequests || isLoadingEmployees ? (
+            <div className="h-[200px] w-full flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="ml-2 text-muted-foreground">Loading leave data...</p>
+            </div>
+          ) : employeesOnLeaveToday.length === 0 ? (
+            <div className="h-[200px] w-full flex flex-col items-center justify-center text-muted-foreground">
+              <UserX className="h-10 w-10 mb-2"/>
+              <p>No one is on leave today.</p>
+            </div>
+          ) : (
+            <ScrollArea className="h-[200px] pr-3">
+              <div className="space-y-3">
+                {employeesOnLeaveToday.map(req => (
+                  <div key={req.id} className="flex items-center justify-between p-2 rounded-md border bg-card hover:bg-muted/50">
+                    <div>
+                      <p className="font-semibold text-sm">{req.employeeName}</p>
+                      <p className="text-xs text-muted-foreground">{req.employeeDepartment}</p>
+                    </div>
+                    <Badge variant="outline" className="text-xs whitespace-nowrap capitalize">{req.leaveType}</Badge>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+        </CardContent>
+      </Card>
+
     </div>
   );
 }
+
+    

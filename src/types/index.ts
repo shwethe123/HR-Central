@@ -142,3 +142,5 @@ export interface Announcement {
   status?: 'published' | 'draft'; // Optional for now, defaults to published
   updatedAt?: Timestamp;
 }
+
+    
