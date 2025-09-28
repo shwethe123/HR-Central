@@ -97,6 +97,11 @@ export const getLeaveRequestColumns = (
     cell: ({ row }) => <div className="font-medium">{row.original.employeeName}</div>,
   },
   {
+    accessorKey: "leaveType",
+    header: "Leave Type",
+    cell: ({ row }) => <Badge variant="secondary" className="whitespace-nowrap">{row.original.leaveType}</Badge>,
+  },
+  {
     accessorKey: "startDate",
     header: "Start Date",
     cell: ({ row }) => formatDate(row.original.startDate),
@@ -307,4 +312,3 @@ export const getLeaveRequestColumns = (
     },
   },
 ];
-

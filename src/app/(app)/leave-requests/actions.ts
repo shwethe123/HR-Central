@@ -9,6 +9,9 @@ import { collection, addDoc, doc, updateDoc, Timestamp } from 'firebase/firestor
 
 const LeaveRequestFormSchema = z.object({
   employeeId: z.string().min(1, { message: "Employee is required." }),
+  leaveType: z.enum(["Annual Leave", "Casual Leave", "Sick Leave", "Long-term Leave", "Unpaid Leave", "Forced Leave"], {
+    required_error: "Leave type is required.",
+  }),
   startDate: z.string().refine((date) => !isNaN(Date.parse(date)), { message: "Start date is required and must be valid." }),
   endDate: z.string().refine((date) => !isNaN(Date.parse(date)), { message: "End date is required and must be valid." }),
   reason: z.string().min(5, { message: "Reason must be at least 5 characters." }).max(500, { message: "Reason cannot exceed 500 characters." }),
@@ -21,6 +24,7 @@ export type SubmitLeaveRequestFormState = {
   message: string | null;
   errors?: {
     employeeId?: string[];
+    leaveType?: string[];
     startDate?: string[];
     endDate?: string[];
     reason?: string[];
@@ -38,6 +42,7 @@ export async function submitLeaveRequest(
 
   const validatedFields = LeaveRequestFormSchema.safeParse({
     employeeId: formData.get('employeeId'),
+    leaveType: formData.get('leaveType'),
     startDate: formData.get('startDate'),
     endDate: formData.get('endDate'),
     reason: formData.get('reason'),
@@ -58,6 +63,7 @@ export async function submitLeaveRequest(
     const docRef = await addDoc(leaveRequestsCollectionRef, {
       employeeId: newLeaveRequestData.employeeId,
       employeeName: employeeName,
+      leaveType: newLeaveRequestData.leaveType,
       startDate: newLeaveRequestData.startDate,
       endDate: newLeaveRequestData.endDate,
       reason: newLeaveRequestData.reason,

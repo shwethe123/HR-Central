@@ -209,7 +209,7 @@ export default function LeaveRequestsPage() {
     setIsDetailsDialogOpen(true);
   };
   
-  const columns = useMemo(() => getLeaveRequestColumns(handleUpdateRequestStatus, handleViewDetails), [handleUpdateRequestStatus, handleViewDetails]);
+  const columns = useMemo(() => getLeaveRequestColumns(handleUpdateRequestStatus, handleViewDetails), []);
 
   const filteredLeaveRequests = useMemo(() => {
     if (activeView === "myRequests") {
@@ -321,6 +321,10 @@ export default function LeaveRequestsPage() {
                 <span>{selectedRequestDetails.employeeName} ({selectedRequestDetails.employeeId})</span>
               </div>
               <div className="grid grid-cols-[120px_1fr] items-center gap-2">
+                <span className="font-medium text-muted-foreground">Leave Type:</span>
+                <Badge variant="secondary">{selectedRequestDetails.leaveType}</Badge>
+              </div>
+              <div className="grid grid-cols-[120px_1fr] items-center gap-2">
                 <span className="font-medium text-muted-foreground">Start Date:</span>
                 <span>{formatDate(selectedRequestDetails.startDate)}</span>
               </div>
@@ -374,6 +378,3 @@ export default function LeaveRequestsPage() {
     </div>
   );
 }
-    
-
-    

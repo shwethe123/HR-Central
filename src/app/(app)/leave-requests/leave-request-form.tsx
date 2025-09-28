@@ -2,8 +2,6 @@
 'use client';
 
 import { useEffect, useActionState, startTransition } from 'react';
-// useFormStatus is no longer needed if we use isPending from useActionState
-// import { useFormStatus } from 'react-dom'; 
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -23,10 +21,22 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Employee } from '@/types';
+import type { Employee, LeaveRequest } from '@/types';
+
+const LEAVE_TYPES: LeaveRequest['leaveType'][] = [
+  "Annual Leave",
+  "Casual Leave",
+  "Sick Leave",
+  "Long-term Leave",
+  "Unpaid Leave",
+  "Forced Leave",
+];
 
 const ClientLeaveRequestSchema = z.object({
   employeeId: z.string().min(1, { message: "Employee is required." }),
+  leaveType: z.enum(["Annual Leave", "Casual Leave", "Sick Leave", "Long-term Leave", "Unpaid Leave", "Forced Leave"], {
+    required_error: "Leave type is required.",
+  }),
   startDate: z.string()
     .refine(val => val && !isNaN(Date.parse(val)), { message: "Start date is required and must be a valid date." }),
   endDate: z.string()
@@ -51,33 +61,25 @@ interface LeaveRequestFormProps {
 }
 
 function SubmitButton({ isSubmitting }: { isSubmitting: boolean }) {
-  const pending = isSubmitting; // Use the passed prop
-
-  if (pending) {
-    return (
-      <Button type="submit" disabled={true} className="w-full sm:w-auto">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        Submitting...
-      </Button>
-    );
-  }
+  const pending = isSubmitting;
 
   return (
-    <Button type="submit" disabled={false} className="w-full sm:w-auto">
-      Submit Request
+    <Button type="submit" disabled={pending} className="w-full sm:w-auto">
+      {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+      {pending ? "Submitting..." : "Submit Request"}
     </Button>
   );
 }
 
 export function LeaveRequestForm({ employees, onFormSubmissionSuccess, className }: LeaveRequestFormProps) {
   const { toast } = useToast();
-  // useActionState returns [state, formAction, isPending]
   const [state, formAction, isActionPending] = useActionState(submitLeaveRequest, { message: null, errors: {}, success: false });
 
   const form = useForm<LeaveRequestFormData>({
     resolver: zodResolver(ClientLeaveRequestSchema),
     defaultValues: {
       employeeId: '',
+      leaveType: undefined,
       startDate: '', 
       endDate: '',   
       reason: '',
@@ -108,6 +110,7 @@ export function LeaveRequestForm({ employees, onFormSubmissionSuccess, className
     formData.append('employeeId', data.employeeId);
     const selectedEmployee = employees.find(emp => emp.id === data.employeeId);
     formData.append('employeeName', selectedEmployee?.name || 'Unknown Employee');
+    formData.append('leaveType', data.leaveType);
     formData.append('startDate', data.startDate);
     formData.append('endDate', data.endDate);
     formData.append('reason', data.reason);
@@ -119,24 +122,45 @@ export function LeaveRequestForm({ employees, onFormSubmissionSuccess, className
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className={cn("space-y-4", className)}>
-      <div>
-        <Label htmlFor="employeeId-leave">Employee</Label>
-        <Controller
-          control={form.control}
-          name="employeeId"
-          render={({ field }) => (
-            <Select onValueChange={field.onChange} value={field.value} defaultValue="">
-              <SelectTrigger id="employeeId-leave">
-                <SelectValue placeholder="Select Employee" />
-              </SelectTrigger>
-              <SelectContent>
-                {employees.map(emp => <SelectItem key={emp.id} value={emp.id}>{emp.name} ({emp.employeeId})</SelectItem>)}
-              </SelectContent>
-            </Select>
-          )}
-        />
-        {form.formState.errors.employeeId && <p className="text-sm text-destructive mt-1">{form.formState.errors.employeeId.message}</p>}
-        {state?.errors?.employeeId && <p className="text-sm text-destructive mt-1">{state.errors.employeeId.join(', ')}</p>}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="employeeId-leave">Employee</Label>
+          <Controller
+            control={form.control}
+            name="employeeId"
+            render={({ field }) => (
+              <Select onValueChange={field.onChange} value={field.value} defaultValue="">
+                <SelectTrigger id="employeeId-leave">
+                  <SelectValue placeholder="Select Employee" />
+                </SelectTrigger>
+                <SelectContent>
+                  {employees.map(emp => <SelectItem key={emp.id} value={emp.id}>{emp.name} ({emp.employeeId})</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+          />
+          {form.formState.errors.employeeId && <p className="text-sm text-destructive mt-1">{form.formState.errors.employeeId.message}</p>}
+          {state?.errors?.employeeId && <p className="text-sm text-destructive mt-1">{state.errors.employeeId.join(', ')}</p>}
+        </div>
+        <div>
+          <Label htmlFor="leaveType-leave">Leave Type</Label>
+          <Controller
+            control={form.control}
+            name="leaveType"
+            render={({ field }) => (
+              <Select onValueChange={field.onChange} value={field.value} defaultValue="">
+                <SelectTrigger id="leaveType-leave">
+                  <SelectValue placeholder="Select Leave Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {LEAVE_TYPES.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+          />
+          {form.formState.errors.leaveType && <p className="text-sm text-destructive mt-1">{form.formState.errors.leaveType.message}</p>}
+          {state?.errors?.leaveType && <p className="text-sm text-destructive mt-1">{state.errors.leaveType.join(', ')}</p>}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

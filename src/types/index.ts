@@ -64,6 +64,7 @@ export type LeaveRequest = {
   id: string;
   employeeId: string;
   employeeName: string;
+  leaveType: "Annual Leave" | "Casual Leave" | "Sick Leave" | "Long-term Leave" | "Unpaid Leave" | "Forced Leave";
   startDate: string;
   endDate: string;
   reason: string;
