@@ -847,35 +847,33 @@ export default function DashboardPage() {
               <p>No one is on leave today.</p>
             </div>
           ) : (
-            <ScrollArea className="h-[240px] pr-3">
-              <div className="space-y-4">
-                {employeesOnLeaveToday.map(req => (
-                  <div key={req.id} className="flex flex-col p-3 rounded-md border bg-card hover:bg-muted/50">
-                    <div className="flex items-start justify-between">
-                        <div>
-                            <p className="font-semibold text-sm">{req.employeeName}</p>
-                            <p className="text-xs text-muted-foreground">{req.employeeDepartment} / {req.employeeCompany}</p>
-                        </div>
-                        <Badge variant="outline" className="text-xs whitespace-nowrap capitalize">{req.leaveType}</Badge>
-                    </div>
-                    <div className="border-t my-2"></div>
-                    <div className="space-y-1.5 text-xs">
-                        <div className="flex items-center text-muted-foreground">
-                            <Calendar className="mr-2 h-3.5 w-3.5" />
-                            <span>
-                                {formatDateFn(parseISO(req.startDate), 'MMM d')} - {formatDateFn(parseISO(req.endDate), 'MMM d')}
-                                <span className="text-primary ml-1.5 font-medium">({req.leaveDuration} day{req.leaveDuration > 1 ? 's' : ''})</span>
-                            </span>
-                        </div>
-                         <div className="flex items-start text-muted-foreground">
-                            <Info className="mr-2 h-3.5 w-3.5 mt-0.5 shrink-0" />
-                            <p className="whitespace-pre-wrap">{req.reason}</p>
-                        </div>
-                    </div>
+            <div className="space-y-4">
+              {employeesOnLeaveToday.map(req => (
+                <div key={req.id} className="flex flex-col p-3 rounded-md border bg-card hover:bg-muted/50">
+                  <div className="flex items-start justify-between">
+                      <div>
+                          <p className="font-semibold text-sm">{req.employeeName}</p>
+                          <p className="text-xs text-muted-foreground">{req.employeeDepartment} / {req.employeeCompany}</p>
+                      </div>
+                      <Badge variant="outline" className="text-xs whitespace-nowrap capitalize">{req.leaveType}</Badge>
                   </div>
-                ))}
-              </div>
-            </ScrollArea>
+                  <div className="border-t my-2"></div>
+                  <div className="space-y-1.5 text-xs">
+                      <div className="flex items-center text-muted-foreground">
+                          <Calendar className="mr-2 h-3.5 w-3.5" />
+                          <span>
+                              {formatDateFn(parseISO(req.startDate), 'MMM d')} - {formatDateFn(parseISO(req.endDate), 'MMM d')}
+                              <span className="text-primary ml-1.5 font-medium">({req.leaveDuration} day{req.leaveDuration > 1 ? 's' : ''})</span>
+                          </span>
+                      </div>
+                       <div className="flex items-start text-muted-foreground">
+                          <Info className="mr-2 h-3.5 w-3.5 mt-0.5 shrink-0" />
+                          <p className="whitespace-pre-wrap">{req.reason}</p>
+                      </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>
@@ -883,5 +881,7 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
 
     
