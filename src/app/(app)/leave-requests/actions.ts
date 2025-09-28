@@ -9,7 +9,7 @@ import { collection, addDoc, doc, updateDoc, Timestamp } from 'firebase/firestor
 
 const LeaveRequestFormSchema = z.object({
   employeeId: z.string().min(1, { message: "Employee is required." }),
-  leaveType: z.enum(["Annual Leave", "Casual Leave", "Sick Leave", "Long-term Leave", "Unpaid Leave", "Forced Leave"], {
+  leaveType: z.enum(["ကြိုတင်ခွင့်", "အလုပ်နောက်ကျ", "ခွင့်(နေမကောင်း)", "ခွင့်ရက်ရှည်", "ခွင့်မဲ့ပျက်", "အပြစ်ပေး (ဖိုင်း)"], {
     required_error: "Leave type is required.",
   }),
   startDate: z.string().refine((date) => !isNaN(Date.parse(date)), { message: "Start date is required and must be valid." }),

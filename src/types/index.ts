@@ -64,7 +64,7 @@ export type LeaveRequest = {
   id: string;
   employeeId: string;
   employeeName: string;
-  leaveType: "Annual Leave" | "Casual Leave" | "Sick Leave" | "Long-term Leave" | "Unpaid Leave" | "Forced Leave";
+  leaveType: "ကြိုတင်ခွင့်" | "အလုပ်နောက်ကျ" | "ခွင့်(နေမကောင်း)" | "ခွင့်ရက်ရှည်" | "ခွင့်မဲ့ပျက်" | "အပြစ်ပေး (ဖိုင်း)";
   startDate: string;
   endDate: string;
   reason: string;

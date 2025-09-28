@@ -24,17 +24,17 @@ import { cn } from '@/lib/utils';
 import type { Employee, LeaveRequest } from '@/types';
 
 const LEAVE_TYPES: LeaveRequest['leaveType'][] = [
-  "Annual Leave",
-  "Casual Leave",
-  "Sick Leave",
-  "Long-term Leave",
-  "Unpaid Leave",
-  "Forced Leave",
+  "ကြိုတင်ခွင့်",
+  "အလုပ်နောက်ကျ",
+  "ခွင့်(နေမကောင်း)",
+  "ခွင့်ရက်ရှည်",
+  "ခွင့်မဲ့ပျက်",
+  "အပြစ်ပေး (ဖိုင်း)",
 ];
 
 const ClientLeaveRequestSchema = z.object({
   employeeId: z.string().min(1, { message: "Employee is required." }),
-  leaveType: z.enum(["Annual Leave", "Casual Leave", "Sick Leave", "Long-term Leave", "Unpaid Leave", "Forced Leave"], {
+  leaveType: z.enum(["ကြိုတင်ခွင့်", "အလုပ်နောက်ကျ", "ခွင့်(နေမကောင်း)", "ခွင့်ရက်ရှည်", "ခွင့်မဲ့ပျက်", "အပြစ်ပေး (ဖိုင်း)"], {
     required_error: "Leave type is required.",
   }),
   startDate: z.string()
@@ -65,7 +65,7 @@ function SubmitButton({ isSubmitting }: { isSubmitting: boolean }) {
 
   return (
     <Button type="submit" disabled={pending} className="w-full sm:w-auto">
-      {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+      {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
       {pending ? "Submitting..." : "Submit Request"}
     </Button>
   );
