@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AddResignationForm } from "./add-resignation-form";
-import { UserMinus, PlusCircle, Loader2, Search } from 'lucide-react';
+import { UserMinus, PlusCircle, Loader2, Search, MoreHorizontal } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, Timestamp, limit } from 'firebase/firestore';
@@ -41,7 +41,7 @@ const eligibilityVariant = (eligibility: Resignation['rehireEligibility']) => {
     case 'Eligible': return 'default';
     case 'Ineligible': return 'destructive';
     case 'Conditional': return 'secondary';
-    default: 'outline';
+    default: return 'outline' as "default" | "destructive" | "secondary" | "outline" | null | undefined;
   }
 };
 
@@ -52,6 +52,8 @@ export default function ResignationsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedResignation, setSelectedResignation] = useState<Resignation | null>(null);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -91,6 +93,11 @@ export default function ResignationsPage() {
     setIsFormDialogOpen(false);
   };
   
+  const handleViewDetails = (resignation: Resignation) => {
+    setSelectedResignation(resignation);
+    setIsDetailsDialogOpen(true);
+  };
+
   const filteredResignations = useMemo(() => {
     if (!searchTerm) {
       return resignations;
@@ -139,8 +146,8 @@ export default function ResignationsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Resignation History</CardTitle>
-           <div className="relative mt-4 max-w-md">
+          <CardTitle className='mb-3'>Resignation History</CardTitle>
+           <div className="relative max-w-md mt-6">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
@@ -169,8 +176,8 @@ export default function ResignationsPage() {
                 }
 
                 return (
-                  <div key={res.id} className="border rounded-lg p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-muted/50">
-                    <div className="space-y-1">
+                  <div key={res.id} className="border rounded-lg p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-muted/50 transition-colors">
+                    <div className="space-y-1 flex-grow">
                       <p className="font-semibold text-lg">{res.employeeName}</p>
                       <div className="text-sm text-muted-foreground flex items-center flex-wrap gap-x-3 gap-y-1">
                         <span>Notice: {formatDate(res.noticeDate)}</span>
@@ -179,12 +186,16 @@ export default function ResignationsPage() {
                           <span className="font-medium text-primary">({noticeDays} days notice)</span>
                         )}
                       </div>
-                      {res.reason && <p className="text-sm italic text-muted-foreground">Reason: "{res.reason}"</p>}
+                      {res.reason && <p className="text-sm italic text-muted-foreground line-clamp-1">Reason: "{res.reason}"</p>}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       <Badge variant={eligibilityVariant(res.rehireEligibility)}>
                         {res.rehireEligibility} for Re-hire
                       </Badge>
+                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleViewDetails(res)}>
+                        <MoreHorizontal className="h-4 w-4" />
+                        <span className="sr-only">View Details</span>
+                      </Button>
                     </div>
                   </div>
                 );
@@ -193,6 +204,54 @@ export default function ResignationsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Details Dialog */}
+      <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Resignation Details</DialogTitle>
+            <DialogDescription>
+              Full record for {selectedResignation?.employeeName}.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedResignation && (
+            <div className="grid gap-4 py-4 text-sm">
+              <div className="grid grid-cols-[140px_1fr] items-center gap-2">
+                <span className="font-medium text-muted-foreground">Employee Name:</span>
+                <span>{selectedResignation.employeeName}</span>
+              </div>
+               <div className="grid grid-cols-[140px_1fr] items-center gap-2">
+                <span className="font-medium text-muted-foreground">Notice Date:</span>
+                <span>{formatDate(selectedResignation.noticeDate)}</span>
+              </div>
+              <div className="grid grid-cols-[140px_1fr] items-center gap-2">
+                <span className="font-medium text-muted-foreground">Resignation Date:</span>
+                <span>{formatDate(selectedResignation.resignationDate)}</span>
+              </div>
+              <div className="grid grid-cols-[140px_1fr] items-center gap-2">
+                <span className="font-medium text-muted-foreground">Re-hire Eligibility:</span>
+                <Badge variant={eligibilityVariant(selectedResignation.rehireEligibility)} className="w-fit">
+                    {selectedResignation.rehireEligibility}
+                </Badge>
+              </div>
+               <div className="grid grid-cols-[140px_1fr] items-start gap-2">
+                <span className="font-medium text-muted-foreground">Reason for Leaving:</span>
+                <p className="whitespace-pre-wrap">{selectedResignation.reason || 'N/A'}</p>
+              </div>
+               <div className="grid grid-cols-[140px_1fr] items-start gap-2">
+                <span className="font-medium text-muted-foreground">HR Notes:</span>
+                 <p className="whitespace-pre-wrap">{selectedResignation.notes || 'No notes provided.'}</p>
+              </div>
+            </div>
+          )}
+           <div className="flex justify-end pt-2">
+              <Button variant="outline" onClick={() => setIsDetailsDialogOpen(false)}>
+                Close
+              </Button>
+            </div>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
