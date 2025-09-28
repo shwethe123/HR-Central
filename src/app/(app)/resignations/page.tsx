@@ -14,12 +14,13 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AddResignationForm } from "./add-resignation-form";
-import { UserMinus, PlusCircle, Loader2 } from 'lucide-react';
+import { UserMinus, PlusCircle, Loader2, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, Timestamp, limit } from 'firebase/firestore';
 import { format, differenceInDays, isValid } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 
 const RESIGNATIONS_FETCH_LIMIT = 50;
 const EMPLOYEES_FETCH_LIMIT = 150;
@@ -50,6 +51,7 @@ export default function ResignationsPage() {
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const [searchTerm, setSearchTerm] = useState('');
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -88,6 +90,15 @@ export default function ResignationsPage() {
     fetchData();
     setIsFormDialogOpen(false);
   };
+  
+  const filteredResignations = useMemo(() => {
+    if (!searchTerm) {
+      return resignations;
+    }
+    return resignations.filter(res =>
+      res.employeeName.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [resignations, searchTerm]);
 
   if (isLoading) {
     return (
@@ -129,15 +140,27 @@ export default function ResignationsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Resignation History</CardTitle>
+           <div className="relative mt-4 max-w-md">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search by employee name..."
+              className="w-full rounded-lg bg-background pl-8 h-9"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
         </CardHeader>
         <CardContent>
-          {resignations.length === 0 ? (
+          {filteredResignations.length === 0 ? (
             <div className="text-center py-10">
-              <p className="text-muted-foreground">No resignation records found.</p>
+              <p className="text-muted-foreground">
+                {searchTerm ? "No records match your search." : "No resignation records found."}
+              </p>
             </div>
           ) : (
             <div className="space-y-4">
-              {resignations.map(res => {
+              {filteredResignations.map(res => {
                 const noticeDate = new Date(res.noticeDate);
                 const resignationDate = new Date(res.resignationDate);
                 let noticeDays: number | null = null;
