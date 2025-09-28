@@ -96,7 +96,7 @@ const chartColorCycle = [
   "hsl(var(--chart-5))",
 ];
 
-const ANNOUNCEMENTS_FETCH_LIMIT = 5; // Max announcements to show
+const ANNOUNCEMENTS_FETCH_LIMIT = 5;
 
 
 export default function DashboardPage() {
