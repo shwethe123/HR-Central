@@ -3,14 +3,14 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, Briefcase, TrendingUp, Clock, Building, Percent, DollarSign, Activity, Wifi, Loader2, Megaphone, PlusCircle, UserX } from "lucide-react";
+import { Users, Briefcase, TrendingUp, Clock, Building, Percent, DollarSign, Activity, Wifi, Loader2, Megaphone, PlusCircle, UserX, Calendar, Info } from "lucide-react";
 import type { Metric, WifiBill, Employee, Announcement, LeaveRequest } from "@/types"; // Added LeaveRequest
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { Bar, Line, Pie, Cell, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend as RechartsLegend, BarChart, LineChart, PieChart as RechartsPieChart } from "recharts";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, Timestamp, limit } from 'firebase/firestore'; // Added limit, Timestamp
 import { useToast } from '@/hooks/use-toast';
-import { isValid, parseISO, differenceInMilliseconds, format as formatDateFn, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
+import { isValid, parseISO, differenceInMilliseconds, format as formatDateFn, isWithinInterval, startOfDay, endOfDay, differenceInDays } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/contexts/auth-context'; // For admin check
 import { Button } from '@/components/ui/button';
@@ -245,7 +245,6 @@ export default function DashboardPage() {
     const todayStart = startOfDay(today);
     
     const todaysLeaveRequests = leaveRequests.filter(req => {
-      // Only consider Approved requests
       if (req.status !== 'Approved') return false;
       
       try {
@@ -262,10 +261,22 @@ export default function DashboardPage() {
 
     return todaysLeaveRequests.map(req => {
       const employee = employees.find(emp => emp.id === req.employeeId);
+      
+      let durationDays = 1;
+      try {
+        const startDate = parseISO(req.startDate);
+        const endDate = parseISO(req.endDate);
+        if (isValid(startDate) && isValid(endDate)) {
+          durationDays = differenceInDays(endDate, startDate) + 1;
+        }
+      } catch(e) { /* ignore parse error, default to 1 day */ }
+      
       return {
         ...req,
-        employeeName: employee?.name || req.employeeName, // Fallback to name on request
+        employeeName: employee?.name || req.employeeName,
         employeeDepartment: employee?.department || 'Unknown',
+        employeeCompany: employee?.company || 'Unknown',
+        leaveDuration: durationDays,
       };
     }).sort((a,b) => a.employeeName.localeCompare(b.employeeName));
   }, [leaveRequests, employees, isLoadingLeaveRequests, isLoadingEmployees]);
@@ -836,15 +847,31 @@ export default function DashboardPage() {
               <p>No one is on leave today.</p>
             </div>
           ) : (
-            <ScrollArea className="h-[200px] pr-3">
-              <div className="space-y-3">
+            <ScrollArea className="h-[240px] pr-3">
+              <div className="space-y-4">
                 {employeesOnLeaveToday.map(req => (
-                  <div key={req.id} className="flex items-center justify-between p-2 rounded-md border bg-card hover:bg-muted/50">
-                    <div>
-                      <p className="font-semibold text-sm">{req.employeeName}</p>
-                      <p className="text-xs text-muted-foreground">{req.employeeDepartment}</p>
+                  <div key={req.id} className="flex flex-col p-3 rounded-md border bg-card hover:bg-muted/50">
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <p className="font-semibold text-sm">{req.employeeName}</p>
+                            <p className="text-xs text-muted-foreground">{req.employeeDepartment} / {req.employeeCompany}</p>
+                        </div>
+                        <Badge variant="outline" className="text-xs whitespace-nowrap capitalize">{req.leaveType}</Badge>
                     </div>
-                    <Badge variant="outline" className="text-xs whitespace-nowrap capitalize">{req.leaveType}</Badge>
+                    <div className="border-t my-2"></div>
+                    <div className="space-y-1.5 text-xs">
+                        <div className="flex items-center text-muted-foreground">
+                            <Calendar className="mr-2 h-3.5 w-3.5" />
+                            <span>
+                                {formatDateFn(parseISO(req.startDate), 'MMM d')} - {formatDateFn(parseISO(req.endDate), 'MMM d')}
+                                <span className="text-primary ml-1.5 font-medium">({req.leaveDuration} day{req.leaveDuration > 1 ? 's' : ''})</span>
+                            </span>
+                        </div>
+                         <div className="flex items-start text-muted-foreground">
+                            <Info className="mr-2 h-3.5 w-3.5 mt-0.5 shrink-0" />
+                            <p className="whitespace-pre-wrap">{req.reason}</p>
+                        </div>
+                    </div>
                   </div>
                 ))}
               </div>
