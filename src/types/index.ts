@@ -15,6 +15,7 @@ export type Employee = {
   salary?: number;
   company?: string;
   gender?: "Male" | "Female" | "Other" | "Prefer not to say";
+  displayOrder?: number; // New field for custom sorting
 };
 
 // New type for Resignation records

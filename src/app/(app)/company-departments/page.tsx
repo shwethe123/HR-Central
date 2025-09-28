@@ -40,7 +40,8 @@ export default function CompanyDepartmentsPage() {
       setIsLoading(true);
       try {
         const employeesCollectionRef = collection(db, "employees");
-        const q = query(employeesCollectionRef, orderBy("name", "asc"));
+        // We will do sorting on the client side based on complex logic
+        const q = query(employeesCollectionRef);
         const querySnapshot = await getDocs(q);
         const fetchedEmployees: Employee[] = querySnapshot.docs.map(doc => {
           const data = doc.data();
@@ -58,6 +59,7 @@ export default function CompanyDepartmentsPage() {
             salary: data.salary === undefined ? undefined : Number(data.salary),
             company: data.company || "Unknown Company", // Ensure company has a fallback
             gender: data.gender || "N/A",
+            displayOrder: data.displayOrder === undefined ? undefined : Number(data.displayOrder), // Add displayOrder
           } as Employee;
         });
         setEmployees(fetchedEmployees);
@@ -115,6 +117,31 @@ export default function CompanyDepartmentsPage() {
       employeesByDept[dept].push(emp);
     });
 
+    // Custom sorting within each department
+    for (const dept in employeesByDept) {
+      employeesByDept[dept].sort((a, b) => {
+        // 1. Sort by displayOrder if it exists
+        if (a.displayOrder !== undefined && b.displayOrder !== undefined) {
+          return a.displayOrder - b.displayOrder;
+        }
+        if (a.displayOrder !== undefined) return -1; // a comes first
+        if (b.displayOrder !== undefined) return 1;  // b comes first
+
+        // 2. If no displayOrder, sort by role ("ခေါင်းဆောင်" first)
+        const roleA = a.role === 'ခေါင်းဆောင်' ? 0 : 1;
+        const roleB = b.role === 'ခေါင်းဆောင်' ? 0 : 1;
+        if (roleA !== roleB) return roleA - roleB;
+
+        // 3. Then sort by gender ('Male' first)
+        const genderA = a.gender === 'Male' ? 0 : a.gender === 'Female' ? 1 : 2;
+        const genderB = b.gender === 'Male' ? 0 : b.gender === 'Female' ? 1 : 2;
+        if (genderA !== genderB) return genderA - genderB;
+
+        // 4. Finally, sort by name alphabetically
+        return a.name.localeCompare(b.name);
+      });
+    }
+
     const allDepartments = Object.keys(employeesByDept).sort();
     const maxRows = Math.max(0, ...Object.values(employeesByDept).map(arr => arr.length));
     
@@ -122,8 +149,8 @@ export default function CompanyDepartmentsPage() {
     for (let i = 0; i < maxRows; i++) {
       const row: PivotRow = {};
       allDepartments.forEach(dept => {
-        // Now, we store the name with an index if it exists
         if (employeesByDept[dept][i]) {
+          // Add the department-specific index before the name
           row[dept] = `${i + 1}. ${employeesByDept[dept][i].name}`;
         } else {
           row[dept] = '';
@@ -236,4 +263,3 @@ export default function CompanyDepartmentsPage() {
     </div>
   );
 }
-
