@@ -99,7 +99,33 @@ export const getLeaveRequestColumns = (
   {
     accessorKey: "leaveType",
     header: "Leave Type",
-    cell: ({ row }) => <Badge variant="secondary" className="whitespace-nowrap">{row.original.leaveType}</Badge>,
+    cell: ({ row }) => {
+      const leaveType = row.original.leaveType;
+      let colorClass = "bg-gray-100 text-gray-800 border-gray-300"; // Default
+      switch (leaveType) {
+        case "ကြိုတင်ခွင့်":
+          colorClass = "bg-blue-100 text-blue-800 border-blue-300";
+          break;
+        case "အလုပ်နောက်ကျ":
+          colorClass = "bg-yellow-100 text-yellow-800 border-yellow-300";
+          break;
+        case "ခွင့်(နေမကောင်း)":
+          colorClass = "bg-green-100 text-green-800 border-green-300";
+          break;
+        case "ခွင့်ရက်ရှည်":
+          colorClass = "bg-purple-100 text-purple-800 border-purple-300";
+          break;
+        case "ခွင့်မဲ့ပျက်":
+        case "အပြစ်ပေး (ဖိုင်း)":
+          colorClass = "bg-red-100 text-red-800 border-red-300";
+          break;
+      }
+      return (
+        <Badge variant="outline" className={`whitespace-nowrap font-medium ${colorClass}`}>
+          {leaveType}
+        </Badge>
+      );
+    },
   },
   {
     accessorKey: "startDate",
