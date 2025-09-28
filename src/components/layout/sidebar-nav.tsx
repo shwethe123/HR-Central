@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Users, MessageSquareText, Settings, LifeBuoy, LogOut, Building2, Loader2, CalendarClock, MessageCircle, User as UserIconLucide, Users2, MessageSquarePlus, FileText, Wifi, AlertTriangle } from "lucide-react"; // Added Wifi, AlertTriangle
+import { Home, Users, MessageSquareText, Settings, LifeBuoy, LogOut, Building2, Loader2, CalendarClock, MessageCircle, User as UserIconLucide, Users2, MessageSquarePlus, FileText, Wifi, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   SidebarMenu,
@@ -11,6 +11,9 @@ import {
   SidebarMenuButton,
   SidebarGroup,
   SidebarGroupLabel,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from '@/contexts/auth-context';
@@ -33,9 +36,15 @@ const GENERAL_CHAT_CONVERSATION_ID = "general_company_chat";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
-  { href: "/employees", label: "Employees", icon: UserIconLucide },
-  { href: "/teams", label: "Teams", icon: Users2 },
-  { href: "/leave-requests", label: "Leave Requests", icon: CalendarClock },
+  { 
+    label: "Management", 
+    icon: Users,
+    subItems: [
+      { href: "/employees", label: "Employees", icon: UserIconLucide },
+      { href: "/teams", label: "Teams", icon: Users2 },
+      { href: "/leave-requests", label: "Leave Requests", icon: CalendarClock },
+    ]
+  },
   { href: "/documents", label: "Documents", icon: FileText },
   { href: "/wifi-bills", label: "WiFi Bills", icon: Wifi },
   { href: `/chat/${GENERAL_CHAT_CONVERSATION_ID}?name=Company%20General%20Chat`, label: "General Chat", icon: MessageCircle },
@@ -54,21 +63,26 @@ export function SidebarNav() {
   const { logout, user, loading: authLoading } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isLogoutAlertOpen, setIsLogoutAlertOpen] = useState(false);
+  
+  const [openSubMenus, setOpenSubMenus] = useState<Record<string, boolean>>(() => {
+    const activeSubMenu = navItems.find(item => 'subItems' in item && item.subItems.some(sub => pathname.startsWith(sub.href)));
+    return activeSubMenu ? { [activeSubMenu.label]: true } : {};
+  });
+
+  const toggleSubMenu = (label: string) => {
+    setOpenSubMenus(prev => ({ ...prev, [label]: !prev[label] }));
+  };
+
 
   const handleLogoutConfirm = async () => {
     setIsLoggingOut(true);
     try {
       await logout();
-      // Closing the dialog will be handled by onAuthStateChanged leading to component unmount or state change
     } catch (error) {
       console.error("Logout failed:", error);
-      // Optionally show a toast for logout failure
     } finally {
-      // Don't set isLoggingOut to false here if successful,
-      // as the component might unmount or user state will change.
-      // If error, it might be needed.
-      setIsLoggingOut(false); // Keep for now, but on success, this might not be reached if redirect happens fast
-      setIsLogoutAlertOpen(false); // Close dialog on completion or error
+      setIsLoggingOut(false);
+      setIsLogoutAlertOpen(false);
     }
   };
 
@@ -84,28 +98,61 @@ export function SidebarNav() {
     <>
       <SidebarGroup>
         <SidebarMenu>
-          {navItems.map((item) => (
-            <SidebarMenuItem key={item.href}>
-              <SidebarMenuButton
-                asChild
-                isActive={
-                  pathname === item.href ||
-                  (item.label === "Direct Chats" && pathname.startsWith("/chat/users")) ||
-                  (item.label === "General Chat" && pathname.startsWith(`/chat/${GENERAL_CHAT_CONVERSATION_ID}`)) ||
-                  (item.href !== "/dashboard" &&
-                   !item.href.startsWith("/chat/users") &&
-                   !item.href.startsWith(`/chat/${GENERAL_CHAT_CONVERSATION_ID}`) &&
-                   pathname.startsWith(item.href))
-                }
-                tooltip={item.label}
-              >
-                <Link href={item.href}>
-                  <item.icon />
-                  <span>{item.label}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
+          {navItems.map((item) => {
+            if ('subItems' in item) {
+              const isSubMenuActive = item.subItems.some(sub => pathname.startsWith(sub.href));
+              return (
+                <SidebarMenuItem key={item.label}>
+                  <SidebarMenuButton
+                    onClick={() => toggleSubMenu(item.label)}
+                    isActive={isSubMenuActive}
+                    tooltip={item.label}
+                  >
+                    <item.icon />
+                    <span>{item.label}</span>
+                  </SidebarMenuButton>
+                  {openSubMenus[item.label] && (
+                    <SidebarMenuSub>
+                      {item.subItems.map((subItem) => (
+                        <SidebarMenuSubItem key={subItem.href}>
+                           <Link href={subItem.href} passHref legacyBehavior>
+                            <SidebarMenuSubButton
+                              isActive={pathname.startsWith(subItem.href)}
+                            >
+                              <subItem.icon/>
+                              <span>{subItem.label}</span>
+                            </SidebarMenuSubButton>
+                           </Link>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  )}
+                </SidebarMenuItem>
+              );
+            }
+            return (
+              <SidebarMenuItem key={item.href}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={
+                    pathname === item.href ||
+                    (item.label === "Direct Chats" && pathname.startsWith("/chat/users")) ||
+                    (item.label === "General Chat" && pathname.startsWith(`/chat/${GENERAL_CHAT_CONVERSATION_ID}`)) ||
+                    (item.href !== "/dashboard" &&
+                     !item.href.startsWith("/chat/users") &&
+                     !item.href.startsWith(`/chat/${GENERAL_CHAT_CONVERSATION_ID}`) &&
+                     pathname.startsWith(item.href))
+                  }
+                  tooltip={item.label}
+                >
+                  <Link href={item.href}>
+                    <item.icon />
+                    <span>{item.label}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
         </SidebarMenu>
       </SidebarGroup>
 
