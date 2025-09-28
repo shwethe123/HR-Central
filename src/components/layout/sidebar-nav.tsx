@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Users, MessageSquareText, Settings, LifeBuoy, LogOut, Building2, Loader2, CalendarClock, MessageCircle, User as UserIconLucide, Users2, MessageSquarePlus, FileText, Wifi, AlertTriangle } from "lucide-react";
+import { Home, Users, MessageSquareText, Settings, LifeBuoy, LogOut, Building2, Loader2, CalendarClock, MessageCircle, User as UserIconLucide, Users2, MessageSquarePlus, FileText, Wifi, AlertTriangle, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   SidebarMenu,
@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from '@/contexts/auth-context';
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -64,10 +64,17 @@ export function SidebarNav() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isLogoutAlertOpen, setIsLogoutAlertOpen] = useState(false);
   
-  const [openSubMenus, setOpenSubMenus] = useState<Record<string, boolean>>(() => {
-    const activeSubMenu = navItems.find(item => 'subItems' in item && item.subItems.some(sub => pathname.startsWith(sub.href)));
-    return activeSubMenu ? { [activeSubMenu.label]: true } : {};
-  });
+  const [openSubMenus, setOpenSubMenus] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    // Open the submenu if the current path is one of its children
+    const activeSubMenu = navItems.find(item => 
+      'subItems' in item && item.subItems.some(sub => pathname.startsWith(sub.href))
+    );
+    if (activeSubMenu) {
+      setOpenSubMenus(prev => ({ ...prev, [activeSubMenu.label]: true }));
+    }
+  }, [pathname]);
 
   const toggleSubMenu = (label: string) => {
     setOpenSubMenus(prev => ({ ...prev, [label]: !prev[label] }));
@@ -101,6 +108,7 @@ export function SidebarNav() {
           {navItems.map((item) => {
             if ('subItems' in item) {
               const isSubMenuActive = item.subItems.some(sub => pathname.startsWith(sub.href));
+              const isSubMenuOpen = openSubMenus[item.label];
               return (
                 <SidebarMenuItem key={item.label}>
                   <SidebarMenuButton
@@ -110,8 +118,9 @@ export function SidebarNav() {
                   >
                     <item.icon />
                     <span>{item.label}</span>
+                    <ChevronDown className={cn("ml-auto h-4 w-4 shrink-0 transition-transform duration-200", !isSubMenuOpen && "-rotate-90")} />
                   </SidebarMenuButton>
-                  {openSubMenus[item.label] && (
+                  {isSubMenuOpen && (
                     <SidebarMenuSub>
                       {item.subItems.map((subItem) => (
                         <SidebarMenuSubItem key={subItem.href}>
