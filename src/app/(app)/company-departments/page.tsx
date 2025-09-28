@@ -25,12 +25,6 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
-interface DepartmentInfo {
-  name: string;
-  employeeCount: number;
-  employeeSamples: string[];
-}
-
 interface PivotRow {
   [departmentName: string]: string | undefined;
 }
@@ -126,12 +120,18 @@ export default function CompanyDepartmentsPage() {
     
     const pivotData: PivotRow[] = [];
     for (let i = 0; i < maxRows; i++) {
-        const row: PivotRow = {};
-        allDepartments.forEach(dept => {
-            row[dept] = employeesByDept[dept][i]?.name || '';
-        });
-        pivotData.push(row);
+      const row: PivotRow = {};
+      allDepartments.forEach(dept => {
+        // Now, we store the name with an index if it exists
+        if (employeesByDept[dept][i]) {
+          row[dept] = `${i + 1}. ${employeesByDept[dept][i].name}`;
+        } else {
+          row[dept] = '';
+        }
+      });
+      pivotData.push(row);
     }
+
 
     return (
       <Card key={selectedCompany} className="shadow-lg rounded-lg overflow-hidden mt-6">
@@ -140,7 +140,7 @@ export default function CompanyDepartmentsPage() {
             Employees in {selectedCompany}
           </CardTitle>
           <CardDescription>
-            Employee names are listed under their respective department.
+            Employee names are listed with their index under their respective department.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -149,7 +149,6 @@ export default function CompanyDepartmentsPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
-                    <TableHead className="w-[50px] px-4 font-semibold sticky left-0 bg-muted/50 z-10 border-r">#</TableHead>
                     {allDepartments.map(dept => (
                       <TableHead key={dept} className="font-semibold min-w-[200px] px-4 text-left">{dept}</TableHead>
                     ))}
@@ -158,9 +157,8 @@ export default function CompanyDepartmentsPage() {
                 <TableBody>
                   {pivotData.map((row, index) => (
                     <TableRow key={index} className="hover:bg-muted/50">
-                      <TableCell className="font-medium py-3 px-4 sticky left-0 bg-card z-0 border-r">{index + 1}</TableCell>
                       {allDepartments.map(dept => (
-                        <TableCell key={`${dept}-${index}`} className="py-3 px-4 min-w-[200px]">
+                        <TableCell key={`${dept}-${index}`} className="py-2 px-4 min-w-[200px]">
                           {row[dept]}
                         </TableCell>
                       ))}
@@ -238,3 +236,4 @@ export default function CompanyDepartmentsPage() {
     </div>
   );
 }
+
