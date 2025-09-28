@@ -17,6 +17,19 @@ export type Employee = {
   gender?: "Male" | "Female" | "Other" | "Prefer not to say";
 };
 
+// New type for Resignation records
+export type Resignation = {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  resignationDate: string; // The employee's last day
+  noticeDate: string; // The day the employee gave notice
+  reason?: string; // Reason for leaving
+  rehireEligibility: "Eligible" | "Ineligible" | "Conditional";
+  notes?: string; // HR notes
+  createdAt: Timestamp; // When the record was created
+};
+
 // New type for app users, mirroring essential Firebase Auth user info
 // and adding lastSeen for presence.
 export type AppUser = {
