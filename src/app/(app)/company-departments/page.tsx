@@ -92,7 +92,7 @@ export default function CompanyDepartmentsPage() {
   const companySpecificEmployeePivotTable = useMemo(() => {
     if (!selectedCompany || employees.length === 0) return null;
 
-    const companyEmployees = employees.filter(emp => emp.company === selectedCompany);
+    const companyEmployees = employees.filter(emp => emp.company === selectedCompany && emp.status === 'Active');
     if (companyEmployees.length === 0) {
         return (
              <Card className="shadow-lg rounded-lg overflow-hidden mt-6">
@@ -102,7 +102,7 @@ export default function CompanyDepartmentsPage() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-muted-foreground py-4 px-4">No employees found for {selectedCompany}.</p>
+                    <p className="text-muted-foreground py-4 px-4">No active employees found for {selectedCompany}.</p>
                 </CardContent>
             </Card>
         )
@@ -195,7 +195,7 @@ export default function CompanyDepartmentsPage() {
               </Table>
             </div>
           ) : (
-            <p className="text-muted-foreground py-4 px-4">No departments with employees found for {selectedCompany}.</p>
+            <p className="text-muted-foreground py-4 px-4">No departments with active employees found for {selectedCompany}.</p>
           )}
         </CardContent>
       </Card>
