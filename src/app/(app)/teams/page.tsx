@@ -22,7 +22,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { CreateTeamForm } from "./create-team-form";
-import { Users, PlusCircle, Loader2, MoreHorizontal, CalendarDays, Info, ListFilter } from 'lucide-react';
+import { EditTeamForm } from "./edit-team-form"; // Import EditTeamForm
+import { Users, PlusCircle, Loader2, MoreHorizontal, Edit, ListFilter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, Timestamp, limit } from 'firebase/firestore';
@@ -57,7 +58,9 @@ export default function TeamsPage() {
   const { isAdmin } = useAuth();
   const [teams, setTeams] = useState<Team[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
+  const [isCreateFormDialogOpen, setIsCreateFormDialogOpen] = useState(false);
+  const [isEditFormDialogOpen, setIsEditFormDialogOpen] = useState(false);
+  const [teamToEdit, setTeamToEdit] = useState<Team | null>(null);
   const [isLoadingTeams, setIsLoadingTeams] = useState(true);
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(true);
   const { toast } = useToast();
@@ -132,10 +135,22 @@ export default function TeamsPage() {
     fetchEmployees();
   }, [fetchTeams, fetchEmployees]);
 
-  const handleFormSubmissionSuccess = () => {
+  const handleCreateFormSuccess = () => {
     fetchTeams();
-    setIsFormDialogOpen(false);
+    setIsCreateFormDialogOpen(false);
   };
+  
+  const handleEditFormSuccess = () => {
+    fetchTeams();
+    setIsEditFormDialogOpen(false);
+    setTeamToEdit(null);
+  };
+
+  const handleEditClick = (team: Team) => {
+    setTeamToEdit(team);
+    setIsEditFormDialogOpen(true);
+  };
+
 
   const uniqueTeamNamesForFilter = useMemo(() => {
     return ['all', ...new Set(teams.map(team => team.name))].sort((a, b) => a === 'all' ? -1 : b === 'all' ? 1 : a.localeCompare(b));
@@ -158,7 +173,7 @@ export default function TeamsPage() {
           Manage Teams
         </h1>
         {isAdmin && (
-          <Dialog open={isFormDialogOpen} onOpenChange={setIsFormDialogOpen}>
+          <Dialog open={isCreateFormDialogOpen} onOpenChange={setIsCreateFormDialogOpen}>
             <DialogTrigger asChild>
               <Button disabled={isLoadingEmployees}>
                 <PlusCircle className="mr-2 h-4 w-4" /> Create New Team
@@ -179,7 +194,7 @@ export default function TeamsPage() {
               ) : (
                   <CreateTeamForm
                     employees={employees}
-                    onFormSubmissionSuccess={handleFormSubmissionSuccess}
+                    onFormSubmissionSuccess={handleCreateFormSuccess}
                   />
               )}
             </DialogContent>
@@ -227,7 +242,7 @@ export default function TeamsPage() {
                 Get started by creating a new team.
               </p>
               {isAdmin && (
-                <Button onClick={() => setIsFormDialogOpen(true)} className="mt-4" disabled={isLoadingEmployees}>
+                <Button onClick={() => setIsCreateFormDialogOpen(true)} className="mt-4" disabled={isLoadingEmployees}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Create New Team
                 </Button>
               )}
@@ -278,10 +293,17 @@ export default function TeamsPage() {
                           {formatDateFromTimestamp(team.createdAt)}
                         </TableCell>
                          <TableCell className="text-right">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" disabled>
-                                <MoreHorizontal className="h-4 w-4" />
-                                <span className="sr-only">Team Actions</span>
-                            </Button>
+                            {isAdmin ? (
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditClick(team)}>
+                                    <Edit className="h-4 w-4" />
+                                    <span className="sr-only">Edit Team</span>
+                                </Button>
+                            ) : (
+                                <Button variant="ghost" size="icon" className="h-8 w-8" disabled>
+                                    <MoreHorizontal className="h-4 w-4" />
+                                    <span className="sr-only">Team Actions (Admin only)</span>
+                                </Button>
+                            )}
                          </TableCell>
                       </TableRow>
                     ))
@@ -291,6 +313,32 @@ export default function TeamsPage() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Edit Team Dialog */}
+      {teamToEdit && (
+        <Dialog open={isEditFormDialogOpen} onOpenChange={setIsEditFormDialogOpen}>
+            <DialogContent className="sm:max-w-[625px]">
+                <DialogHeader>
+                <DialogTitle>Edit Team: {teamToEdit.name}</DialogTitle>
+                <DialogDescription>
+                    Update the details for this team.
+                </DialogDescription>
+                </DialogHeader>
+                {isLoadingEmployees ? (
+                     <div className="flex justify-center items-center py-10">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        <p className="ml-2 text-muted-foreground">Loading form data...</p>
+                    </div>
+                ) : (
+                    <EditTeamForm
+                        teamToEdit={teamToEdit}
+                        employees={employees}
+                        onFormSubmissionSuccess={handleEditFormSuccess}
+                    />
+                )}
+            </DialogContent>
+        </Dialog>
       )}
     </div>
   );
