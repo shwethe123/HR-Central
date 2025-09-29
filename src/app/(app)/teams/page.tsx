@@ -217,66 +217,80 @@ export default function TeamsPage() {
           <p className="ml-3 text-muted-foreground">Loading teams...</p>
         </div>
       ) : teams.length === 0 ? (
-        <div className="text-center py-10 bg-card shadow-md rounded-lg">
-            <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-xl font-semibold text-foreground">
-              No Teams Found
-            </h3>
-            <p className="text-muted-foreground mt-2">
-              Get started by creating a new team.
-            </p>
-            {isAdmin && (
-              <Button onClick={() => setIsFormDialogOpen(true)} className="mt-4" disabled={isLoadingEmployees}>
-                  <PlusCircle className="mr-2 h-4 w-4" /> Create New Team
-              </Button>
-            )}
-        </div>
-      ) : filteredTeams.length === 0 ? (
-         <div className="text-center py-10 bg-card shadow-md rounded-lg">
-            <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-xl font-semibold text-foreground">
-              No Teams Found
-            </h3>
-            <p className="text-muted-foreground mt-2">
-              No teams match the current filter.
-            </p>
-        </div>
+        <Card className="text-center py-10 shadow-md rounded-lg">
+            <CardContent>
+              <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-xl font-semibold text-foreground">
+                No Teams Found
+              </h3>
+              <p className="text-muted-foreground mt-2">
+                Get started by creating a new team.
+              </p>
+              {isAdmin && (
+                <Button onClick={() => setIsFormDialogOpen(true)} className="mt-4" disabled={isLoadingEmployees}>
+                    <PlusCircle className="mr-2 h-4 w-4" /> Create New Team
+                </Button>
+              )}
+            </CardContent>
+        </Card>
       ) : (
-         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {filteredTeams.map(team => (
-            <Card key={team.id} className="shadow-lg rounded-lg flex flex-col">
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                    <div>
-                        <CardTitle className="text-xl text-primary">{team.name}</CardTitle>
-                        <CardDescription className="text-xs mt-1">
-                            Created on: {formatDateFromTimestamp(team.createdAt)}
-                        </CardDescription>
-                    </div>
-                     <Button variant="ghost" size="icon" className="h-8 w-8" disabled>
-                        <MoreHorizontal className="h-4 w-4" />
-                        <span className="sr-only">Team Actions</span>
-                    </Button>
-                </div>
-                {team.description && (
-                    <p className="text-sm text-muted-foreground pt-2">{team.description}</p>
-                )}
-              </CardHeader>
-              <CardContent className="flex-grow">
-                 <h4 className="text-sm font-semibold mb-2">Members ({team.memberNames?.length || team.memberIds.length})</h4>
-                 <ScrollArea className="h-40">
-                     <div className="flex flex-wrap gap-2">
-                        {(team.memberNames && team.memberNames.length > 0 ? team.memberNames : team.memberIds).map((item, index) => (
-                             <Badge key={index} variant="secondary" className="font-normal text-sm py-1">
+        <Card className="shadow-lg rounded-lg">
+          <CardHeader>
+            <CardTitle>Team List</CardTitle>
+            <CardDescription>A list of all created teams and their members.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[200px]">Team Name</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Members</TableHead>
+                    <TableHead className="w-[150px]">Created Date</TableHead>
+                    <TableHead className="w-[50px] text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredTeams.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="h-24 text-center">
+                        No teams match the current filter.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredTeams.map(team => (
+                      <TableRow key={team.id}>
+                        <TableCell className="font-medium text-primary">{team.name}</TableCell>
+                        <TableCell className="text-muted-foreground max-w-xs truncate" title={team.description}>
+                          {team.description || "N/A"}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {(team.memberNames && team.memberNames.length > 0 ? team.memberNames : team.memberIds).map((item, index) => (
+                              <Badge key={index} variant="secondary" className="font-normal">
                                 {item}
-                            </Badge>
-                        ))}
-                    </div>
-                 </ScrollArea>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                              </Badge>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {formatDateFromTimestamp(team.createdAt)}
+                        </TableCell>
+                         <TableCell className="text-right">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" disabled>
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Team Actions</span>
+                            </Button>
+                         </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
