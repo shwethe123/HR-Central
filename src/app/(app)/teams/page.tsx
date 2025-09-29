@@ -1,4 +1,3 @@
-
 // src/app/(app)/teams/page.tsx
 "use client";
 
@@ -31,6 +30,7 @@ import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { useAuth } from '@/contexts/auth-context';
 
 const TEAMS_FETCH_LIMIT = 20;
 const EMPLOYEES_FOR_FORM_FETCH_LIMIT = 100;
@@ -53,6 +53,7 @@ const formatDateFromTimestamp = (timestamp: Timestamp | string | undefined): str
 };
 
 export default function TeamsPage() {
+  const { isAdmin } = useAuth();
   const [teams, setTeams] = useState<Team[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
@@ -155,32 +156,34 @@ export default function TeamsPage() {
           <Users className="mr-3 h-8 w-8 text-primary" />
           Manage Teams
         </h1>
-        <Dialog open={isFormDialogOpen} onOpenChange={setIsFormDialogOpen}>
-          <DialogTrigger asChild>
-            <Button disabled={isLoadingEmployees}>
-              <PlusCircle className="mr-2 h-4 w-4" /> Create New Team
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[625px]">
-            <DialogHeader>
-              <DialogTitle>Create New Team</DialogTitle>
-              <DialogDescription>
-                Fill in the details below to create a new team.
-              </DialogDescription>
-            </DialogHeader>
-            {isLoadingEmployees ? (
-                <div className="flex justify-center items-center py-10">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    <p className="ml-2 text-muted-foreground">Loading employees...</p>
-                </div>
-            ) : (
-                <CreateTeamForm
-                  employees={employees}
-                  onFormSubmissionSuccess={handleFormSubmissionSuccess}
-                />
-            )}
-          </DialogContent>
-        </Dialog>
+        {isAdmin && (
+          <Dialog open={isFormDialogOpen} onOpenChange={setIsFormDialogOpen}>
+            <DialogTrigger asChild>
+              <Button disabled={isLoadingEmployees}>
+                <PlusCircle className="mr-2 h-4 w-4" /> Create New Team
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[625px]">
+              <DialogHeader>
+                <DialogTitle>Create New Team</DialogTitle>
+                <DialogDescription>
+                  Fill in the details below to create a new team.
+                </DialogDescription>
+              </DialogHeader>
+              {isLoadingEmployees ? (
+                  <div className="flex justify-center items-center py-10">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      <p className="ml-2 text-muted-foreground">Loading employees...</p>
+                  </div>
+              ) : (
+                  <CreateTeamForm
+                    employees={employees}
+                    onFormSubmissionSuccess={handleFormSubmissionSuccess}
+                  />
+              )}
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <Card className="shadow-md rounded-lg">
@@ -221,9 +224,11 @@ export default function TeamsPage() {
             <p className="text-muted-foreground mt-2">
               Get started by creating a new team.
             </p>
-            <Button onClick={() => setIsFormDialogOpen(true)} className="mt-4" disabled={isLoadingEmployees}>
-                <PlusCircle className="mr-2 h-4 w-4" /> Create New Team
-            </Button>
+            {isAdmin && (
+              <Button onClick={() => setIsFormDialogOpen(true)} className="mt-4" disabled={isLoadingEmployees}>
+                  <PlusCircle className="mr-2 h-4 w-4" /> Create New Team
+              </Button>
+            )}
         </div>
       ) : (
         <Card className="shadow-lg rounded-lg">
