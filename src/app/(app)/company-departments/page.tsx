@@ -201,7 +201,7 @@ export default function CompanyDepartmentsPage() {
       allDepartments.forEach(dept => {
         const employee = employeesByDept[dept][i];
         if (employee) {
-          const leaveType = leaveMap.get(employee.id);
+          const leaveType = leaveMap.get(employee.employeeId);
           row[dept] = {
             name: `${i + 1}. ${employee.name}`,
             leaveType: leaveType,
