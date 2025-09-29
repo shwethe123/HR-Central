@@ -13,7 +13,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { CreateTeamForm } from "./create-team-form";
 import { Users, PlusCircle, Loader2, MoreHorizontal, CalendarDays, Info, ListFilter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -204,70 +212,86 @@ export default function TeamsPage() {
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
           <p className="ml-3 text-muted-foreground">Loading teams...</p>
         </div>
-      ) : filteredTeams.length === 0 ? (
+      ) : teams.length === 0 ? (
         <div className="text-center py-10 bg-card shadow-md rounded-lg">
             <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-xl font-semibold text-foreground">
-              {teams.length === 0 ? "No Teams Found" : "No Teams Match Your Filter"}
+              No Teams Found
             </h3>
             <p className="text-muted-foreground mt-2">
-              {teams.length === 0
-                ? "Get started by creating a new team."
-                : "Try a different filter selection or create a new team."}
+              Get started by creating a new team.
             </p>
             <Button onClick={() => setIsFormDialogOpen(true)} className="mt-4" disabled={isLoadingEmployees}>
                 <PlusCircle className="mr-2 h-4 w-4" /> Create New Team
             </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredTeams.map((team) => (
-            <Card key={team.id} className="flex flex-col shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-lg overflow-hidden">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="text-xl font-semibold truncate" title={team.name}>
-                    {team.name}
-                  </CardTitle>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" disabled>
-                    <MoreHorizontal className="h-4 w-4" />
-                    <span className="sr-only">Team Actions</span>
-                  </Button>
+        <Card className="shadow-lg rounded-lg">
+            <CardHeader>
+                <CardTitle>All Teams</CardTitle>
+                <CardDescription>A list of all created teams and their members.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="rounded-md border">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Team Name</TableHead>
+                                <TableHead>Description</TableHead>
+                                <TableHead>Members</TableHead>
+                                <TableHead>Created Date</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredTeams.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={5} className="h-24 text-center">
+                                    No teams match your current filter.
+                                </TableCell>
+                            </TableRow>
+                          ) : (
+                            filteredTeams.map((team) => (
+                                <TableRow key={team.id}>
+                                    <TableCell>
+                                        <div className="font-medium text-primary">{team.name}</div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="text-sm text-muted-foreground max-w-xs truncate" title={team.description}>
+                                            {team.description || "No description"}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="flex flex-wrap gap-1">
+                                            {team.memberNames && team.memberNames.slice(0, 3).map((name, index) => (
+                                                <Badge key={index} variant="secondary" className="font-normal">{name}</Badge>
+                                            ))}
+                                            {team.memberNames && team.memberNames.length > 3 && (
+                                                <Badge variant="outline" className="font-normal">+{team.memberNames.length - 3} more</Badge>
+                                            )}
+                                            {(!team.memberNames || team.memberNames.length === 0) && (
+                                                <Badge variant="outline" className="font-normal">{team.memberIds.length} member{team.memberIds.length !== 1 ? 's' : ''}</Badge>
+                                            )}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        {formatDateFromTimestamp(team.createdAt)}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8" disabled>
+                                            <MoreHorizontal className="h-4 w-4" />
+                                            <span className="sr-only">Team Actions</span>
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                    </Table>
                 </div>
-                {team.description && (
-                  <CardDescription className="text-sm text-muted-foreground italic line-clamp-2 pt-1" title={team.description}>
-                    {team.description}
-                  </CardDescription>
-                )}
-              </CardHeader>
-              <CardContent className="flex-grow space-y-3 pt-0 pb-4">
-                <div className="flex items-center text-sm text-muted-foreground">
-                  <Users className="mr-2 h-4 w-4 text-primary" />
-                  <span>{team.memberIds.length} Member{team.memberIds.length !== 1 ? 's' : ''}</span>
-                </div>
-                <div className="flex items-center text-sm text-muted-foreground">
-                  <CalendarDays className="mr-2 h-4 w-4 text-primary" />
-                  <span>Created: {formatDateFromTimestamp(team.createdAt)}</span>
-                </div>
-                {team.memberNames && team.memberNames.length > 0 && (
-                  <div className="pt-2">
-                    <h4 className="text-xs font-medium text-muted-foreground mb-1.5">Members:</h4>
-                    <div className="flex flex-wrap gap-1.5">
-                      {team.memberNames.slice(0, 5).map((name, index) => (
-                        <Badge key={index} variant="secondary" className="font-normal">{name}</Badge>
-                      ))}
-                      {team.memberNames.length > 5 && (
-                        <Badge variant="outline" className="font-normal">+{team.memberNames.length - 5} more</Badge>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-              {/* CardFooter with View Details button is removed */}
-            </Card>
-          ))}
-        </div>
+            </CardContent>
+        </Card>
       )}
     </div>
   );
 }
-
