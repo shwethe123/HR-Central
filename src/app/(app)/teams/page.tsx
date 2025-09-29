@@ -31,9 +31,10 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/auth-context';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
-const TEAMS_FETCH_LIMIT = 20;
-const EMPLOYEES_FOR_FORM_FETCH_LIMIT = 100;
+const TEAMS_FETCH_LIMIT = 50;
+const EMPLOYEES_FOR_FORM_FETCH_LIMIT = 150;
 
 const formatDateFromTimestamp = (timestamp: Timestamp | string | undefined): string => {
   if (!timestamp) return 'N/A';
@@ -230,72 +231,52 @@ export default function TeamsPage() {
               </Button>
             )}
         </div>
+      ) : filteredTeams.length === 0 ? (
+         <div className="text-center py-10 bg-card shadow-md rounded-lg">
+            <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-xl font-semibold text-foreground">
+              No Teams Found
+            </h3>
+            <p className="text-muted-foreground mt-2">
+              No teams match the current filter.
+            </p>
+        </div>
       ) : (
-        <Card className="shadow-lg rounded-lg">
-            <CardHeader>
-                <CardTitle>All Teams</CardTitle>
-                <CardDescription>A list of all created teams and their members.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <div className="rounded-md border">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Team Name</TableHead>
-                                <TableHead>Description</TableHead>
-                                <TableHead>Members</TableHead>
-                                <TableHead>Created Date</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {filteredTeams.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={5} className="h-24 text-center">
-                                    No teams match your current filter.
-                                </TableCell>
-                            </TableRow>
-                          ) : (
-                            filteredTeams.map((team) => (
-                                <TableRow key={team.id}>
-                                    <TableCell>
-                                        <div className="font-medium text-primary">{team.name}</div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="text-sm text-muted-foreground max-w-xs truncate" title={team.description}>
-                                            {team.description || "No description"}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex flex-wrap gap-1">
-                                            {team.memberNames && team.memberNames.slice(0, 3).map((name, index) => (
-                                                <Badge key={index} variant="secondary" className="font-normal">{name}</Badge>
-                                            ))}
-                                            {team.memberNames && team.memberNames.length > 3 && (
-                                                <Badge variant="outline" className="font-normal">+{team.memberNames.length - 3} more</Badge>
-                                            )}
-                                            {(!team.memberNames || team.memberNames.length === 0) && (
-                                                <Badge variant="outline" className="font-normal">{team.memberIds.length} member{team.memberIds.length !== 1 ? 's' : ''}</Badge>
-                                            )}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        {formatDateFromTimestamp(team.createdAt)}
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <Button variant="ghost" size="icon" className="h-8 w-8" disabled>
-                                            <MoreHorizontal className="h-4 w-4" />
-                                            <span className="sr-only">Team Actions</span>
-                                        </Button>
-                                    </TableCell>
-                                </TableRow>
-                            ))
-                          )}
-                        </TableBody>
-                    </Table>
+         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {filteredTeams.map(team => (
+            <Card key={team.id} className="shadow-lg rounded-lg flex flex-col">
+              <CardHeader>
+                <div className="flex justify-between items-start">
+                    <div>
+                        <CardTitle className="text-xl text-primary">{team.name}</CardTitle>
+                        <CardDescription className="text-xs mt-1">
+                            Created on: {formatDateFromTimestamp(team.createdAt)}
+                        </CardDescription>
+                    </div>
+                     <Button variant="ghost" size="icon" className="h-8 w-8" disabled>
+                        <MoreHorizontal className="h-4 w-4" />
+                        <span className="sr-only">Team Actions</span>
+                    </Button>
                 </div>
-            </CardContent>
-        </Card>
+                {team.description && (
+                    <p className="text-sm text-muted-foreground pt-2">{team.description}</p>
+                )}
+              </CardHeader>
+              <CardContent className="flex-grow">
+                 <h4 className="text-sm font-semibold mb-2">Members ({team.memberNames?.length || team.memberIds.length})</h4>
+                 <ScrollArea className="h-40">
+                     <div className="flex flex-wrap gap-2">
+                        {(team.memberNames && team.memberNames.length > 0 ? team.memberNames : team.memberIds).map((item, index) => (
+                             <Badge key={index} variant="secondary" className="font-normal text-sm py-1">
+                                {item}
+                            </Badge>
+                        ))}
+                    </div>
+                 </ScrollArea>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
     </div>
   );
