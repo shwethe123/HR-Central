@@ -1,4 +1,3 @@
-
 // src/app/(app)/wifi-bills/add-wifi-bill-form.tsx
 'use client';
 
@@ -44,7 +43,6 @@ const ClientWifiBillSchema = z.object({
   dueDate: z.date({ required_error: "Due date is required." }),
   paymentDate: z.date().optional().nullable(),
   status: z.enum(["Pending", "Paid", "Overdue", "Cancelled"]),
-  invoiceUrl: z.string().url({ message: "Invalid URL format for invoice." }).optional().or(z.literal('')),
   notes: z.string().max(500).optional(),
 });
 
@@ -90,7 +88,6 @@ export function AddWifiBillForm({ onFormSubmissionSuccess, className, initialDat
         dueDate: undefined,
         paymentDate: null,
         status: 'Pending' as WifiBillFormData['status'],
-        invoiceUrl: '',
         notes: '',
       };
     }
@@ -119,7 +116,6 @@ export function AddWifiBillForm({ onFormSubmissionSuccess, className, initialDat
       ...data,
       dueDate: dueDateProcessed,
       paymentDate: paymentDateProcessed,
-      // Ensure other enum types have fallbacks if initialData might be incomplete
       paymentCycle: data.paymentCycle || 'Monthly',
       currency: data.currency || 'MMK',
       status: data.status || 'Pending',
@@ -133,7 +129,6 @@ export function AddWifiBillForm({ onFormSubmissionSuccess, className, initialDat
   });
 
    useEffect(() => {
-    // Reset form with new initialData when it changes (e.g., user clicks "Renew" on different bills)
     form.reset(getProcessedInitialData(initialData));
   }, [initialData, form.reset]);
 
@@ -144,7 +139,7 @@ export function AddWifiBillForm({ onFormSubmissionSuccess, className, initialDat
         title: "Success",
         description: state.message,
       });
-      form.reset(getProcessedInitialData()); // Reset to empty defaults after success
+      form.reset(getProcessedInitialData()); 
       if (onFormSubmissionSuccess) {
         onFormSubmissionSuccess(state.newWifiBillId);
       }
@@ -170,10 +165,9 @@ export function AddWifiBillForm({ onFormSubmissionSuccess, className, initialDat
     if (data.paymentDate) {
       formData.append('paymentDate', format(data.paymentDate, "yyyy-MM-dd"));
     } else {
-      formData.append('paymentDate', ''); // Send empty string if null/undefined for server action
+      formData.append('paymentDate', '');
     }
     formData.append('status', data.status);
-    if (data.invoiceUrl) formData.append('invoiceUrl', data.invoiceUrl);
     if (data.notes) formData.append('notes', data.notes);
 
     startTransition(() => {
@@ -251,12 +245,11 @@ export function AddWifiBillForm({ onFormSubmissionSuccess, className, initialDat
             <Label htmlFor="billAmount">Bill Amount</Label>
             <Input
                 id="billAmount"
-                type="text" // Use text to allow formatting, parse to number in schema
+                type="text" 
                 {...form.register('billAmount')}
                 placeholder="e.g., 50000"
                 onChange={(e) => {
                     const value = e.target.value;
-                    // Allow only numbers and one decimal point if needed, or format with commas
                     const numericValue = value.replace(/[^0-9]/g, '');
                     form.setValue('billAmount', Number(numericValue) || undefined, { shouldValidate: true });
                 }}
@@ -342,12 +335,6 @@ export function AddWifiBillForm({ onFormSubmissionSuccess, className, initialDat
       </div>
 
       <div>
-        <Label htmlFor="invoiceUrl">Invoice URL (Optional)</Label>
-        <Input id="invoiceUrl" {...form.register('invoiceUrl')} placeholder="https://example.com/invoice.pdf" />
-        {form.formState.errors.invoiceUrl && <p className="text-sm text-destructive mt-1">{form.formState.errors.invoiceUrl.message}</p>}
-      </div>
-
-      <div>
         <Label htmlFor="notes">Notes (Optional)</Label>
         <Textarea id="notes" {...form.register('notes')} rows={3} placeholder="Any additional notes..." />
         {form.formState.errors.notes && <p className="text-sm text-destructive mt-1">{form.formState.errors.notes.message}</p>}
@@ -361,4 +348,3 @@ export function AddWifiBillForm({ onFormSubmissionSuccess, className, initialDat
     </form>
   );
 }
-

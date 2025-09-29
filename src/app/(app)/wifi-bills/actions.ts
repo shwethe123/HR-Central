@@ -1,4 +1,3 @@
-
 // src/app/(app)/wifi-bills/actions.ts
 'use server';
 
@@ -6,7 +5,7 @@ import { z } from 'zod';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp, doc, deleteDoc } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
-import type { WifiBill } from '@/types'; // Assuming WifiBill type is defined
+import type { WifiBill } from '@/types';
 
 const WifiBillFormSchema = z.object({
   companyName: z.string().min(1, { message: "Company name is required." }),
@@ -30,11 +29,10 @@ const WifiBillFormSchema = z.object({
   paymentDate: z.string().optional().nullable().refine(
     (date) => date === null || date === undefined || date === '' || !isNaN(Date.parse(date)), {
     message: "Payment date must be a valid date if provided.",
-  }).transform(val => val === '' ? null : val), // Ensure empty string becomes null
+  }).transform(val => val === '' ? null : val),
   status: z.enum(["Pending", "Paid", "Overdue", "Cancelled"], {
     required_error: "Status is required.",
   }),
-  invoiceUrl: z.string().url({ message: "Invalid URL format for invoice." }).optional().or(z.literal('')),
   notes: z.string().max(500, { message: "Notes cannot exceed 500 characters." }).optional().or(z.literal('')),
 });
 
@@ -51,7 +49,6 @@ export type AddWifiBillFormState = {
     dueDate?: string[];
     paymentDate?: string[];
     status?: string[];
-    invoiceUrl?: string[];
     notes?: string[];
     _form?: string[];
   };
@@ -74,7 +71,6 @@ export async function addWifiBill(
     dueDate: formData.get('dueDate'),
     paymentDate: formData.get('paymentDate'),
     status: formData.get('status'),
-    invoiceUrl: formData.get('invoiceUrl'),
     notes: formData.get('notes'),
   };
 
@@ -102,12 +98,11 @@ export async function addWifiBill(
         paymentCycle: data.paymentCycle,
         billAmount: data.billAmount,
         currency: data.currency,
-        dueDate: data.dueDate, // Firestore will store as string if it is a string
-        paymentDate: data.paymentDate || undefined, // Store as string or undefined
+        dueDate: data.dueDate,
+        paymentDate: data.paymentDate || undefined,
         status: data.status,
-        invoiceUrl: data.invoiceUrl || undefined,
         notes: data.notes || undefined,
-        createdAt: serverTimestamp(), // Firestore server timestamp
+        createdAt: serverTimestamp(),
     };
 
     const docRef = await addDoc(wifiBillsCollectionRef, billToSave);

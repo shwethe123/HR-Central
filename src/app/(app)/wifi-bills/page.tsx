@@ -1,4 +1,3 @@
-
 // src/app/(app)/wifi-bills/page.tsx
 "use client";
 
@@ -23,18 +22,26 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from '@/components/ui/badge';
 import { AddWifiBillForm, type WifiBillFormData } from "./add-wifi-bill-form";
 import { deleteWifiBill, type DeleteWifiBillFormState } from "./actions";
-import { Wifi, PlusCircle, Loader2, CalendarDays, DollarSign, Info, FileText, Building, Server, ListFilter, Trash2, UserCircle2 } from 'lucide-react';
+import { Wifi, PlusCircle, Loader2, CalendarDays, DollarSign, Building, Server, ListFilter, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, Timestamp, limit } from 'firebase/firestore';
-import { format as formatDateFns, differenceInDays, isToday, isFuture, isValid, formatDistanceToNowStrict, isPast, parseISO } from 'date-fns';
+import { format as formatDateFns, differenceInDays, isToday, isFuture, isValid, isPast, parseISO } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { useAuth } from '@/contexts/auth-context'; // Import useAuth
+import { useAuth } from '@/contexts/auth-context';
 
 const WIFI_BILLS_FETCH_LIMIT = 50;
 
@@ -74,12 +81,12 @@ const statusBadgeVariant = (status: WifiBill['status']) => {
     case "Paid": return "default";
     case "Overdue": return "destructive";
     case "Cancelled": return "secondary";
-    default: return "secondary";
+    default: return "secondary" as "default" | "destructive" | "secondary" | "outline" | null | undefined;
   }
 };
 
 export default function WifiBillsPage() {
-  const { isAdmin } = useAuth(); // Get isAdmin status
+  const { isAdmin } = useAuth();
   const [bills, setBills] = useState<WifiBill[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddFormDialogOpen, setIsAddFormDialogOpen] = useState(false);
@@ -88,14 +95,11 @@ export default function WifiBillsPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [billToDeleteId, setBillToDeleteId] = useState<string | null>(null);
 
-  // State for filters
   const [selectedCompany, setSelectedCompany] = useState<string>('all');
   const [selectedProvider, setSelectedProvider] = useState<string>('all');
 
-  // Action state for delete
   const initialDeleteState: DeleteWifiBillFormState = { message: null, success: false };
   const [deleteState, deleteAction] = useActionState(deleteWifiBill, initialDeleteState);
-
 
   const fetchWifiBills = useCallback(async () => {
     setIsLoading(true);
@@ -169,7 +173,6 @@ export default function WifiBillsPage() {
     }
   }, [deleteState, toast, fetchWifiBills]);
 
-
   const uniqueCompanies = useMemo(() => {
     return ['all', ...new Set(bills.map(bill => bill.companyName))].sort((a, b) => a === 'all' ? -1 : b === 'all' ? 1 : a.localeCompare(b));
   }, [bills]);
@@ -186,8 +189,6 @@ export default function WifiBillsPage() {
     });
   }, [bills, selectedCompany, selectedProvider]);
 
-  const displayBills = filteredBills;
-
   return (
     <div className="container mx-auto py-2 space-y-6">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -195,14 +196,10 @@ export default function WifiBillsPage() {
           <Wifi className="mr-3 h-8 w-8 text-primary" />
           WiFi Bill Management
         </h1>
-        <Dialog 
-            open={isAddFormDialogOpen} 
-            onOpenChange={setIsAddFormDialogOpen}
-        >
+        <Dialog open={isAddFormDialogOpen} onOpenChange={setIsAddFormDialogOpen}>
           <DialogTrigger asChild>
             <Button>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Add New WiFi Bill
+              <PlusCircle className="mr-2 h-4 w-4" /> Add New WiFi Bill
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[625px]">
@@ -212,10 +209,7 @@ export default function WifiBillsPage() {
                 Fill in the details for the new WiFi bill entry.
               </DialogDescription>
             </DialogHeader>
-            <AddWifiBillForm 
-                key={'new-bill-form'}
-                onFormSubmissionSuccess={handleAddFormSubmissionSuccess} 
-            />
+            <AddWifiBillForm key={'new-bill-form'} onFormSubmissionSuccess={handleAddFormSubmissionSuccess} />
           </DialogContent>
         </Dialog>
       </div>
@@ -257,155 +251,94 @@ export default function WifiBillsPage() {
           </div>
         </CardContent>
       </Card>
-
-      {isLoading ? (
-        <div className="flex justify-center items-center py-20">
-          <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          <p className="ml-3 text-muted-foreground">Loading WiFi bills...</p>
-        </div>
-      ) : displayBills.length === 0 ? (
-        <Card className="text-center py-10 shadow-md rounded-lg">
-          <CardHeader>
-            <CardTitle className="text-2xl">
-                {bills.length === 0 ? "No WiFi Bills Found" : "No Bills Match Your Filters"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground mb-4">
-              {bills.length === 0 
-                ? "Get started by adding your first WiFi bill record." 
-                : "Try adjusting your filter criteria or add a new bill."}
-            </p>
-            <Button onClick={() => setIsAddFormDialogOpen(true)}>
-                 <PlusCircle className="mr-2 h-4 w-4" />
-                 Add New WiFi Bill
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {displayBills.map((bill) => {
-            const now = new Date();
-            let dueDateInfoText = '';
-            let paymentDateInfoText = '';
-            let dueDateIconColor = 'text-gray-500'; 
-
-            const billDueDateObj = bill.dueDate instanceof Timestamp ? bill.dueDate.toDate() : (typeof bill.dueDate === 'string' ? parseISO(bill.dueDate) : null);
-            const billPaymentDateObj = bill.paymentDate ? (bill.paymentDate instanceof Timestamp ? bill.paymentDate.toDate() : (typeof bill.paymentDate === 'string' ? parseISO(bill.paymentDate) : null)) : null;
-            
-            if (billDueDateObj && isValid(billDueDateObj)) {
-              if (bill.status === 'Pending' || bill.status === 'Overdue') {
-                const daysDiff = differenceInDays(billDueDateObj, now);
-                if (isToday(billDueDateObj)) {
-                  dueDateInfoText = '(Due today)';
-                  dueDateIconColor = 'text-orange-500';
-                } else if (isFuture(billDueDateObj)) {
-                  dueDateInfoText = `(Due in ${daysDiff +1} day${daysDiff + 1 !== 1 ? 's' : ''})`;
-                  dueDateIconColor = 'text-blue-500';
-                } else { 
-                  const overdueDays = differenceInDays(now, billDueDateObj);
-                  dueDateInfoText = `(Overdue by ${overdueDays} day${overdueDays !== 1 ? 's' : ''})`;
-                  dueDateIconColor = 'text-red-500';
-                }
-              }
-            }
-
-            if (billPaymentDateObj && isValid(billPaymentDateObj) && bill.status === 'Paid') {
-                paymentDateInfoText = `(${formatDistanceToNowStrict(billPaymentDateObj, { addSuffix: true })})`;
-            }
-            
-            return (
-              <Card key={bill.id} className="shadow-lg rounded-lg flex flex-col hover:shadow-xl transition-shadow duration-300">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="text-lg font-semibold truncate leading-tight flex items-center" title={`${bill.companyName} - ${bill.wifiProvider}`}>
-                          <Building className="mr-2 h-5 w-5 text-primary/80 shrink-0" /> 
-                          <span className="truncate">{bill.companyName}</span>
-                      </CardTitle>
-                       <Badge 
-                          variant={statusBadgeVariant(bill.status)}
-                          className={`text-xs whitespace-nowrap capitalize shrink-0 font-medium ${
-                              bill.status === "Paid" ? "bg-green-100 text-green-700 border-green-300" :
-                              bill.status === "Overdue" ? "bg-red-100 text-red-700 border-red-300" :
-                              bill.status === "Pending" ? "bg-yellow-100 text-yellow-700 border-yellow-300" :
-                              "bg-gray-100 text-gray-700 border-gray-300" 
-                          }`}
-                      >
-                          {bill.status}
-                      </Badge>
-                  </div>
-                   <CardDescription className="text-sm text-muted-foreground flex items-center pt-1">
-                      <Server className="mr-2 h-4 w-4 shrink-0" /> {bill.wifiProvider} - {bill.planName}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="text-xs text-muted-foreground space-y-1.5 flex-grow pt-0 pb-3">
-                  {bill.accountNumber && (
-                      <div className="flex items-center gap-1.5">
-                          <UserCircle2 className="h-3.5 w-3.5" />
-                          <span>Account: {bill.accountNumber}</span>
-                      </div>
-                  )}
-                  <div className="flex items-center gap-1.5">
-                      <DollarSign className="h-3.5 w-3.5" />
-                      <span className="font-semibold text-foreground/90">{formatCurrency(bill.billAmount, bill.currency)}</span>
-                      <span className="text-muted-foreground">({bill.paymentCycle})</span>
-                  </div>
-                   <div className="flex items-center gap-1.5">
-                      <CalendarDays className={`h-3.5 w-3.5 ${dueDateIconColor}`} />
-                      <span className="font-medium">Due: {formatDate(billDueDateObj)}</span>
-                      {dueDateInfoText && <span className="text-xs text-muted-foreground ml-1">{dueDateInfoText}</span>}
-                  </div>
-                  {billPaymentDateObj && bill.status === 'Paid' && (
-                      <div className="flex items-center gap-1.5">
-                          <CalendarDays className="h-3.5 w-3.5 text-green-500" />
-                          <span>Paid: {formatDate(billPaymentDateObj)}</span>
-                          {paymentDateInfoText && <span className="text-xs text-muted-foreground ml-1">{paymentDateInfoText}</span>}
-                      </div>
-                  )}
-                  {bill.notes && (
-                      <div className="flex items-start gap-1.5 pt-1">
-                          <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                          <p className="line-clamp-2 text-xs" title={bill.notes}>Notes: {bill.notes}</p>
-                      </div>
-                  )}
-                </CardContent>
-                <CardFooter className="border-t pt-3 pb-3 flex flex-col items-stretch gap-2">
-                  {bill.invoiceUrl ? (
-                       <Button 
-                          variant="outline" 
-                          size="sm" 
-                          asChild 
-                          className="w-full"
-                      >
-                          <a href={bill.invoiceUrl} target="_blank" rel="noopener noreferrer">
-                          <FileText className="mr-2 h-4 w-4" /> View Invoice
-                          </a>
-                      </Button>
+      
+      <Card className="shadow-lg rounded-lg">
+        <CardHeader>
+            <CardTitle>All WiFi Bills</CardTitle>
+        </CardHeader>
+        <CardContent>
+           {isLoading ? (
+            <div className="flex justify-center items-center py-20">
+              <Loader2 className="h-10 w-10 animate-spin text-primary" />
+              <p className="ml-3 text-muted-foreground">Loading WiFi bills...</p>
+            </div>
+           ) : (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Company</TableHead>
+                    <TableHead>Provider & Plan</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Due Date</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredBills.length === 0 ? (
+                    <TableRow>
+                        <TableCell colSpan={6} className="h-24 text-center">
+                            {bills.length === 0 ? "No WiFi bills found." : "No bills match your current filters."}
+                        </TableCell>
+                    </TableRow>
                   ) : (
-                      <p className="text-xs text-muted-foreground italic w-full text-center">No invoice URL provided</p>
+                    filteredBills.map(bill => {
+                        const billDueDateObj = bill.dueDate instanceof Timestamp ? bill.dueDate.toDate() : (typeof bill.dueDate === 'string' ? parseISO(bill.dueDate) : null);
+                        let dueDateColor = 'text-foreground';
+                        if (bill.status === 'Pending' || bill.status === 'Overdue') {
+                             if (billDueDateObj && isValid(billDueDateObj)) {
+                                 if (isPast(billDueDateObj) && !isToday(billDueDateObj)) {
+                                    dueDateColor = 'text-red-500 font-semibold';
+                                } else if (isToday(billDueDateObj)) {
+                                    dueDateColor = 'text-orange-500 font-semibold';
+                                } else if(differenceInDays(billDueDateObj, new Date()) <= 7){
+                                    dueDateColor = 'text-yellow-600';
+                                }
+                             }
+                        }
+
+                      return (
+                      <TableRow key={bill.id}>
+                        <TableCell>
+                          <div className="font-medium flex items-center"><Building className="mr-2 h-4 w-4 text-muted-foreground"/>{bill.companyName}</div>
+                        </TableCell>
+                        <TableCell>
+                            <div>{bill.wifiProvider}</div>
+                            <div className="text-xs text-muted-foreground">{bill.planName}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-semibold">{formatCurrency(bill.billAmount, bill.currency)}</div>
+                          <div className="text-xs text-muted-foreground">{bill.paymentCycle}</div>
+                        </TableCell>
+                        <TableCell className={dueDateColor}>{formatDate(billDueDateObj)}</TableCell>
+                        <TableCell>
+                          <Badge variant={statusBadgeVariant(bill.status)} className="capitalize">{bill.status}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {isAdmin && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => openDeleteConfirmationDialog(bill.id)}
+                                disabled={deleteState?.pending && billToDeleteId === bill.id}
+                                title="Delete Bill"
+                            >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                                <span className="sr-only">Delete</span>
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )})
                   )}
-                  {isAdmin && bill.status !== "Cancelled" && (
-                     <Button
-                        variant="destructive"
-                        size="sm"
-                        className="w-full"
-                        onClick={() => openDeleteConfirmationDialog(bill.id)}
-                        disabled={deleteState?.pending && billToDeleteId === bill.id}
-                      >
-                        {deleteState?.pending && billToDeleteId === bill.id ? (
-                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                           <Trash2 className="mr-2 h-4 w-4" />
-                        )}
-                        Delete Bill
-                      </Button>
-                  )}
-                </CardFooter>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+                </TableBody>
+              </Table>
+            </div>
+           )}
+        </CardContent>
+      </Card>
+
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
@@ -428,5 +361,3 @@ export default function WifiBillsPage() {
     </div>
   );
 }
-
-    

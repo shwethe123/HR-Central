@@ -126,7 +126,6 @@ export type WifiBill = {
   dueDate: string; // Could be Timestamp for more precise handling
   paymentDate?: string; // Optional, could be Timestamp
   status: "Pending" | "Paid" | "Overdue" | "Cancelled";
-  invoiceUrl?: string; // Optional link to the invoice PDF/image
   notes?: string; // Optional notes
   createdAt: Timestamp; // When the bill record was created in the system
   updatedAt?: Timestamp; // When the bill record was last updated
@@ -142,5 +141,3 @@ export interface Announcement {
   status?: 'published' | 'draft'; // Optional for now, defaults to published
   updatedAt?: Timestamp;
 }
-
-    
