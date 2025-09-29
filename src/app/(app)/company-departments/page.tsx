@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
-import type { Employee } from "@/types";
+import type { Employee, LeaveRequest } from "@/types";
 import {
   Select,
   SelectContent,
@@ -19,31 +19,57 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Building2, Users, Loader2 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { isWithinInterval, startOfDay, endOfDay, parseISO, isValid } from 'date-fns';
 
 interface PivotRow {
-  [departmentName: string]: string | undefined;
+  [departmentName: string]: {
+    name: string;
+    leaveType?: LeaveRequest['leaveType'];
+  } | undefined;
 }
+
+const leaveTypeBadgeVariant = (leaveType?: LeaveRequest['leaveType']) => {
+  if (!leaveType) return "secondary";
+  switch (leaveType) {
+    case "ကြိုတင်ခွင့်": return "default";
+    case "အလုပ်နောက်ကျ": return "outline";
+    case "ခွင့်(နေမကောင်း)": return "default"; // or another color
+    case "ခွင့်ရက်ရှည်": return "secondary";
+    case "ခွင့်မဲ့ပျက်": return "destructive";
+    case "အပြစ်ပေး (ဖိုင်း)": return "destructive";
+    default: return "secondary";
+  }
+};
 
 export default function CompanyDepartmentsPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [selectedCompany, setSelectedCompany] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
-    async function fetchEmployeesData() {
+    async function fetchData() {
       setIsLoading(true);
       try {
         const employeesCollectionRef = collection(db, "employees");
-        // We will do sorting on the client side based on complex logic
-        const q = query(employeesCollectionRef);
-        const querySnapshot = await getDocs(q);
-        const fetchedEmployees: Employee[] = querySnapshot.docs.map(doc => {
+        const leaveRequestsCollectionRef = collection(db, "leaveRequests");
+
+        const employeesQuery = query(employeesCollectionRef);
+        const leaveRequestsQuery = query(leaveRequestsCollectionRef, where("status", "==", "Approved"));
+        
+        const [employeesSnapshot, leaveRequestsSnapshot] = await Promise.all([
+            getDocs(employeesQuery),
+            getDocs(leaveRequestsQuery)
+        ]);
+
+        const fetchedEmployees: Employee[] = employeesSnapshot.docs.map(doc => {
           const data = doc.data();
           return {
             id: doc.id,
@@ -57,12 +83,20 @@ export default function CompanyDepartmentsPage() {
             status: data.status || "Active",
             avatar: data.avatar || undefined,
             salary: data.salary === undefined ? undefined : Number(data.salary),
-            company: data.company || "Unknown Company", // Ensure company has a fallback
+            company: data.company || "Unknown Company",
             gender: data.gender || "N/A",
-            displayOrder: data.displayOrder === undefined ? undefined : Number(data.displayOrder), // Add displayOrder
+            displayOrder: data.displayOrder === undefined ? undefined : Number(data.displayOrder),
           } as Employee;
         });
+
+        const fetchedLeaveRequests: LeaveRequest[] = leaveRequestsSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+        } as LeaveRequest));
+        
         setEmployees(fetchedEmployees);
+        setLeaveRequests(fetchedLeaveRequests);
+
         if (fetchedEmployees.length > 0 && !selectedCompany) {
             const companies = [...new Set(fetchedEmployees.map(emp => emp.company).filter(Boolean) as string[])].sort();
             if (companies.length > 0) {
@@ -70,17 +104,17 @@ export default function CompanyDepartmentsPage() {
             }
         }
       } catch (error) {
-        console.error("Error fetching employees for Company Depts page:", error);
+        console.error("Error fetching data for Company Depts page:", error);
         toast({
           title: "Error Fetching Data",
-          description: "Could not load employee information. Please check your internet connection or try again later.",
+          description: "Could not load employee and leave information. Please try again later.",
           variant: "destructive",
         });
       } finally {
         setIsLoading(false);
       }
     }
-    fetchEmployeesData();
+    fetchData();
   }, [toast]);
 
   const uniqueCompanies = useMemo(() => {
@@ -91,6 +125,27 @@ export default function CompanyDepartmentsPage() {
 
   const companySpecificEmployeePivotTable = useMemo(() => {
     if (!selectedCompany || employees.length === 0) return null;
+
+    const today = startOfDay(new Date());
+
+    const todaysActiveLeaves = leaveRequests.filter(req => {
+      if (req.status !== 'Approved') return false;
+      try {
+        const startDate = parseISO(req.startDate);
+        const endDate = parseISO(req.endDate);
+        if (isValid(startDate) && isValid(endDate)) {
+          return isWithinInterval(today, { start: startDate, end: endOfDay(endDate) });
+        }
+        return false;
+      } catch (e) {
+        return false;
+      }
+    });
+    
+    const leaveMap = new Map<string, LeaveRequest['leaveType']>();
+    todaysActiveLeaves.forEach(leave => {
+        leaveMap.set(leave.employeeId, leave.leaveType);
+    });
 
     const companyEmployees = employees.filter(emp => emp.company === selectedCompany && emp.status === 'Active');
     if (companyEmployees.length === 0) {
@@ -117,27 +172,22 @@ export default function CompanyDepartmentsPage() {
       employeesByDept[dept].push(emp);
     });
 
-    // Custom sorting within each department
     for (const dept in employeesByDept) {
       employeesByDept[dept].sort((a, b) => {
-        // 1. Sort by displayOrder if it exists
         if (a.displayOrder !== undefined && b.displayOrder !== undefined) {
           return a.displayOrder - b.displayOrder;
         }
-        if (a.displayOrder !== undefined) return -1; // a comes first
-        if (b.displayOrder !== undefined) return 1;  // b comes first
+        if (a.displayOrder !== undefined) return -1;
+        if (b.displayOrder !== undefined) return 1;
 
-        // 2. If no displayOrder, sort by role ("ခေါင်းဆောင်" first)
         const roleA = a.role === 'ခေါင်းဆောင်' ? 0 : 1;
         const roleB = b.role === 'ခေါင်းဆောင်' ? 0 : 1;
         if (roleA !== roleB) return roleA - roleB;
 
-        // 3. Then sort by gender ('Male' first)
         const genderA = a.gender === 'Male' ? 0 : a.gender === 'Female' ? 1 : 2;
         const genderB = b.gender === 'Male' ? 0 : b.gender === 'Female' ? 1 : 2;
         if (genderA !== genderB) return genderA - genderB;
 
-        // 4. Finally, sort by name alphabetically
         return a.name.localeCompare(b.name);
       });
     }
@@ -149,16 +199,19 @@ export default function CompanyDepartmentsPage() {
     for (let i = 0; i < maxRows; i++) {
       const row: PivotRow = {};
       allDepartments.forEach(dept => {
-        if (employeesByDept[dept][i]) {
-          // Add the department-specific index before the name
-          row[dept] = `${i + 1}. ${employeesByDept[dept][i].name}`;
+        const employee = employeesByDept[dept][i];
+        if (employee) {
+          const leaveType = leaveMap.get(employee.id);
+          row[dept] = {
+            name: `${i + 1}. ${employee.name}`,
+            leaveType: leaveType,
+          };
         } else {
-          row[dept] = '';
+          row[dept] = undefined;
         }
       });
       pivotData.push(row);
     }
-
 
     return (
       <Card key={selectedCompany} className="shadow-lg rounded-lg overflow-hidden mt-6">
@@ -167,7 +220,7 @@ export default function CompanyDepartmentsPage() {
             Employees in {selectedCompany}
           </CardTitle>
           <CardDescription>
-            Employee names are listed with their index under their respective department.
+            Employee names are listed with their index under their respective department. Employees on leave today will have a badge indicating their leave type.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -185,8 +238,17 @@ export default function CompanyDepartmentsPage() {
                   {pivotData.map((row, index) => (
                     <TableRow key={index} className="hover:bg-muted/50">
                       {allDepartments.map(dept => (
-                        <TableCell key={`${dept}-${index}`} className="py-2 px-4 min-w-[200px]">
-                          {row[dept]}
+                        <TableCell key={`${dept}-${index}`} className="py-2 px-4 min-w-[200px] align-top">
+                          {row[dept] ? (
+                            <div className="flex items-center gap-2">
+                              <span>{row[dept]?.name}</span>
+                              {row[dept]?.leaveType && (
+                                <Badge variant={leaveTypeBadgeVariant(row[dept]?.leaveType)} className="whitespace-nowrap font-medium text-xs">
+                                  {row[dept]?.leaveType}
+                                </Badge>
+                              )}
+                            </div>
+                          ) : ''}
                         </TableCell>
                       ))}
                     </TableRow>
@@ -200,13 +262,13 @@ export default function CompanyDepartmentsPage() {
         </CardContent>
       </Card>
     );
-  }, [employees, selectedCompany]);
+  }, [employees, selectedCompany, leaveRequests]);
 
   if (isLoading) {
     return (
       <div className="container mx-auto py-10 flex justify-center items-center h-[calc(100vh-200px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="ml-4 text-lg text-muted-foreground">Loading employee data...</p>
+        <p className="ml-4 text-lg text-muted-foreground">Loading data...</p>
       </div>
     );
   }
@@ -263,3 +325,5 @@ export default function CompanyDepartmentsPage() {
     </div>
   );
 }
+
+    
