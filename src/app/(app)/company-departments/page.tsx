@@ -23,7 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Building2, Users, Loader2 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, Timestamp, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { isWithinInterval, startOfDay, endOfDay, parseISO, isValid } from 'date-fns';
 
@@ -325,5 +325,3 @@ export default function CompanyDepartmentsPage() {
     </div>
   );
 }
-
-    
