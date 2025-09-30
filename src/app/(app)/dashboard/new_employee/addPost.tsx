@@ -264,6 +264,24 @@ export function AddNewEmployeeForm({ onFormSubmissionSuccess, className }: AddNe
         </div>
       </div>
       
+      <div>
+        <Label htmlFor="avatar-add">Avatar Image (Optional, Max 2MB)</Label>
+        <Input
+          id="avatar-add"
+          type="file"
+          accept="image/*"
+          ref={avatarFileInputRef}
+          onChange={handleAvatarFileChange}
+          className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+        />
+        {form.formState.errors.avatarFile && <p className="text-sm text-destructive mt-1">{form.formState.errors.avatarFile.message}</p>}
+        {avatarPreview && (
+          <div className="mt-2 p-2 border rounded-md inline-block bg-muted">
+            <Image src={avatarPreview} alt="Avatar preview" width={100} height={100} className="rounded-md object-cover" data-ai-hint="upload preview person"/>
+          </div>
+        )}
+      </div>
+
       <div className="flex justify-end pt-2">
         <SubmitButton isImageUploading={isImageUploading} />
       </div>

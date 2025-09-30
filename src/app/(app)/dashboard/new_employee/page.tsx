@@ -9,17 +9,22 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, UserPlus } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { EditEmployeeForm } from '@/app/(app)/employees/edit-employee-form';
+import { AddNewEmployeeForm } from './addPost';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/auth-context';
 import { parseISO, isValid } from 'date-fns';
 
 // This page will be adapted to show *only* new or specific types of employees, like Software Developers.
 export default function NewEmployeesPage() {
+  const { isAdmin } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   
   const [isEditEmployeeDialogOpen, setIsEditEmployeeDialogOpen] = useState(false);
+  const [isAddEmployeeDialogOpen, setIsAddEmployeeDialogOpen] = useState(false);
   const [employeeToEdit, setEmployeeToEdit] = useState<Employee | null>(null);
 
   const fetchNewEmployees = useCallback(async () => {
@@ -92,13 +97,14 @@ export default function NewEmployeesPage() {
     setIsEditEmployeeDialogOpen(true);
   };
 
-  const handleEditFormSuccess = async (updatedEmployeeId?: string) => {
+  const handleFormSuccess = async () => {
     setIsEditEmployeeDialogOpen(false);
+    setIsAddEmployeeDialogOpen(false);
     setEmployeeToEdit(null); 
     await fetchNewEmployees(); // Refresh the list
   };
 
-  if (isLoading && !isEditEmployeeDialogOpen) {
+  if (isLoading && !isEditEmployeeDialogOpen && !isAddEmployeeDialogOpen) {
     return (
       <div className="container mx-auto py-10 flex justify-center items-center h-[calc(100vh-200px)]">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -114,6 +120,24 @@ export default function NewEmployeesPage() {
             <UserPlus className="mr-3 h-8 w-8 text-primary" />
             New Software Developer Hires
         </h1>
+        {isAdmin && (
+          <Dialog open={isAddEmployeeDialogOpen} onOpenChange={setIsAddEmployeeDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <UserPlus className="mr-2 h-4 w-4" /> Add New Developer
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[625px]">
+              <DialogHeader>
+                <DialogTitle>Add New Software Developer</DialogTitle>
+                <DialogDescription>
+                  Fill in the details for the new developer. Department will be set to 'Software Development'.
+                </DialogDescription>
+              </DialogHeader>
+              <AddNewEmployeeForm onFormSubmissionSuccess={handleFormSuccess} />
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
       <DataTable 
         columnGenerator={getColumns} 
@@ -142,7 +166,7 @@ export default function NewEmployeesPage() {
               uniqueDepartments={uniqueDepartments}
               uniqueRoles={uniqueRoles}
               uniqueCompanies={uniqueCompanies}
-              onFormSubmissionSuccess={handleEditFormSuccess}
+              onFormSubmissionSuccess={handleFormSuccess}
             />
           </DialogContent>
         </Dialog>
