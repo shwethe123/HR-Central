@@ -125,17 +125,16 @@ export function AddNewEmployeeForm({ onFormSubmissionSuccess, className }: AddNe
     formData.append('role', 'Developer');
     
     // Add other form data
-    Object.keys(data).forEach(key => {
-        const value = data[key as keyof EmployeeFormData];
-        if (key === 'startDate' && value instanceof Date) {
-            formData.append(key, format(value, "yyyy-MM-dd"));
-        } else if (key === 'github' && typeof value === 'string') {
-            formData.append(key, value);
-            // Create a fake email from github username for auth compatibility if needed
-            formData.append('email', `${value}@github.com`);
-        } else if (key !== 'avatarFile' && value !== undefined && value !== null) {
-            formData.append(key, String(value));
-        }
+    Object.entries(data).forEach(([key, value]) => {
+      if (key === 'startDate' && value instanceof Date) {
+        formData.append(key, format(value, "yyyy-MM-dd"));
+      } else if (key === 'github' && typeof value === 'string') {
+        formData.append(key, value);
+        // Create a fake email from github username for auth compatibility if needed
+        formData.append('email', `${value}@github.com`);
+      } else if (key !== 'avatarFile' && value !== undefined && value !== null) {
+        formData.append(key, String(value));
+      }
     });
 
     let avatarUrl = '';
