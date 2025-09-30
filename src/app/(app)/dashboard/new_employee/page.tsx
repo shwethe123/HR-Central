@@ -120,24 +120,7 @@ export default function NewEmployeesPage() {
             <UserPlus className="mr-3 h-8 w-8 text-primary" />
             New Software Developer Hires
         </h1>
-        {isAdmin && (
-          <Dialog open={isAddEmployeeDialogOpen} onOpenChange={setIsAddEmployeeDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <UserPlus className="mr-2 h-4 w-4" /> Add New Developer
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[625px]">
-              <DialogHeader>
-                <DialogTitle>Add New Software Developer</DialogTitle>
-                <DialogDescription>
-                  Fill in the details for the new developer. Department will be set to 'Software Development'.
-                </DialogDescription>
-              </DialogHeader>
-              <AddNewEmployeeForm onFormSubmissionSuccess={handleFormSuccess} />
-            </DialogContent>
-          </Dialog>
-        )}
+        
       </div>
       <DataTable 
         columnGenerator={getColumns} 
