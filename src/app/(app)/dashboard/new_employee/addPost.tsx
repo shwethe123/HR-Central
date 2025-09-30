@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { format } from 'date-fns';
 import Image from 'next/image';
 
-import { addEmployee, type AddEmployeeFormState } from '@/app/(app)/employees/actions';
+import { addDeveloper, type AddDeveloperFormState } from './actions'; // Updated action import
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
 import { storage } from '@/lib/firebase';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
-const ClientEmployeeSchema = z.object({
+const ClientDeveloperSchema = z.object({ // Renamed schema for clarity
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   employeeId: z.string().min(3, { message: "Employee ID must be at least 3 characters." }),
   github: z.string().min(1, { message: "GitHub username is required." }),
@@ -40,10 +40,10 @@ const ClientEmployeeSchema = z.object({
   paymentInfo: z.string().optional(),
 });
 
-type EmployeeFormData = z.infer<typeof ClientEmployeeSchema>;
+type DeveloperFormData = z.infer<typeof ClientDeveloperSchema>;
 
-interface AddNewEmployeeFormProps {
-  onFormSubmissionSuccess?: (newEmployeeId?: string) => void;
+interface AddNewDeveloperFormProps { // Renamed interface
+  onFormSubmissionSuccess?: (newDeveloperId?: string) => void;
   className?: string;
 }
 
@@ -63,15 +63,15 @@ function SubmitButton({ isImageUploading }: { isImageUploading: boolean }) {
   );
 }
 
-export function AddNewEmployeeForm({ onFormSubmissionSuccess, className }: AddNewEmployeeFormProps) {
+export function AddNewEmployeeForm({ onFormSubmissionSuccess, className }: AddNewDeveloperFormProps) { // Renamed component
   const { toast } = useToast();
-  const [state, formAction] = useActionState(addEmployee, { message: null, errors: {}, success: false });
+  const [state, formAction] = useActionState(addDeveloper, { message: null, errors: {}, success: false }); // Using new action
   const [isImageUploading, setIsImageUploading] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const avatarFileInputRef = useRef<HTMLInputElement>(null);
 
-  const form = useForm<EmployeeFormData>({
-    resolver: zodResolver(ClientEmployeeSchema),
+  const form = useForm<DeveloperFormData>({
+    resolver: zodResolver(ClientDeveloperSchema),
     defaultValues: {
       name: '',
       employeeId: '',
@@ -107,31 +107,22 @@ export function AddNewEmployeeForm({ onFormSubmissionSuccess, className }: AddNe
       form.reset();
       setAvatarPreview(null);
       if (avatarFileInputRef.current) avatarFileInputRef.current.value = "";
-      if (onFormSubmissionSuccess) onFormSubmissionSuccess(state.newEmployeeId);
+      if (onFormSubmissionSuccess) onFormSubmissionSuccess(state.newDeveloperId); // Changed from newEmployeeId
     } else if (!state?.success && state.message) {
        toast({
-        title: "Error Adding Employee",
+        title: "Error Adding Developer", // Updated title
         description: state.errors?._form?.[0] || state.message,
         variant: "destructive",
       });
     }
   }, [state, toast, form, onFormSubmissionSuccess]);
 
-  const onSubmit = async (data: EmployeeFormData) => {
+  const onSubmit = async (data: DeveloperFormData) => {
     const formData = new FormData();
-    // Set default values for fields removed from this specific form
-    formData.append('company', 'Default Company'); 
-    formData.append('department', 'Software Development');
-    formData.append('role', 'Software Developer');
-    
     // Add other form data
     Object.entries(data).forEach(([key, value]) => {
       if (key === 'startDate' && value instanceof Date) {
         formData.append(key, format(value, "yyyy-MM-dd"));
-      } else if (key === 'github' && typeof value === 'string') {
-        formData.append(key, value);
-        // Create a fake email from github username for auth compatibility if needed
-        formData.append('email', `${value}@github.com`);
       } else if (key !== 'avatarFile' && value !== undefined && value !== null) {
         formData.append(key, String(value));
       }
@@ -143,7 +134,7 @@ export function AddNewEmployeeForm({ onFormSubmissionSuccess, className }: AddNe
     if (fileToUpload) {
       setIsImageUploading(true);
       try {
-        const sRef = storageRef(storage, `employee-avatars/${Date.now()}-${fileToUpload.name}`);
+        const sRef = storageRef(storage, `developer-avatars/${Date.now()}-${fileToUpload.name}`); // Changed storage path
         const uploadTask = uploadBytesResumable(sRef, fileToUpload);
         await uploadTask;
         avatarUrl = await getDownloadURL(uploadTask.snapshot.ref);

@@ -6,7 +6,7 @@ import type { Employee } from "@/types";
 import { getColumns } from "@/app/(app)/employees/columns"; // Reusing columns from employees
 import { DataTable } from "@/app/(app)/employees/data-table"; // Reusing DataTable from employees
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy } from 'firebase/firestore'; // Removed 'where'
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, UserPlus } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
@@ -19,7 +19,7 @@ import { parseISO, isValid } from 'date-fns';
 // This page will be adapted to show *only* new or specific types of employees, like Software Developers.
 export default function NewEmployeesPage() {
   const { isAdmin } = useAuth();
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [developers, setDevelopers] = useState<Employee[]>([]); // Renamed to developers
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   
@@ -27,48 +27,46 @@ export default function NewEmployeesPage() {
   const [isAddEmployeeDialogOpen, setIsAddEmployeeDialogOpen] = useState(false);
   const [employeeToEdit, setEmployeeToEdit] = useState<Employee | null>(null);
 
-  const fetchNewEmployees = useCallback(async () => {
+  const fetchDevelopers = useCallback(async () => { // Renamed function
     setIsLoading(true);
     try {
-      const employeesCollectionRef = collection(db, "employees");
-      // Filter by role in Firestore to only get developers
-      const q = query(employeesCollectionRef, 
-        where("role", "==", "Software Developer")
-      );
+      const developersCollectionRef = collection(db, "developers"); // Changed collection
+      const q = query(developersCollectionRef);
+      
       const querySnapshot = await getDocs(q);
-      const fetchedEmployees: Employee[] = querySnapshot.docs.map(doc => {
+      const fetchedDevelopers: Employee[] = querySnapshot.docs.map(doc => {
         const data = doc.data();
         return {
           id: doc.id,
           ...data,
           name: data.name || "",
           employeeId: data.employeeId || "",
-          department: data.department || "",
-          role: data.role || "",
+          department: "Software Development", // Hardcode for consistency
+          role: "Software Developer", // Hardcode for consistency
           email: data.email || "",
           phone: data.phone || "",
           startDate: data.startDate || "", 
           status: data.status || "Active",
           avatar: data.avatar || "",
-          company: data.company || "",
+          company: "Default Company", // Hardcode for consistency
           salary: data.salary === undefined ? undefined : Number(data.salary),
           gender: data.gender || "Prefer not to say",
         } as Employee;
       });
 
       // Sort by startDate on the client-side
-      const sortedEmployees = fetchedEmployees.sort((a, b) => {
+      const sortedDevelopers = fetchedDevelopers.sort((a, b) => {
         const dateA = a.startDate && isValid(parseISO(a.startDate)) ? parseISO(a.startDate) : new Date(0);
         const dateB = b.startDate && isValid(parseISO(b.startDate)) ? parseISO(b.startDate) : new Date(0);
         return dateB.getTime() - dateA.getTime();
       });
 
-      setEmployees(sortedEmployees);
+      setDevelopers(sortedDevelopers);
     } catch (error) {
-      console.error("Error fetching new employees:", error);
+      console.error("Error fetching new developers:", error);
       toast({
         title: "Error",
-        description: "Failed to fetch new employee data. This may be due to a missing Firestore index.",
+        description: "Failed to fetch new developer data. This may be due to a missing Firestore index.",
         variant: "destructive",
       });
     } finally {
@@ -77,20 +75,20 @@ export default function NewEmployeesPage() {
   }, [toast]);
 
   useEffect(() => {
-    fetchNewEmployees();
-  }, [fetchNewEmployees]);
+    fetchDevelopers();
+  }, [fetchDevelopers]);
 
   const uniqueDepartments = useMemo(() => {
-    return [...new Set(employees.map(emp => emp.department))].sort();
-  }, [employees]);
+    return [...new Set(developers.map(emp => emp.department))].sort();
+  }, [developers]);
 
   const uniqueRoles = useMemo(() => {
-    return [...new Set(employees.map(emp => emp.role))].sort();
-  }, [employees]);
+    return [...new Set(developers.map(emp => emp.role))].sort();
+  }, [developers]);
   
   const uniqueCompanies = useMemo(() => {
-    return [...new Set(employees.map(emp => emp.company).filter(Boolean) as string[])].sort();
-  }, [employees]);
+    return [...new Set(developers.map(emp => emp.company).filter(Boolean) as string[])].sort();
+  }, [developers]);
 
   const handleEditEmployee = (employee: Employee) => {
     setEmployeeToEdit(employee);
@@ -101,7 +99,7 @@ export default function NewEmployeesPage() {
     setIsEditEmployeeDialogOpen(false);
     setIsAddEmployeeDialogOpen(false);
     setEmployeeToEdit(null); 
-    await fetchNewEmployees(); // Refresh the list
+    await fetchDevelopers(); // Refresh the list
   };
 
   if (isLoading && !isEditEmployeeDialogOpen && !isAddEmployeeDialogOpen) {
@@ -143,11 +141,11 @@ export default function NewEmployeesPage() {
       </div>
       <DataTable 
         columnGenerator={getColumns} 
-        data={employees} 
+        data={developers} 
         uniqueDepartments={uniqueDepartments} 
         uniqueRoles={uniqueRoles} 
         uniqueCompanies={uniqueCompanies}
-        onRefreshData={fetchNewEmployees}
+        onRefreshData={fetchDevelopers}
         onEditEmployee={handleEditEmployee} 
       />
 
