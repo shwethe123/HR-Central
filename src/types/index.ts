@@ -30,6 +30,18 @@ export type DeveloperAttendance = {
   createdAt: Timestamp;
 };
 
+// New type for Cleaning Schedule records
+export type CleaningSchedule = {
+  id: string; // Document ID would be the date, e.g., "2024-08-01"
+  date: string;
+  assignments: {
+    employeeId: string;
+    employeeName: string;
+    assignedRow: string;
+    isCompleted: boolean;
+  }[];
+};
+
 
 // New type for Resignation records
 export type Resignation = {
