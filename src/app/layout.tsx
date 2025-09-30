@@ -1,11 +1,10 @@
-
 import type {Metadata} from 'next';
 import {GeistSans} from 'geist/font/sans';
 import './globals.css';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from '@/contexts/auth-context'; 
-import { ThemeProvider } from 'next-themes';
+import { ThemeProviderWrapper } from './theme-provider';
 
 export const metadata: Metadata = {
   title: 'HR Central',
@@ -26,19 +25,14 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${GeistSans.className} antialiased`}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
+        <ThemeProviderWrapper>
           <AuthProvider> 
             <SidebarProvider>
               {children}
             </SidebarProvider>
             <Toaster />
           </AuthProvider>
-        </ThemeProvider>
+        </ThemeProviderWrapper>
       </body>
     </html>
   );
