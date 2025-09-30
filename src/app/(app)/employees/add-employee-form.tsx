@@ -32,9 +32,6 @@ import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebas
 const ClientEmployeeSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   employeeId: z.string().min(3, { message: "Employee ID must be at least 3 characters." }),
-  company: z.string().min(1, { message: "Company is required." }),
-  department: z.string().min(1, { message: "Department is required." }),
-  role: z.string().min(1, { message: "Role is required." }),
   email: z.string().email({ message: "Invalid email address." }),
   phone: z.string().optional(),
   github: z.string().optional(),
@@ -110,9 +107,6 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
     defaultValues: {
       name: '',
       employeeId: '',
-      company: '',
-      department: '',
-      role: '',
       email: '',
       phone: '',
       github: '',
@@ -182,9 +176,6 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
     const formData = new FormData();
     formData.append('name', data.name);
     formData.append('employeeId', data.employeeId);
-    formData.append('company', data.company);
-    formData.append('department', data.department);
-    formData.append('role', data.role);
     formData.append('email', data.email);
     if (data.phone) formData.append('phone', data.phone);
     if (data.github) formData.append('github', data.github);
@@ -193,6 +184,12 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
     formData.append('gender', data.gender);
     formData.append('workLocation', data.workLocation);
     if (data.salary) formData.append('salary', data.salary);
+    
+    // Hardcode company, department, role since they are removed from this form
+    formData.append('company', 'Unassigned');
+    formData.append('department', 'Unassigned');
+    formData.append('role', 'Unassigned');
+
 
     let avatarUrl = '';
     const fileToUpload = data.avatarFile;
@@ -239,77 +236,6 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
         <Input id="employeeId-add" {...form.register('employeeId')} />
         {form.formState.errors.employeeId && <p className="text-sm text-destructive mt-1">{form.formState.errors.employeeId.message}</p>}
         {state?.errors?.employeeId && <p className="text-sm text-destructive mt-1">{state.errors.employeeId.join(', ')}</p>}
-      </div>
-
-      <div>
-        <Label htmlFor="company-add">Company</Label>
-        <Controller
-          control={form.control}
-          name="company"
-          render={({ field }) => (
-            <Select onValueChange={field.onChange} value={field.value} defaultValue="">
-              <SelectTrigger id="company-add">
-                <SelectValue placeholder="Select Company" />
-              </SelectTrigger>
-              <SelectContent>
-                {[ "ဆန်ဆိုင်း", "ဝမ်လုံးဆိုင်", "ဟောင်လိတ်ဆိုင်"].map(comp => <SelectItem key={comp} value={comp}>{comp}</SelectItem>)}
-                {uniqueCompanies.filter(comp => ![ "ဆန်ဆိုင်း", "ဝမ်လုံးဆိုင်", "ဟောင်လိတ်ဆိုင်"].includes(comp)).map(comp => (
-                  <SelectItem key={comp} value={comp}>{comp}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        />
-        {form.formState.errors.company && <p className="text-sm text-destructive mt-1">{form.formState.errors.company.message}</p>}
-        {state?.errors?.company && <p className="text-sm text-destructive mt-1">{state.errors.company.join(', ')}</p>}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="department-add">Department</Label>
-          <Controller
-            control={form.control}
-            name="department"
-            render={({ field }) => (
-              <Select onValueChange={field.onChange} value={field.value} defaultValue="">
-                <SelectTrigger id="department-add">
-                  <SelectValue placeholder="Select Department" />
-                </SelectTrigger>
-                <SelectContent>
-                {["G-ထွက်", "လက်ကားပိုင်း", "ကားတင်", "လက်လီပိုင်း", "ကားအော်ဒါ", "အဝင်ပိုင်း", "ပစ္စည်းမှာ", "အကြွေးကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ငွေကိုင်", "Software Development"].map(dep => <SelectItem key={dep} value={dep}>{dep}</SelectItem>)}
-                  {uniqueDepartments.filter(dep => !["G-ထွက်", "လက်ကားပိုင်း", "ကားတင်", "လက်လီပိုင်း", "ကားအော်ဒါ", "အဝင်ပိုင်း", "ပစ္စည်းမှာ", "အကြွေးကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ငွေကိုင်", "Software Development"].includes(dep)).map(dep => (
-                    <SelectItem key={dep} value={dep}>{dep}</SelectItem>
-                  ))}
-                  </SelectContent>
-              </Select>
-            )}
-          />
-          {form.formState.errors.department && <p className="text-sm text-destructive mt-1">{form.formState.errors.department.message}</p>}
-          {state?.errors?.department && <p className="text-sm text-destructive mt-1">{state.errors.department.join(', ')}</p>}
-        </div>
-
-        <div>
-          <Label htmlFor="role-add">Role</Label>
-          <Controller
-            control={form.control}
-            name="role"
-            render={({ field }) => (
-              <Select onValueChange={field.onChange} value={field.value} defaultValue="">
-                <SelectTrigger id="role-add">
-                  <SelectValue placeholder="Select Role" />
-                </SelectTrigger>
-                <SelectContent>
-                  {["ခေါင်းဆောင်","ဈေးရောင်း", "စာရင်းကိုင်", "Hစစ်", "ပစ္စည်းမှာ", "အဝင်", "ငွေကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ကားတင်", "Developer" ].map(dep => <SelectItem key={dep} value={dep}>{dep}</SelectItem>)}
-                  {uniqueRoles.filter(dep => !["ခေါင်းဆောင်","ဈေးရောင်း", "စာရင်းကိုင်", "Hစစ်", "ပစ္စည်းမှာ", "အဝင်", "ပစ္စည်းမှာ", "ငွေကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ကားတင်", "Developer"].includes(dep)).map(dep => (
-                    <SelectItem key={dep} value={dep}>{dep}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-          {form.formState.errors.role && <p className="text-sm text-destructive mt-1">{form.formState.errors.role.message}</p>}
-          {state?.errors?.role && <p className="text-sm text-destructive mt-1">{state.errors.role.join(', ')}</p>}
-        </div>
       </div>
 
        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
