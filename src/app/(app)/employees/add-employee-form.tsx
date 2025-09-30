@@ -1,4 +1,3 @@
-
 // src/app/(app)/employees/add-employee-form.tsx
 'use client';
 
@@ -41,6 +40,7 @@ const ClientEmployeeSchema = z.object({
   startDate: z.date({ required_error: "Start date is required." }),
   status: z.enum(["Active", "Inactive"],{ required_error: "Status is required." }),
   gender: z.enum(["Male", "Female", "Other", "Prefer not to say"], { required_error: "Gender is required." }),
+  workLocation: z.enum(["On-site", "Remote", "Hybrid"], { required_error: "Work location is required." }),
   avatarFile: (typeof window !== 'undefined' ? z.instanceof(FileList) : z.any())
     .optional()
     .refine(
@@ -117,6 +117,7 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
       startDate: undefined,
       status: 'Active',
       gender: 'Prefer not to say',
+      workLocation: 'On-site',
       avatarFile: undefined,
       salary: '',
     },
@@ -187,6 +188,7 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
     formData.append('startDate', format(data.startDate, "yyyy-MM-dd"));
     formData.append('status', data.status);
     formData.append('gender', data.gender);
+    formData.append('workLocation', data.workLocation);
     if (data.salary) formData.append('salary', data.salary);
 
     let avatarUrl = '';
@@ -321,7 +323,7 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
         {state?.errors?.phone && <p className="text-sm text-destructive mt-1">{state.errors.phone.join(', ')}</p>}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="startDate-add">Start Date</Label>
           <Controller
@@ -348,8 +350,15 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
             </p>
           )}
         </div>
-
-
+        <div>
+          <Label htmlFor="salary-add">Salary (Per Month)</Label>
+          <Input id="salary-add" type="text" {...form.register('salary')} placeholder="e.g., 75000" inputMode="numeric" />
+          {form.formState.errors.salary && <p className="text-sm text-destructive mt-1">{form.formState.errors.salary.message}</p>}
+          {state?.errors?.salary && <p className="text-sm text-destructive mt-1">{state.errors.salary.join(', ')}</p>}
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <Label htmlFor="status-add">Status</Label>
           <Controller
@@ -368,7 +377,6 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
             )}
           />
           {form.formState.errors.status && <p className="text-sm text-destructive mt-1">{form.formState.errors.status.message}</p>}
-          {state?.errors?.status && <p className="text-sm text-destructive mt-1">{state.errors.status.join(', ')}</p>}
         </div>
         <div>
           <Label htmlFor="gender-add">Gender</Label>
@@ -390,7 +398,26 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
             )}
           />
           {form.formState.errors.gender && <p className="text-sm text-destructive mt-1">{form.formState.errors.gender.message}</p>}
-          {state?.errors?.gender && <p className="text-sm text-destructive mt-1">{state.errors.gender.join(', ')}</p>}
+        </div>
+        <div>
+          <Label htmlFor="workLocation-add">Work Location</Label>
+           <Controller
+            control={form.control}
+            name="workLocation"
+            render={({ field }) => (
+              <Select onValueChange={field.onChange} value={field.value} defaultValue="On-site">
+                <SelectTrigger id="workLocation-add">
+                  <SelectValue placeholder="Select Location" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="On-site">On-site</SelectItem>
+                  <SelectItem value="Remote">Remote</SelectItem>
+                  <SelectItem value="Hybrid">Hybrid</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          />
+          {form.formState.errors.workLocation && <p className="text-sm text-destructive mt-1">{form.formState.errors.workLocation.message}</p>}
         </div>
       </div>
 
@@ -413,13 +440,6 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
             <Image src={avatarPreview} alt="Avatar preview" width={100} height={100} className="rounded-md object-cover" data-ai-hint="upload preview person"/>
           </div>
         )}
-      </div>
-
-      <div>
-        <Label htmlFor="salary-add">Salary (Optional, Numbers only)</Label>
-        <Input id="salary-add" type="text" {...form.register('salary')} placeholder="e.g., 75000" inputMode="numeric" />
-        {form.formState.errors.salary && <p className="text-sm text-destructive mt-1">{form.formState.errors.salary.message}</p>}
-        {state?.errors?.salary && <p className="text-sm text-destructive mt-1">{state.errors.salary.join(', ')}</p>}
       </div>
 
       {state?.errors?._form && <p className="text-sm font-medium text-destructive mt-2">{state.errors._form.join(', ')}</p>}

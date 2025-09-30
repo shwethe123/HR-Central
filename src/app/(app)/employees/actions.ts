@@ -1,4 +1,3 @@
-
 'use server';
 
 import { z } from 'zod';
@@ -18,6 +17,7 @@ const EmployeeFormSchema = z.object({
   startDate: z.string().refine((date) => !isNaN(Date.parse(date)), { message: "Start date is required and must be valid." }),
   status: z.enum(["Active", "Inactive"], { required_error: "Status is required." }),
   gender: z.enum(["Male", "Female", "Other", "Prefer not to say"], { required_error: "Gender is required." }),
+  workLocation: z.enum(["On-site", "Remote", "Hybrid"], { required_error: "Work location is required." }),
   avatar: z.string().url({ message: "Avatar must be a valid URL (e.g., https://...)" }).optional().or(z.literal('')),
   salary: z.preprocess(
     (val) => (val === "" || val === undefined ? undefined : Number(val)),
@@ -38,6 +38,7 @@ export type AddEmployeeFormState = {
     startDate?: string[];
     status?: string[];
     gender?: string[];
+    workLocation?: string[];
     avatar?: string[];
     salary?: string[];
     _form?: string[];
@@ -61,6 +62,7 @@ export async function addEmployee(
     startDate: formData.get('startDate'),
     status: formData.get('status'),
     gender: formData.get('gender'),
+    workLocation: formData.get('workLocation'),
     avatar: formData.get('avatar') || undefined,
     salary: formData.get('salary') || undefined,
   });
@@ -90,6 +92,7 @@ export async function addEmployee(
         startDate: newEmployeeData.startDate,
         status: newEmployeeData.status,
         gender: newEmployeeData.gender,
+        workLocation: newEmployeeData.workLocation,
         avatar: newEmployeeData.avatar || '', 
         salary: newEmployeeData.salary, 
     };
@@ -205,6 +208,7 @@ export type UpdateEmployeeFormState = {
     startDate?: string[];
     status?: string[];
     gender?: string[];
+    workLocation?: string[];
     avatar?: string[];
     salary?: string[];
     _form?: string[];
@@ -230,6 +234,7 @@ export async function updateEmployee(
     startDate: formData.get('startDate'),
     status: formData.get('status'),
     gender: formData.get('gender'),
+    workLocation: formData.get('workLocation'),
     avatar: formData.get('avatar') || undefined,
     salary: formData.get('salary') || undefined,
   });
@@ -268,6 +273,7 @@ export async function updateEmployee(
       startDate: employeeDataToUpdate.startDate,
       status: employeeDataToUpdate.status,
       gender: employeeDataToUpdate.gender,
+      workLocation: employeeDataToUpdate.workLocation,
       // Only include avatar and salary if they have a value.
       // If avatar is an empty string from form and you want to remove it, handle accordingly.
       // For now, if it's undefined/empty string, it might not be sent or sent as empty.

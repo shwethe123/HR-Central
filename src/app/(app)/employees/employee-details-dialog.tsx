@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -13,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { Employee } from '@/types';
 import { format, isValid, parseISO } from 'date-fns';
-import { Printer } from 'lucide-react';
+import { Printer, MapPin } from 'lucide-react';
 import jsPDF from 'jspdf';
 
 interface EmployeeDetailsDialogProps {
@@ -220,6 +219,10 @@ export function EmployeeDetailsDialog({
             <span className="w-[130px] font-medium text-muted-foreground">Role:</span>
             <span>{employee.role}</span>
           </div>
+           <div className="flex items-center">
+            <span className="w-[130px] font-medium text-muted-foreground">Work Location:</span>
+            <span className='flex items-center'><MapPin className="h-4 w-4 mr-1.5 text-muted-foreground"/>{employee.workLocation || 'N/A'}</span>
+          </div>
           <div className="flex items-center">
             <span className="w-[130px] font-medium text-muted-foreground">Gender:</span>
             <span>{employee.gender || 'N/A'}</span>
@@ -283,4 +286,3 @@ export function EmployeeDetailsDialog({
     </Dialog>
   );
 }
-

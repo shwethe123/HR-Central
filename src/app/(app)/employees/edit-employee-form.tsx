@@ -41,6 +41,7 @@ const ClientEditEmployeeSchema = z.object({
   startDate: z.date({ required_error: "Start date is required." }),
   status: z.enum(["Active", "Inactive"]),
   gender: z.enum(["Male", "Female", "Other", "Prefer not to say"]),
+  workLocation: z.enum(["On-site", "Remote", "Hybrid"], { required_error: "Work location is required." }),
   avatarFile: (typeof window !== 'undefined' ? z.instanceof(FileList) : z.any())
     .optional()
     .refine(
@@ -119,6 +120,7 @@ export function EditEmployeeForm({
       startDate: employeeToEdit.startDate && isDateValid(parseISO(employeeToEdit.startDate)) ? parseISO(employeeToEdit.startDate) : new Date(),
       status: employeeToEdit.status || 'Active',
       gender: employeeToEdit.gender || 'Prefer not to say',
+      workLocation: employeeToEdit.workLocation || 'On-site',
       avatarFile: undefined,
       salary: employeeToEdit.salary !== undefined ? String(employeeToEdit.salary) : '',
     },
@@ -138,6 +140,7 @@ export function EditEmployeeForm({
       startDate: employeeToEdit.startDate && isDateValid(parseISO(employeeToEdit.startDate)) ? parseISO(employeeToEdit.startDate) : new Date(),
       status: employeeToEdit.status || 'Active',
       gender: employeeToEdit.gender || 'Prefer not to say',
+      workLocation: employeeToEdit.workLocation || 'On-site',
       avatarFile: undefined,
       salary: employeeToEdit.salary !== undefined ? String(employeeToEdit.salary) : '',
     });
@@ -204,6 +207,7 @@ export function EditEmployeeForm({
     formData.append('startDate', format(data.startDate, "yyyy-MM-dd"));
     formData.append('status', data.status);
     formData.append('gender', data.gender);
+    formData.append('workLocation', data.workLocation);
     if (data.salary) formData.append('salary', data.salary);
 
     let finalAvatarUrl = employeeToEdit.avatar || '';
@@ -342,7 +346,7 @@ export function EditEmployeeForm({
         {form.formState.errors.phone && <p className="text-sm text-destructive mt-1">{form.formState.errors.phone.message}</p>}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="startDate-edit">Start Date</Label>
           <Controller
@@ -366,8 +370,14 @@ export function EditEmployeeForm({
             </p>
           )}
         </div>
+        <div>
+          <Label htmlFor="salary-edit">Salary (Per Month)</Label>
+          <Input id="salary-edit" type="text" {...form.register('salary')} placeholder="e.g., 75000" inputMode="numeric" />
+          {form.formState.errors.salary && <p className="text-sm text-destructive mt-1">{form.formState.errors.salary.message}</p>}
+        </div>
+      </div>
 
-
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <Label htmlFor="status-edit">Status</Label>
           <Controller
@@ -404,6 +414,24 @@ export function EditEmployeeForm({
           />
            {form.formState.errors.gender && <p className="text-sm text-destructive mt-1">{form.formState.errors.gender.message}</p>}
         </div>
+        <div>
+          <Label htmlFor="workLocation-edit">Work Location</Label>
+           <Controller
+            control={form.control}
+            name="workLocation"
+            render={({ field }) => (
+              <Select onValueChange={field.onChange} value={field.value}>
+                <SelectTrigger id="workLocation-edit"><SelectValue placeholder="Select Location" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="On-site">On-site</SelectItem>
+                  <SelectItem value="Remote">Remote</SelectItem>
+                  <SelectItem value="Hybrid">Hybrid</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          />
+          {form.formState.errors.workLocation && <p className="text-sm text-destructive mt-1">{form.formState.errors.workLocation.message}</p>}
+        </div>
       </div>
 
       <div>
@@ -422,12 +450,6 @@ export function EditEmployeeForm({
             <NextImage src={avatarPreview} alt="Avatar preview" width={100} height={100} className="rounded-md object-cover" data-ai-hint="upload preview person"/>
           </div>
         )}
-      </div>
-
-      <div>
-        <Label htmlFor="salary-edit">Salary (Optional, Numbers only)</Label>
-        <Input id="salary-edit" type="text" {...form.register('salary')} placeholder="e.g., 75000" inputMode="numeric" />
-        {form.formState.errors.salary && <p className="text-sm text-destructive mt-1">{form.formState.errors.salary.message}</p>}
       </div>
 
       {state?.errors?._form && <p className="text-sm font-medium text-destructive mt-2">{state.errors._form.join(', ')}</p>}

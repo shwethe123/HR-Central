@@ -1,4 +1,3 @@
-
 import type { Timestamp } from 'firebase/firestore';
 
 export type Employee = {
@@ -15,6 +14,7 @@ export type Employee = {
   salary?: number;
   company?: string;
   gender?: "Male" | "Female" | "Other" | "Prefer not to say";
+  workLocation?: "On-site" | "Remote" | "Hybrid";
   displayOrder?: number; // New field for custom sorting
 };
 
@@ -141,5 +141,3 @@ export interface Announcement {
   status?: 'published' | 'draft'; // Optional for now, defaults to published
   updatedAt?: Timestamp;
 }
-
-    

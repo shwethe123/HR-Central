@@ -1,10 +1,9 @@
-
 "use client";
 
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { Employee } from "@/types";
-import { ArrowUpDown, MoreHorizontal, Trash2, AlertTriangle, Edit } from "lucide-react"; // Added Edit icon
+import { ArrowUpDown, MoreHorizontal, Trash2, AlertTriangle, Edit, DollarSign } from "lucide-react"; // Added Edit icon
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -166,29 +165,29 @@ export const getColumns = (
     }
   },
   {
-    accessorKey: "gender",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Gender
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    accessorKey: "salary",
+    header: ({ column }) => (
+      <Button
+        variant="ghost"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+      >
+        Salary
+        <ArrowUpDown className="ml-2 h-4 w-4" />
+      </Button>
+    ),
     cell: ({ row }) => {
-      const gender = row.original.gender || "N/A";
-      return <span>{gender}</span>;
+      const amount = parseFloat(row.getValue("salary"))
+      if (isNaN(amount)) {
+        return <span className="text-muted-foreground">N/A</span>
+      }
+      const formatted = new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(amount)
+      return <div className="font-medium">{formatted}</div>
     },
-    filterFn: (row, id, value) => {
-      return value.includes(row.getValue(id))
-    }
-  },
-  {
-    accessorKey: "email",
-    header: "Email",
   },
   {
     accessorKey: "status",

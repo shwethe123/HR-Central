@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -43,6 +42,7 @@ export default function EmployeesPage() {
           company: data.company || "",
           salary: data.salary === undefined ? undefined : Number(data.salary),
           gender: data.gender || "Prefer not to say",
+          workLocation: data.workLocation || "On-site",
         } as Employee;
       });
       setEmployees(fetchedEmployees);
