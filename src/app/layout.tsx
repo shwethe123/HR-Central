@@ -25,14 +25,14 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${GeistSans.className} antialiased`}>
-        <ThemeProviderWrapper>
-          <AuthProvider> 
+        <AuthProvider>
+          <ThemeProviderWrapper>
             <SidebarProvider>
               {children}
             </SidebarProvider>
             <Toaster />
-          </AuthProvider>
-        </ThemeProviderWrapper>
+          </ThemeProviderWrapper>
+        </AuthProvider>
       </body>
     </html>
   );
