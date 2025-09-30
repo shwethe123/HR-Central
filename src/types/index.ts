@@ -20,6 +20,17 @@ export type Employee = {
   paymentInfo?: string; // For Bank or KPay account info
 };
 
+// New type for Developer Attendance records
+export type DeveloperAttendance = {
+  id: string;
+  developerId: string; // The ID of the developer from the 'developers' collection
+  developerName: string;
+  leaveDate: string; // The specific date of leave, e.g., "2024-07-31"
+  reason?: string; // Optional reason for the leave
+  createdAt: Timestamp;
+};
+
+
 // New type for Resignation records
 export type Resignation = {
   id: string;
