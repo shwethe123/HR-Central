@@ -77,3 +77,67 @@ export async function updateCleaningStatus(
     };
   }
 }
+
+const UpdateCleaningAssignmentSchema = z.object({
+  scheduleId: z.string().min(1),
+  employeeId: z.string().min(1),
+  newAssignedRow: z.string().min(1),
+});
+
+export async function updateCleaningAssignment(
+  scheduleId: string,
+  employeeId: string,
+  newAssignedRow: string
+): Promise<UpdateCleaningStatusState> {
+  const validatedFields = UpdateCleaningAssignmentSchema.safeParse({
+    scheduleId,
+    employeeId,
+    newAssignedRow,
+  });
+
+  if (!validatedFields.success) {
+    return {
+      message: "Validation failed for assignment update.",
+      success: false,
+    };
+  }
+
+  const scheduleDocRef = doc(db, 'cleaningSchedules', scheduleId);
+
+  try {
+    const scheduleDocSnap = await getDoc(scheduleDocRef);
+    if (!scheduleDocSnap.exists()) {
+      return { message: `Schedule for date ${scheduleId} not found.`, success: false };
+    }
+
+    const scheduleData = scheduleDocSnap.data() as CleaningSchedule;
+    let employeeName = "Unknown Employee";
+    
+    const updatedAssignments = scheduleData.assignments.map(assignment => {
+      if (assignment.employeeId === employeeId) {
+        employeeName = assignment.employeeName;
+        return { ...assignment, assignedRow: newAssignedRow, status: 'Pending' as CleaningStatus }; // Reset status on new assignment
+      }
+      return assignment;
+    });
+
+    await updateDoc(scheduleDocRef, {
+      assignments: updatedAssignments,
+    });
+    
+    revalidatePath('/cleaning-schedule');
+
+    return {
+      message: `Task for ${employeeName} reassigned to ${newAssignedRow}.`,
+      success: true,
+    };
+
+  } catch (error) {
+    console.error("Error updating cleaning assignment:", error);
+    const errorMessage = error instanceof Error ? error.message : "An unknown server error occurred.";
+    return {
+      message: `Failed to reassign task: ${errorMessage}`,
+      success: false,
+    };
+  }
+}

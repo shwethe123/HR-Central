@@ -12,10 +12,17 @@ import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { format, getDayOfYear, startOfDay } from 'date-fns';
-import { updateCleaningStatus } from './actions';
+import { updateCleaningStatus, updateCleaningAssignment } from './actions';
 import { useAuth } from '@/contexts/auth-context';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 
 const CLEANING_ROWS = ["Aတန်း", "Bတန်း", "Cတန်း", "Dတန်း", "Eတန်း", "Fတန်း", "အပြင်တန်း"];
@@ -97,18 +104,15 @@ export default function CleaningSchedulePage() {
   const handleStatusChange = async (employeeId: string, currentStatus: CleaningStatus) => {
     if (!schedule || !user) return;
     
-    // Determine the next status
     let newStatus: CleaningStatus;
     if (isAdmin) {
-      // Admin can cycle through Pending -> Completed -> Verified -> Pending
       if (currentStatus === 'Pending') newStatus = 'Completed';
       else if (currentStatus === 'Completed') newStatus = 'Verified';
       else newStatus = 'Pending';
     } else {
-      // Non-admin can only toggle between Pending and Completed
       if (currentStatus === 'Pending') newStatus = 'Completed';
       else if (currentStatus === 'Completed') newStatus = 'Pending';
-      else return; // Can't change 'Verified' status
+      else return; 
     }
 
 
@@ -129,6 +133,29 @@ export default function CleaningSchedulePage() {
     } catch (error) {
       setSchedule({ ...schedule, assignments: originalAssignments });
       toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
+    }
+  };
+
+  const handleAssignmentChange = async (employeeId: string, newRow: string) => {
+    if (!schedule || !isAdmin) return;
+
+    const originalAssignments = schedule.assignments;
+    const newAssignments = originalAssignments.map(a =>
+      a.employeeId === employeeId ? { ...a, assignedRow: newRow, status: 'Pending' as CleaningStatus } : a
+    );
+    setSchedule({ ...schedule, assignments: newAssignments });
+
+    try {
+        const result = await updateCleaningAssignment(TODAY_DATE_ID, employeeId, newRow);
+        if (!result.success) {
+            setSchedule({ ...schedule, assignments: originalAssignments });
+            toast({ title: "Reassignment Failed", description: result.message, variant: "destructive" });
+        } else {
+            toast({ title: "Task Reassigned", description: result.message });
+        }
+    } catch (error) {
+        setSchedule({ ...schedule, assignments: originalAssignments });
+        toast({ title: "Error", description: "An unexpected error occurred while reassigning.", variant: "destructive" });
     }
   };
 
@@ -181,7 +208,7 @@ export default function CleaningSchedulePage() {
         <CardHeader>
           <CardTitle>{TARGET_DEPARTMENT} Department - Daily Tasks</CardTitle>
           <CardDescription>
-            Employees mark their task as complete. Admins can verify completion.
+            Employees mark their task as complete. Admins can manually re-assign tasks and verify completion.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -210,7 +237,23 @@ export default function CleaningSchedulePage() {
                       />
                     <div>
                       <Label htmlFor={`task-${assignment.employeeId}`} className="font-semibold text-lg cursor-pointer">{assignment.employeeName}</Label>
-                      <p className="text-sm text-muted-foreground">Task: <span className="font-medium text-primary">{assignment.assignedRow}</span></p>
+                       <div className="flex items-center gap-2 mt-1">
+                          <p className="text-sm text-muted-foreground">Task:</p>
+                          <Select
+                            value={assignment.assignedRow}
+                            onValueChange={(newRow) => handleAssignmentChange(assignment.employeeId, newRow)}
+                            disabled={!isAdmin}
+                          >
+                            <SelectTrigger className="w-[180px] h-8 text-sm focus:ring-primary" disabled={!isAdmin}>
+                              <SelectValue placeholder="Select a row" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {CLEANING_ROWS.map(row => (
+                                <SelectItem key={row} value={row}>{row}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                       </div>
                     </div>
                   </div>
                   {getStatusBadge(assignment.status, assignment.employeeId)}
