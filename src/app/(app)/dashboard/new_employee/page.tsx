@@ -1,9 +1,144 @@
-import React from 'react'
+// src/app/(app)/dashboard/new_employee/page.tsx
+"use client";
 
-function page() {
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import type { Employee } from "@/types";
+import { getColumns } from "@/app/(app)/employees/columns"; // Reusing columns from employees
+import { DataTable } from "@/app/(app)/employees/data-table"; // Reusing DataTable from employees
+import { db } from '@/lib/firebase';
+import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
+import { Loader2, UserPlus } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { EditEmployeeForm } from '@/app/(app)/employees/edit-employee-form';
+
+// This page will be adapted to show *only* new or specific types of employees, like Software Developers.
+export default function NewEmployeesPage() {
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
+  
+  const [isEditEmployeeDialogOpen, setIsEditEmployeeDialogOpen] = useState(false);
+  const [employeeToEdit, setEmployeeToEdit] = useState<Employee | null>(null);
+
+  const fetchNewEmployees = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const employeesCollectionRef = collection(db, "employees");
+      // Example Filter: Fetch employees in "Engineering" or "IT" department who are "Active"
+      const q = query(employeesCollectionRef, 
+        where("department", "in", ["Engineering", "IT", "Software Development"]),
+        orderBy("startDate", "desc")
+      );
+      const querySnapshot = await getDocs(q);
+      const fetchedEmployees: Employee[] = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          name: data.name || "",
+          employeeId: data.employeeId || "",
+          department: data.department || "",
+          role: data.role || "",
+          email: data.email || "",
+          phone: data.phone || "",
+          startDate: data.startDate || "", 
+          status: data.status || "Active",
+          avatar: data.avatar || "",
+          company: data.company || "",
+          salary: data.salary === undefined ? undefined : Number(data.salary),
+          gender: data.gender || "Prefer not to say",
+        } as Employee;
+      });
+      setEmployees(fetchedEmployees);
+    } catch (error) {
+      console.error("Error fetching new employees:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch new employee data.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    fetchNewEmployees();
+  }, [fetchNewEmployees]);
+
+  const uniqueDepartments = useMemo(() => {
+    return [...new Set(employees.map(emp => emp.department))].sort();
+  }, [employees]);
+
+  const uniqueRoles = useMemo(() => {
+    return [...new Set(employees.map(emp => emp.role))].sort();
+  }, [employees]);
+  
+  const uniqueCompanies = useMemo(() => {
+    return [...new Set(employees.map(emp => emp.company).filter(Boolean) as string[])].sort();
+  }, [employees]);
+
+  const handleEditEmployee = (employee: Employee) => {
+    setEmployeeToEdit(employee);
+    setIsEditEmployeeDialogOpen(true);
+  };
+
+  const handleEditFormSuccess = async (updatedEmployeeId?: string) => {
+    setIsEditEmployeeDialogOpen(false);
+    setEmployeeToEdit(null); 
+    await fetchNewEmployees(); // Refresh the list
+  };
+
+  if (isLoading && !isEditEmployeeDialogOpen) {
+    return (
+      <div className="container mx-auto py-10 flex justify-center items-center h-[calc(100vh-200px)]">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <p className="ml-3 text-muted-foreground">Loading New Developer Hires...</p>
+      </div>
+    );
+  }
+
   return (
-    <div>page</div>
-  )
-}
+    <div className="container mx-auto py-2">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-semibold flex items-center">
+            <UserPlus className="mr-3 h-8 w-8 text-primary" />
+            New Software Developer Hires
+        </h1>
+      </div>
+      <DataTable 
+        columnGenerator={getColumns} 
+        data={employees} 
+        uniqueDepartments={uniqueDepartments} 
+        uniqueRoles={uniqueRoles} 
+        uniqueCompanies={uniqueCompanies}
+        onRefreshData={fetchNewEmployees}
+        onEditEmployee={handleEditEmployee} 
+      />
 
-export default page
+      {employeeToEdit && (
+        <Dialog open={isEditEmployeeDialogOpen} onOpenChange={(isOpen) => {
+            setIsEditEmployeeDialogOpen(isOpen);
+            if (!isOpen) setEmployeeToEdit(null);
+        }}>
+          <DialogContent className="sm:max-w-[625px]">
+            <DialogHeader>
+              <DialogTitle>Edit Employee Details</DialogTitle>
+              <DialogDescription>
+                Update the information for {employeeToEdit.name}. Click save when you're done.
+              </DialogDescription>
+            </DialogHeader>
+            <EditEmployeeForm
+              employeeToEdit={employeeToEdit}
+              uniqueDepartments={uniqueDepartments}
+              uniqueRoles={uniqueRoles}
+              uniqueCompanies={uniqueCompanies}
+              onFormSubmissionSuccess={handleEditFormSuccess}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+    </div>
+  );
+}
