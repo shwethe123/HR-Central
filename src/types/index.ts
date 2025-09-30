@@ -31,6 +31,8 @@ export type DeveloperAttendance = {
 };
 
 // New type for Cleaning Schedule records
+export type CleaningStatus = 'Pending' | 'Completed' | 'Verified';
+
 export type CleaningSchedule = {
   id: string; // Document ID would be the date, e.g., "2024-08-01"
   date: string;
@@ -38,7 +40,7 @@ export type CleaningSchedule = {
     employeeId: string;
     employeeName: string;
     assignedRow: string;
-    isCompleted: boolean;
+    status: CleaningStatus;
   }[];
 };
 

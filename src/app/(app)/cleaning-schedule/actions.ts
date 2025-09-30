@@ -5,12 +5,12 @@ import { z } from 'zod';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
-import type { CleaningSchedule } from '@/types';
+import type { CleaningSchedule, CleaningStatus } from '@/types';
 
 const UpdateCleaningStatusSchema = z.object({
   scheduleId: z.string().min(1, { message: "Schedule ID (date) is required." }),
   employeeId: z.string().min(1, { message: "Employee ID is required." }),
-  isCompleted: z.boolean(),
+  newStatus: z.enum(['Pending', 'Completed', 'Verified']),
 });
 
 export type UpdateCleaningStatusState = {
@@ -22,12 +22,12 @@ export type UpdateCleaningStatusState = {
 export async function updateCleaningStatus(
   scheduleId: string,
   employeeId: string,
-  isCompleted: boolean
+  newStatus: CleaningStatus
 ): Promise<UpdateCleaningStatusState> {
   const validatedFields = UpdateCleaningStatusSchema.safeParse({
     scheduleId,
     employeeId,
-    isCompleted,
+    newStatus,
   });
 
   if (!validatedFields.success) {
@@ -51,7 +51,7 @@ export async function updateCleaningStatus(
     const updatedAssignments = scheduleData.assignments.map(assignment => {
       if (assignment.employeeId === employeeId) {
         employeeName = assignment.employeeName; // Get the name for the success message
-        return { ...assignment, isCompleted };
+        return { ...assignment, status: newStatus };
       }
       return assignment;
     });
@@ -60,11 +60,10 @@ export async function updateCleaningStatus(
       assignments: updatedAssignments,
     });
     
-    // Revalidate the path to show changes on the client
     revalidatePath('/cleaning-schedule');
 
     return {
-      message: `Status for ${employeeName} updated successfully.`,
+      message: `Status for ${employeeName} updated to ${newStatus}.`,
       success: true,
       employeeName: employeeName,
     };
