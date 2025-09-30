@@ -38,6 +38,7 @@ const ClientEditEmployeeSchema = z.object({
   role: z.string().min(1, { message: "Role is required." }),
   email: z.string().email({ message: "Invalid email address." }),
   phone: z.string().optional(),
+  github: z.string().optional(),
   startDate: z.date({ required_error: "Start date is required." }),
   status: z.enum(["Active", "Inactive"]),
   gender: z.enum(["Male", "Female", "Other", "Prefer not to say"]),
@@ -117,6 +118,7 @@ export function EditEmployeeForm({
       role: employeeToEdit.role || '',
       email: employeeToEdit.email || '',
       phone: employeeToEdit.phone || '',
+      github: employeeToEdit.github || '',
       startDate: employeeToEdit.startDate && isDateValid(parseISO(employeeToEdit.startDate)) ? parseISO(employeeToEdit.startDate) : new Date(),
       status: employeeToEdit.status || 'Active',
       gender: employeeToEdit.gender || 'Prefer not to say',
@@ -137,6 +139,7 @@ export function EditEmployeeForm({
       role: employeeToEdit.role || '',
       email: employeeToEdit.email || '',
       phone: employeeToEdit.phone || '',
+      github: employeeToEdit.github || '',
       startDate: employeeToEdit.startDate && isDateValid(parseISO(employeeToEdit.startDate)) ? parseISO(employeeToEdit.startDate) : new Date(),
       status: employeeToEdit.status || 'Active',
       gender: employeeToEdit.gender || 'Prefer not to say',
@@ -204,6 +207,7 @@ export function EditEmployeeForm({
     formData.append('role', data.role);
     formData.append('email', data.email);
     if (data.phone) formData.append('phone', data.phone);
+    if (data.github) formData.append('github', data.github);
     formData.append('startDate', format(data.startDate, "yyyy-MM-dd"));
     formData.append('status', data.status);
     formData.append('gender', data.gender);
@@ -300,8 +304,8 @@ export function EditEmployeeForm({
                   <SelectValue placeholder="Select Department" />
                 </SelectTrigger>
                 <SelectContent>
-                  {["G-ထွက်", "လက်ကားပိုင်း", "လက်လီပိုင်း", "ကားအော်ဒါ", "အဝင်ပိုင်း", "ပစ္စည်းမှာ", "အကြွေးကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ကားတင်", "ငွေကိုင်"].map(dep => <SelectItem key={dep} value={dep}>{dep}</SelectItem>)}
-                  {uniqueDepartments.filter(dep => !["G-ထွက်", "လက်ကားပိုင်း", "လက်လီပိုင်း", "ကားအော်ဒါ", "အဝင်ပိုင်း", "ပစ္စည်းမှာ", "အကြွေးကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ကားတင်", "ငွေကိုင်"].includes(dep)).map(dep => (
+                  {["G-ထွက်", "လက်ကားပိုင်း", "လက်လီပိုင်း", "ကားအော်ဒါ", "အဝင်ပိုင်း", "ပစ္စည်းမှာ", "အကြွေးကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ကားတင်", "ငွေကိုင်", "Software Development"].map(dep => <SelectItem key={dep} value={dep}>{dep}</SelectItem>)}
+                  {uniqueDepartments.filter(dep => !["G-ထွက်", "လက်ကားပိုင်း", "လက်လီပိုင်း", "ကားအော်ဒါ", "အဝင်ပိုင်း", "ပစ္စည်းမှာ", "အကြွေးကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ကားတင်", "ငွေကိုင်", "Software Development"].includes(dep)).map(dep => (
                     <SelectItem key={dep} value={dep}>{dep}</SelectItem>
                   ))}
                 </SelectContent>
@@ -322,8 +326,8 @@ export function EditEmployeeForm({
                   <SelectValue placeholder="Select Role" />
                 </SelectTrigger>
                 <SelectContent>
-                   {["ခေါင်းဆောင်","ဈေးရောင်း", "စာရင်းကိုင်", "Hစစ်", "ပစ္စည်းမှာ", "အဝင်", "ငွေကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ကားတင်", ].map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
-                  {uniqueRoles.filter(role => !["ခေါင်းဆောင်","ဈေးရောင်း", "စာရင်းကိုင်", "Hစစ်", "ပစ္စည်းမှာ", "အဝင်", "ပစ္စည်းမှာ", "ငွေကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ကားတင်"].includes(role)).map(role => (
+                   {["ခေါင်းဆောင်","ဈေးရောင်း", "စာရင်းကိုင်", "Hစစ်", "ပစ္စည်းမှာ", "အဝင်", "ငွေကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ကားတင်", "Developer"].map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+                  {uniqueRoles.filter(role => !["ခေါင်းဆောင်","ဈေးရောင်း", "စာရင်းကိုင်", "Hစစ်", "ပစ္စည်းမှာ", "အဝင်", "ပစ္စည်းမှာ", "ငွေကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ကားတင်", "Developer"].includes(role)).map(role => (
                     <SelectItem key={role} value={role}>{role}</SelectItem>
                   ))}
                 </SelectContent>
@@ -334,10 +338,17 @@ export function EditEmployeeForm({
         </div>
       </div>
 
-      <div>
-        <Label htmlFor="email-edit">Email Address</Label>
-        <Input id="email-edit" type="email" {...form.register('email')} />
-        {form.formState.errors.email && <p className="text-sm text-destructive mt-1">{form.formState.errors.email.message}</p>}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+            <Label htmlFor="email-edit">Email Address</Label>
+            <Input id="email-edit" type="email" {...form.register('email')} />
+            {form.formState.errors.email && <p className="text-sm text-destructive mt-1">{form.formState.errors.email.message}</p>}
+        </div>
+        <div>
+            <Label htmlFor="github-edit">GitHub Username (Optional)</Label>
+            <Input id="github-edit" {...form.register('github')} />
+            {form.formState.errors.github && <p className="text-sm text-destructive mt-1">{form.formState.errors.github.message}</p>}
+        </div>
       </div>
 
       <div>

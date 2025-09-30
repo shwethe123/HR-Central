@@ -8,6 +8,7 @@ export type Employee = {
   role: string;
   email: string;
   phone: string;
+  github?: string;
   startDate: string;
   status: "Active" | "Inactive";
   avatar?: string;

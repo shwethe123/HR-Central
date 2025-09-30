@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { Employee } from '@/types';
 import { format, isValid, parseISO } from 'date-fns';
-import { Printer, MapPin } from 'lucide-react';
+import { Printer, MapPin, Github } from 'lucide-react';
 import jsPDF from 'jspdf';
 
 interface EmployeeDetailsDialogProps {
@@ -237,6 +237,21 @@ export function EmployeeDetailsDialog({
               {employee.email}
             </a>
           </div>
+           {employee.github && (
+            <div className="flex items-center">
+              <span className="w-[130px] font-medium text-muted-foreground">GitHub:</span>
+              <a
+                href={`https://github.com/${employee.github}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline truncate flex items-center"
+                title={`https://github.com/${employee.github}`}
+              >
+                <Github className="h-4 w-4 mr-1.5" />
+                {employee.github}
+              </a>
+            </div>
+          )}
           <div className="flex items-center">
             <span className="w-[130px] font-medium text-muted-foreground">Phone:</span>
             <span>{employee.phone || 'N/A'}</span>

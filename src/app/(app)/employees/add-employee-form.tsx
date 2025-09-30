@@ -37,6 +37,7 @@ const ClientEmployeeSchema = z.object({
   role: z.string().min(1, { message: "Role is required." }),
   email: z.string().email({ message: "Invalid email address." }),
   phone: z.string().optional(),
+  github: z.string().optional(),
   startDate: z.date({ required_error: "Start date is required." }),
   status: z.enum(["Active", "Inactive"],{ required_error: "Status is required." }),
   gender: z.enum(["Male", "Female", "Other", "Prefer not to say"], { required_error: "Gender is required." }),
@@ -114,6 +115,7 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
       role: '',
       email: '',
       phone: '',
+      github: '',
       startDate: undefined,
       status: 'Active',
       gender: 'Prefer not to say',
@@ -185,6 +187,7 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
     formData.append('role', data.role);
     formData.append('email', data.email);
     if (data.phone) formData.append('phone', data.phone);
+    if (data.github) formData.append('github', data.github);
     formData.append('startDate', format(data.startDate, "yyyy-MM-dd"));
     formData.append('status', data.status);
     formData.append('gender', data.gender);
@@ -273,8 +276,8 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
                   <SelectValue placeholder="Select Department" />
                 </SelectTrigger>
                 <SelectContent>
-                {["G-ထွက်", "လက်ကားပိုင်း", "ကားတင်", "လက်လီပိုင်း", "ကားအော်ဒါ", "အဝင်ပိုင်း", "ပစ္စည်းမှာ", "အကြွေးကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ငွေကိုင်"].map(dep => <SelectItem key={dep} value={dep}>{dep}</SelectItem>)}
-                  {uniqueDepartments.filter(dep => !["G-ထွက်", "လက်ကားပိုင်း", "ကားတင်", "လက်လီပိုင်း", "ကားအော်ဒါ", "အဝင်ပိုင်း", "ပစ္စည်းမှာ", "အကြွေးကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ငွေကိုင်"].includes(dep)).map(dep => (
+                {["G-ထွက်", "လက်ကားပိုင်း", "ကားတင်", "လက်လီပိုင်း", "ကားအော်ဒါ", "အဝင်ပိုင်း", "ပစ္စည်းမှာ", "အကြွေးကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ငွေကိုင်", "Software Development"].map(dep => <SelectItem key={dep} value={dep}>{dep}</SelectItem>)}
+                  {uniqueDepartments.filter(dep => !["G-ထွက်", "လက်ကားပိုင်း", "ကားတင်", "လက်လီပိုင်း", "ကားအော်ဒါ", "အဝင်ပိုင်း", "ပစ္စည်းမှာ", "အကြွေးကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ငွေကိုင်", "Software Development"].includes(dep)).map(dep => (
                     <SelectItem key={dep} value={dep}>{dep}</SelectItem>
                   ))}
                   </SelectContent>
@@ -296,8 +299,8 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
                   <SelectValue placeholder="Select Role" />
                 </SelectTrigger>
                 <SelectContent>
-                  {["ခေါင်းဆောင်","ဈေးရောင်း", "စာရင်းကိုင်", "Hစစ်", "ပစ္စည်းမှာ", "အဝင်", "ငွေကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ကားတင်", ].map(dep => <SelectItem key={dep} value={dep}>{dep}</SelectItem>)}
-                  {uniqueDepartments.filter(dep => !["ခေါင်းဆောင်","ဈေးရောင်း", "စာရင်းကိုင်", "Hစစ်", "ပစ္စည်းမှာ", "အဝင်", "ပစ္စည်းမှာ", "ငွေကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ကားတင်"].includes(dep)).map(dep => (
+                  {["ခေါင်းဆောင်","ဈေးရောင်း", "စာရင်းကိုင်", "Hစစ်", "ပစ္စည်းမှာ", "အဝင်", "ငွေကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ကားတင်", "Developer" ].map(dep => <SelectItem key={dep} value={dep}>{dep}</SelectItem>)}
+                  {uniqueRoles.filter(dep => !["ခေါင်းဆောင်","ဈေးရောင်း", "စာရင်းကိုင်", "Hစစ်", "ပစ္စည်းမှာ", "အဝင်", "ပစ္စည်းမှာ", "ငွေကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ကားတင်", "Developer"].includes(dep)).map(dep => (
                     <SelectItem key={dep} value={dep}>{dep}</SelectItem>
                   ))}
                 </SelectContent>
@@ -309,12 +312,20 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
         </div>
       </div>
 
-      <div>
-        <Label htmlFor="email-add">Email Address</Label>
-        <Input id="email-add" type="email" {...form.register('email')} />
-        {form.formState.errors.email && <p className="text-sm text-destructive mt-1">{form.formState.errors.email.message}</p>}
-        {state?.errors?.email && <p className="text-sm text-destructive mt-1">{state.errors.email.join(', ')}</p>}
+       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="email-add">Email Address</Label>
+            <Input id="email-add" type="email" {...form.register('email')} />
+            {form.formState.errors.email && <p className="text-sm text-destructive mt-1">{form.formState.errors.email.message}</p>}
+            {state?.errors?.email && <p className="text-sm text-destructive mt-1">{state.errors.email.join(', ')}</p>}
+          </div>
+          <div>
+            <Label htmlFor="github-add">GitHub Username (Optional)</Label>
+            <Input id="github-add" {...form.register('github')} placeholder="e.g., octocat" />
+            {form.formState.errors.github && <p className="text-sm text-destructive mt-1">{form.formState.errors.github.message}</p>}
+          </div>
       </div>
+
 
       <div>
         <Label htmlFor="phone-add">Phone Number (Optional)</Label>

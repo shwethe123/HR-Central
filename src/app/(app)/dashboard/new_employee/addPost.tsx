@@ -13,29 +13,16 @@ import { addEmployee, type AddEmployeeFormState } from '@/app/(app)/employees/ac
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { storage } from '@/lib/firebase';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
-// This is essentially a copy of the AddEmployeeForm for this specific route.
-// In a larger refactor, this could be a shared component.
-
 const ClientEmployeeSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   employeeId: z.string().min(3, { message: "Employee ID must be at least 3 characters." }),
-  company: z.string().min(1, { message: "Company is required." }),
-  department: z.string().min(1, { message: "Department is required." }),
-  role: z.string().min(1, { message: "Role is required." }),
-  email: z.string().email({ message: "Invalid email address." }),
+  github: z.string().min(1, { message: "GitHub username is required." }),
   phone: z.string().optional(),
   startDate: z.date({ required_error: "Start date is required." }),
   status: z.enum(["Active", "Inactive"],{ required_error: "Status is required." }),
@@ -49,15 +36,13 @@ const ClientEmployeeSchema = z.object({
   salary: z.string().optional().refine(val => val === undefined || val === "" || !isNaN(parseFloat(val)), {
     message: "Salary must be a number or empty.",
   }),
+  workLocation: z.enum(["On-site", "Remote", "Hybrid"], { required_error: "Work location is required." }),
 });
 
 type EmployeeFormData = z.infer<typeof ClientEmployeeSchema>;
 
 interface AddNewEmployeeFormProps {
   onFormSubmissionSuccess?: (newEmployeeId?: string) => void;
-  uniqueDepartments: string[];
-  uniqueRoles: string[];
-  uniqueCompanies: string[];
   className?: string;
 }
 
@@ -65,9 +50,9 @@ function SubmitButton({ isImageUploading }: { isImageUploading: boolean }) {
   const { pending: isActionPending } = useFormStatus();
   const isDisabled = isImageUploading || isActionPending;
 
-  let buttonText = "Add New Employee";
+  let buttonText = "Add New Developer";
   if (isImageUploading) buttonText = "Uploading Image...";
-  else if (isActionPending) buttonText = "Saving Employee...";
+  else if (isActionPending) buttonText = "Saving Developer...";
 
   return (
     <Button type="submit" disabled={isDisabled} className="w-full sm:w-auto">
@@ -77,7 +62,7 @@ function SubmitButton({ isImageUploading }: { isImageUploading: boolean }) {
   );
 }
 
-export function AddNewEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, uniqueRoles, uniqueCompanies, className }: AddNewEmployeeFormProps) {
+export function AddNewEmployeeForm({ onFormSubmissionSuccess, className }: AddNewEmployeeFormProps) {
   const { toast } = useToast();
   const [state, formAction] = useActionState(addEmployee, { message: null, errors: {}, success: false });
   const [isImageUploading, setIsImageUploading] = useState(false);
@@ -89,16 +74,14 @@ export function AddNewEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments,
     defaultValues: {
       name: '',
       employeeId: '',
-      company: '',
-      department: 'Software Development', // Default for this page
-      role: '',
-      email: '',
+      github: '',
       phone: '',
       startDate: undefined,
       status: 'Active',
       gender: 'Prefer not to say',
       avatarFile: undefined,
       salary: '',
+      workLocation: 'On-site',
     },
   });
 
@@ -134,10 +117,20 @@ export function AddNewEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments,
 
   const onSubmit = async (data: EmployeeFormData) => {
     const formData = new FormData();
+    // Set default values for fields removed from this specific form
+    formData.append('company', 'Default Company'); // Or a relevant default
+    formData.append('department', 'Software Development');
+    formData.append('role', 'Developer');
+    
+    // Add other form data
     Object.keys(data).forEach(key => {
         const value = data[key as keyof EmployeeFormData];
         if (key === 'startDate' && value instanceof Date) {
             formData.append(key, format(value, "yyyy-MM-dd"));
+        } else if (key === 'github' && typeof value === 'string') {
+            formData.append(key, value);
+            // Create a fake email from github username for auth compatibility if needed
+            formData.append('email', `${value}@github.com`);
         } else if (key !== 'avatarFile' && value !== undefined && value !== null) {
             formData.append(key, String(value));
         }
@@ -167,53 +160,102 @@ export function AddNewEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments,
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className={cn("space-y-4", className)}>
-      <div>
-        <Label htmlFor="name-add">Full Name</Label>
-        <Input id="name-add" {...form.register('name')} />
-        {form.formState.errors.name && <p className="text-sm text-destructive mt-1">{form.formState.errors.name.message}</p>}
-      </div>
-
-       <div>
-        <Label htmlFor="employeeId-add">Employee ID</Label>
-        <Input id="employeeId-add" {...form.register('employeeId')} />
-        {form.formState.errors.employeeId && <p className="text-sm text-destructive mt-1">{form.formState.errors.employeeId.message}</p>}
-      </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-            <Label htmlFor="department-add">Department</Label>
-            <Controller
-                control={form.control}
-                name="department"
-                render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value} defaultValue="Software Development">
-                    <SelectTrigger id="department-add"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                    {["Software Development", "Engineering", "IT", ...uniqueDepartments.filter(d => !["Software Development", "Engineering", "IT"].includes(d))].map(dep => <SelectItem key={dep} value={dep}>{dep}</SelectItem>)}
-                    </SelectContent>
-                </Select>
-                )}
-            />
-            {form.formState.errors.department && <p className="text-sm text-destructive mt-1">{form.formState.errors.department.message}</p>}
+            <Label htmlFor="name-add">Full Name</Label>
+            <Input id="name-add" {...form.register('name')} />
+            {form.formState.errors.name && <p className="text-sm text-destructive mt-1">{form.formState.errors.name.message}</p>}
         </div>
         <div>
-            <Label htmlFor="role-add">Role</Label>
-            <Controller
-                control={form.control}
-                name="role"
-                render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value} defaultValue="">
-                    <SelectTrigger id="role-add"><SelectValue placeholder="Select Role"/></SelectTrigger>
-                    <SelectContent>
-                    {["Frontend Developer", "Backend Developer", "Full Stack Developer", "UI/UX Designer", ...uniqueRoles.filter(r => !["Frontend Developer", "Backend Developer", "Full Stack Developer", "UI/UX Designer"].includes(r))].map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
-                    </SelectContent>
-                </Select>
-                )}
-            />
-            {form.formState.errors.role && <p className="text-sm text-destructive mt-1">{form.formState.errors.role.message}</p>}
+            <Label htmlFor="employeeId-add">Employee ID</Label>
+            <Input id="employeeId-add" {...form.register('employeeId')} />
+            {form.formState.errors.employeeId && <p className="text-sm text-destructive mt-1">{form.formState.errors.employeeId.message}</p>}
         </div>
       </div>
-      {/* Add more fields as needed, copying from add-employee-form.tsx */}
+      
+       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+         <div>
+            <Label htmlFor="github-add">GitHub Username</Label>
+            <Input id="github-add" {...form.register('github')} />
+            {form.formState.errors.github && <p className="text-sm text-destructive mt-1">{form.formState.errors.github.message}</p>}
+        </div>
+        <div>
+            <Label htmlFor="phone-add">Phone Number (Optional)</Label>
+            <Input id="phone-add" type="tel" {...form.register('phone')} />
+            {form.formState.errors.phone && <p className="text-sm text-destructive mt-1">{form.formState.errors.phone.message}</p>}
+        </div>
+      </div>
+
+       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="startDate-add">Start Date</Label>
+          <Controller
+            control={form.control}
+            name="startDate"
+            render={({ field }) => (
+              <input
+                type="date"
+                id="startDate-add"
+                className="w-full border rounded px-3 py-2 text-sm"
+                value={field.value ? format(field.value, 'yyyy-MM-dd') : ''}
+                onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : null)}
+              />
+            )}
+          />
+          {form.formState.errors.startDate && <p className="text-sm text-destructive mt-1">{form.formState.errors.startDate.message}</p>}
+        </div>
+        <div>
+          <Label htmlFor="salary-add">Salary (Per Month)</Label>
+          <Input id="salary-add" type="text" {...form.register('salary')} placeholder="e.g., 75000" inputMode="numeric" />
+          {form.formState.errors.salary && <p className="text-sm text-destructive mt-1">{form.formState.errors.salary.message}</p>}
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <Label htmlFor="status-add">Status</Label>
+          <Controller
+            control={form.control}
+            name="status"
+            render={({ field }) => (
+              <select {...field} id="status-add" className="w-full border rounded px-3 py-2 text-sm">
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            )}
+          />
+        </div>
+        <div>
+          <Label htmlFor="gender-add">Gender</Label>
+           <Controller
+            control={form.control}
+            name="gender"
+            render={({ field }) => (
+              <select {...field} id="gender-add" className="w-full border rounded px-3 py-2 text-sm">
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+                <option value="Prefer not to say">Prefer not to say</option>
+              </select>
+            )}
+          />
+        </div>
+        <div>
+          <Label htmlFor="workLocation-add">Work Location</Label>
+           <Controller
+            control={form.control}
+            name="workLocation"
+            render={({ field }) => (
+              <select {...field} id="workLocation-add" className="w-full border rounded px-3 py-2 text-sm">
+                <option value="On-site">On-site</option>
+                <option value="Remote">Remote</option>
+                <option value="Hybrid">Hybrid</option>
+              </select>
+            )}
+          />
+        </div>
+      </div>
+      
       <div className="flex justify-end pt-2">
         <SubmitButton isImageUploading={isImageUploading} />
       </div>
