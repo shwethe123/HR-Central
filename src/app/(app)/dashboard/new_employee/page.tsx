@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, UserPlus } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { EditEmployeeForm } from '@/app/(app)/employees/edit-employee-form';
+import { parseISO, isValid } from 'date-fns';
 
 // This page will be adapted to show *only* new or specific types of employees, like Software Developers.
 export default function NewEmployeesPage() {
@@ -25,10 +26,9 @@ export default function NewEmployeesPage() {
     setIsLoading(true);
     try {
       const employeesCollectionRef = collection(db, "employees");
-      // Example Filter: Fetch employees in "Engineering" or "IT" department who are "Active"
+      // Filter by department in Firestore
       const q = query(employeesCollectionRef, 
-        where("department", "in", ["Engineering", "IT", "Software Development"]),
-        orderBy("startDate", "desc")
+        where("department", "in", ["Engineering", "IT", "Software Development"])
       );
       const querySnapshot = await getDocs(q);
       const fetchedEmployees: Employee[] = querySnapshot.docs.map(doc => {
@@ -50,12 +50,20 @@ export default function NewEmployeesPage() {
           gender: data.gender || "Prefer not to say",
         } as Employee;
       });
-      setEmployees(fetchedEmployees);
+
+      // Sort by startDate on the client-side
+      const sortedEmployees = fetchedEmployees.sort((a, b) => {
+        const dateA = a.startDate && isValid(parseISO(a.startDate)) ? parseISO(a.startDate) : new Date(0);
+        const dateB = b.startDate && isValid(parseISO(b.startDate)) ? parseISO(b.startDate) : new Date(0);
+        return dateB.getTime() - dateA.getTime();
+      });
+
+      setEmployees(sortedEmployees);
     } catch (error) {
       console.error("Error fetching new employees:", error);
       toast({
         title: "Error",
-        description: "Failed to fetch new employee data.",
+        description: "Failed to fetch new employee data. This may be due to a missing Firestore index.",
         variant: "destructive",
       });
     } finally {
