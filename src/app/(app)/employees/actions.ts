@@ -24,6 +24,7 @@ const EmployeeFormSchema = z.object({
     (val) => (val === "" || val === undefined ? undefined : Number(val)),
     z.number({ invalid_type_error: "Salary must be a number." }).optional()
   ),
+  paymentInfo: z.string().optional().or(z.literal('')),
 });
 
 export type AddEmployeeFormState = {
@@ -43,6 +44,7 @@ export type AddEmployeeFormState = {
     workLocation?: string[];
     avatar?: string[];
     salary?: string[];
+    paymentInfo?: string[];
     _form?: string[];
   };
   success?: boolean;
@@ -68,6 +70,7 @@ export async function addEmployee(
     workLocation: formData.get('workLocation'),
     avatar: formData.get('avatar') || undefined,
     salary: formData.get('salary') || undefined,
+    paymentInfo: formData.get('paymentInfo') || undefined,
   });
 
   if (!validatedFields.success) {
@@ -98,7 +101,8 @@ export async function addEmployee(
         gender: newEmployeeData.gender,
         workLocation: newEmployeeData.workLocation,
         avatar: newEmployeeData.avatar || '', 
-        salary: newEmployeeData.salary, 
+        salary: newEmployeeData.salary,
+        paymentInfo: newEmployeeData.paymentInfo || '',
     };
 
     const docRef = await addDoc(employeesCollectionRef, employeeToSave);
@@ -217,6 +221,7 @@ export type UpdateEmployeeFormState = {
     workLocation?: string[];
     avatar?: string[];
     salary?: string[];
+    paymentInfo?: string[];
     _form?: string[];
   };
   success?: boolean;
@@ -244,6 +249,7 @@ export async function updateEmployee(
     workLocation: formData.get('workLocation'),
     avatar: formData.get('avatar') || undefined,
     salary: formData.get('salary') || undefined,
+    paymentInfo: formData.get('paymentInfo') || undefined,
   });
 
   if (!employeeDocumentId) {
@@ -282,6 +288,7 @@ export async function updateEmployee(
       status: employeeDataToUpdate.status,
       gender: employeeDataToUpdate.gender,
       workLocation: employeeDataToUpdate.workLocation,
+      paymentInfo: employeeDataToUpdate.paymentInfo || '',
       ...(employeeDataToUpdate.avatar && { avatar: employeeDataToUpdate.avatar }),
       ...(employeeDataToUpdate.salary !== undefined && { salary: employeeDataToUpdate.salary }),
     };

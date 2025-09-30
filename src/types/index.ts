@@ -17,6 +17,7 @@ export type Employee = {
   gender?: "Male" | "Female" | "Other" | "Prefer not to say";
   workLocation?: "On-site" | "Remote" | "Hybrid";
   displayOrder?: number; // New field for custom sorting
+  paymentInfo?: string; // For Bank or KPay account info
 };
 
 // New type for Resignation records
@@ -70,7 +71,7 @@ export type LeaveRequest = {
   endDate: string;
   reason: string;
   status: "Pending" | "Approved" | "Rejected";
-  requestedDate: Timestamp | string;
+  requestedDate: Timestamp | string | Date;
   processedBy?: string;
   processedDate?: Timestamp | string | Date;
   rejectionReason?: string;

@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { Employee } from '@/types';
 import { format, isValid, parseISO } from 'date-fns';
-import { Printer, MapPin, Github } from 'lucide-react';
+import { Printer, MapPin, Github, Wallet } from 'lucide-react';
 import jsPDF from 'jspdf';
 
 interface EmployeeDetailsDialogProps {
@@ -256,6 +256,12 @@ export function EmployeeDetailsDialog({
             <span className="w-[130px] font-medium text-muted-foreground">Phone:</span>
             <span>{employee.phone || 'N/A'}</span>
           </div>
+           {employee.paymentInfo && (
+            <div className="flex items-center">
+              <span className="w-[130px] font-medium text-muted-foreground">Bank/KPay:</span>
+              <span className='flex items-center'><Wallet className="h-4 w-4 mr-1.5 text-muted-foreground"/>{employee.paymentInfo}</span>
+            </div>
+          )}
           <div className="flex items-center">
             <span className="w-[130px] font-medium text-muted-foreground">Start Date:</span>
             <span>{formatDateSafe(employee.startDate)}</span>

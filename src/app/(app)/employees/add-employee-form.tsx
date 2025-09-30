@@ -63,6 +63,7 @@ const ClientEmployeeSchema = z.object({
   salary: z.string().optional().refine(val => val === undefined || val === "" || !isNaN(parseFloat(val)), {
     message: "Salary must be a number or empty.",
   }),
+  paymentInfo: z.string().optional(),
 });
 
 type EmployeeFormData = z.infer<typeof ClientEmployeeSchema>;
@@ -116,6 +117,7 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
       workLocation: 'On-site',
       avatarFile: undefined,
       salary: '',
+      paymentInfo: '',
     },
   });
 
@@ -184,6 +186,7 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
     formData.append('gender', data.gender);
     formData.append('workLocation', data.workLocation);
     if (data.salary) formData.append('salary', data.salary);
+    if (data.paymentInfo) formData.append('paymentInfo', data.paymentInfo);
     
     // Hardcode company, department, role since they are removed from this form
     formData.append('company', 'Unassigned');
@@ -293,6 +296,12 @@ export function AddEmployeeForm({ onFormSubmissionSuccess, uniqueDepartments, un
           {form.formState.errors.salary && <p className="text-sm text-destructive mt-1">{form.formState.errors.salary.message}</p>}
           {state?.errors?.salary && <p className="text-sm text-destructive mt-1">{state.errors.salary.join(', ')}</p>}
         </div>
+      </div>
+
+      <div>
+        <Label htmlFor="paymentInfo-add">Bank/KPay Account (Optional)</Label>
+        <Input id="paymentInfo-add" {...form.register('paymentInfo')} placeholder="e.g., KBZ - 123456789 or KPay - 09..."/>
+        {form.formState.errors.paymentInfo && <p className="text-sm text-destructive mt-1">{form.formState.errors.paymentInfo.message}</p>}
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

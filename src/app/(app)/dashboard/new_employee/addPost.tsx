@@ -37,6 +37,7 @@ const ClientEmployeeSchema = z.object({
     message: "Salary must be a number or empty.",
   }),
   workLocation: z.enum(["On-site", "Remote", "Hybrid"], { required_error: "Work location is required." }),
+  paymentInfo: z.string().optional(),
 });
 
 type EmployeeFormData = z.infer<typeof ClientEmployeeSchema>;
@@ -82,6 +83,7 @@ export function AddNewEmployeeForm({ onFormSubmissionSuccess, className }: AddNe
       avatarFile: undefined,
       salary: '',
       workLocation: 'On-site',
+      paymentInfo: '',
     },
   });
 
@@ -209,6 +211,12 @@ export function AddNewEmployeeForm({ onFormSubmissionSuccess, className }: AddNe
           <Input id="salary-add" type="text" {...form.register('salary')} placeholder="e.g., 75000" inputMode="numeric" />
           {form.formState.errors.salary && <p className="text-sm text-destructive mt-1">{form.formState.errors.salary.message}</p>}
         </div>
+      </div>
+
+      <div>
+        <Label htmlFor="paymentInfo-add">Bank/KPay Account (Optional)</Label>
+        <Input id="paymentInfo-add" {...form.register('paymentInfo')} placeholder="e.g., KBZ - 123456789 or KPay - 09..."/>
+        {form.formState.errors.paymentInfo && <p className="text-sm text-destructive mt-1">{form.formState.errors.paymentInfo.message}</p>}
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

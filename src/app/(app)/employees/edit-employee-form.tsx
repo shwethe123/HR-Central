@@ -61,6 +61,7 @@ const ClientEditEmployeeSchema = z.object({
   salary: z.string().optional().refine(val => val === undefined || val === "" || !isNaN(parseFloat(val)), {
     message: "Salary must be a number or empty.",
   }),
+  paymentInfo: z.string().optional(),
 });
 
 export type EditEmployeeFormData = z.infer<typeof ClientEditEmployeeSchema>;
@@ -125,6 +126,7 @@ export function EditEmployeeForm({
       workLocation: employeeToEdit.workLocation || 'On-site',
       avatarFile: undefined,
       salary: employeeToEdit.salary !== undefined ? String(employeeToEdit.salary) : '',
+      paymentInfo: employeeToEdit.paymentInfo || '',
     },
   });
 
@@ -146,6 +148,7 @@ export function EditEmployeeForm({
       workLocation: employeeToEdit.workLocation || 'On-site',
       avatarFile: undefined,
       salary: employeeToEdit.salary !== undefined ? String(employeeToEdit.salary) : '',
+      paymentInfo: employeeToEdit.paymentInfo || '',
     });
     setAvatarPreview(employeeToEdit.avatar || null);
   }, [employeeToEdit, form.reset]);
@@ -213,6 +216,7 @@ export function EditEmployeeForm({
     formData.append('gender', data.gender);
     formData.append('workLocation', data.workLocation);
     if (data.salary) formData.append('salary', data.salary);
+    if (data.paymentInfo) formData.append('paymentInfo', data.paymentInfo);
 
     let finalAvatarUrl = employeeToEdit.avatar || '';
     const fileToUpload = data.avatarFile;
@@ -355,6 +359,12 @@ export function EditEmployeeForm({
         <Label htmlFor="phone-edit">Phone Number (Optional)</Label>
         <Input id="phone-edit" type="tel" {...form.register('phone')} />
         {form.formState.errors.phone && <p className="text-sm text-destructive mt-1">{form.formState.errors.phone.message}</p>}
+      </div>
+      
+      <div>
+        <Label htmlFor="paymentInfo-edit">Bank/KPay Account (Optional)</Label>
+        <Input id="paymentInfo-edit" {...form.register('paymentInfo')} placeholder="e.g., KBZ - 123456789 or KPay - 09..."/>
+        {form.formState.errors.paymentInfo && <p className="text-sm text-destructive mt-1">{form.formState.errors.paymentInfo.message}</p>}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
