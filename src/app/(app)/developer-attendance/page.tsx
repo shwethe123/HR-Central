@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { addDeveloperLeave, type AddDeveloperLeaveState } from "./actions";
-import { Code2, PlusCircle, Loader2, Calendar, User, DollarSign, AlertCircle } from 'lucide-react';
+import { Code2, PlusCircle, Loader2, Calendar, User, DollarSign, AlertCircle, Wallet } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
@@ -26,6 +26,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 const FREE_LEAVE_DAYS = 4;
 const SALARY_DEDUCTION_PER_EXTRA_DAY = 100000; // Example deduction, can be changed.
@@ -101,12 +102,14 @@ export default function DeveloperAttendancePage() {
       const leaveDays = devLeaves.length;
       const extraLeaveDays = Math.max(0, leaveDays - FREE_LEAVE_DAYS);
       const salaryDeduction = extraLeaveDays * SALARY_DEDUCTION_PER_EXTRA_DAY;
-      
+      const finalSalary = (dev.salary || 0) - salaryDeduction;
+
       return {
         ...dev,
         leaveDays,
         extraLeaveDays,
         salaryDeduction,
+        finalSalary,
         leaveDates: devLeaves.map(l => l.leaveDate).sort()
       };
     });
@@ -148,10 +151,15 @@ export default function DeveloperAttendancePage() {
             <div className="space-y-4">
               {developerStats.map(dev => (
                 <Card key={dev.id} className="p-4">
-                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-                    <div className="space-y-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
                       <p className="font-semibold text-lg flex items-center"><User className="mr-2 h-5 w-5 text-muted-foreground" />{dev.name}</p>
-                      <p className="text-sm text-muted-foreground">Salary: {dev.salary ? dev.salary.toLocaleString() : 'N/A'}</p>
+                      <p className="text-sm text-muted-foreground flex items-center">
+                        <DollarSign className="mr-2 h-4 w-4"/> Base Salary: {dev.salary ? dev.salary.toLocaleString() : 'N/A'}
+                      </p>
+                      <p className={cn("text-sm font-semibold flex items-center", dev.salaryDeduction > 0 ? "text-destructive" : "text-green-600")}>
+                        <Wallet className="mr-2 h-4 w-4"/> Total Salary: {dev.finalSalary ? dev.finalSalary.toLocaleString() : 'N/A'}
+                      </p>
                     </div>
                     <div className="flex-shrink-0 flex flex-col items-start sm:items-end gap-2">
                       <div className="flex items-center gap-4">
@@ -160,7 +168,7 @@ export default function DeveloperAttendancePage() {
                             <p className="text-xs text-muted-foreground">Leave Days</p>
                           </div>
                           <div className="text-center">
-                            <p className={`text-2xl font-bold ${dev.extraLeaveDays > 0 ? 'text-destructive' : 'text-green-600'}`}>{dev.extraLeaveDays}</p>
+                            <p className={cn("text-2xl font-bold", dev.extraLeaveDays > 0 ? 'text-destructive' : 'text-foreground')}>{dev.extraLeaveDays}</p>
                             <p className="text-xs text-muted-foreground">Extra Days</p>
                           </div>
                       </div>
