@@ -27,6 +27,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/auth-context';
 
 const FREE_LEAVE_DAYS = 4;
 
@@ -46,6 +47,7 @@ export default function DeveloperAttendancePage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const { toast } = useToast();
+  const { isAdmin } = useAuth();
 
   const fetchDevelopersAndAttendance = useCallback(async (month: Date) => {
     setIsLoading(true);
@@ -191,9 +193,11 @@ export default function DeveloperAttendancePage() {
                             <Badge key={date} variant="secondary" className="font-mono">{format(new Date(date), 'MMM dd')}</Badge>
                         )) : <p className="text-xs text-muted-foreground">No leave days recorded for this month.</p>}
                      </div>
-                     <Button size="sm" variant="outline" onClick={() => handleAddLeaveClick(dev)}>
-                        <PlusCircle className="mr-2 h-4 w-4"/> Add Leave
-                     </Button>
+                     {isAdmin && (
+                        <Button size="sm" variant="outline" onClick={() => handleAddLeaveClick(dev)}>
+                            <PlusCircle className="mr-2 h-4 w-4"/> Add Leave
+                        </Button>
+                     )}
                   </div>
                 </Card>
               ))}
