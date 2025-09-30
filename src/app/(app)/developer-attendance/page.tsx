@@ -14,11 +14,11 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { addDeveloperLeave, type AddDeveloperLeaveState } from "./actions";
-import { Code2, PlusCircle, Loader2, Calendar, User, DollarSign, AlertCircle, Wallet } from 'lucide-react';
+import { Code2, PlusCircle, Loader2, Calendar, User, DollarSign, AlertCircle, Wallet, Check, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, getDaysInMonth } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, getDaysInMonth, parseISO, isValid } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -99,6 +99,9 @@ export default function DeveloperAttendancePage() {
   
   const developerStats = useMemo(() => {
     const daysInCurrentMonth = getDaysInMonth(currentMonth);
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(currentMonth);
+    const allDaysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
     return developers.map(dev => {
       const devLeaves = attendances.filter(a => a.developerId === dev.id);
@@ -111,13 +114,26 @@ export default function DeveloperAttendancePage() {
       
       const finalSalary = monthlySalary - salaryDeduction;
 
+      const leaveDateObjects = devLeaves.map(l => {
+          const parsed = parseISO(l.leaveDate);
+          return isValid(parsed) ? parsed : null;
+      }).filter((d): d is Date => d !== null);
+
+      const monthlyAttendance = allDaysInMonth.map(day => {
+          const isLeave = leaveDateObjects.some(leaveDate => isSameDay(day, leaveDate));
+          return {
+              date: day,
+              isLeave: isLeave,
+          };
+      });
+
       return {
         ...dev,
         leaveDays,
         extraLeaveDays,
         salaryDeduction,
         finalSalary,
-        leaveDates: devLeaves.map(l => l.leaveDate).sort()
+        monthlyAttendance
       };
     });
   }, [developers, attendances, currentMonth]);
@@ -187,14 +203,17 @@ export default function DeveloperAttendancePage() {
                     </div>
                   </div>
                   <div className="border-t my-3"></div>
-                  <div className="flex justify-between items-center">
-                     <div className="flex flex-wrap gap-1.5">
-                        {dev.leaveDates.length > 0 ? dev.leaveDates.map(date => (
-                            <Badge key={date} variant="secondary" className="font-mono">{format(new Date(date), 'MMM dd')}</Badge>
-                        )) : <p className="text-xs text-muted-foreground">No leave days recorded for this month.</p>}
+                  <div className="flex justify-between items-start">
+                     <div className="flex flex-wrap gap-1.5 flex-grow">
+                        {dev.monthlyAttendance.length > 0 ? dev.monthlyAttendance.map(day => (
+                            <Badge key={day.date.toString()} variant={day.isLeave ? "secondary" : "default"} className={cn("font-mono flex items-center gap-1", day.isLeave ? "text-muted-foreground" : "bg-green-100 text-green-800 border-green-300 hover:bg-green-200")}>
+                               {day.isLeave ? <X className="h-3 w-3"/> : <Check className="h-3 w-3"/>}
+                               {format(day.date, 'dd')}
+                            </Badge>
+                        )) : <p className="text-xs text-muted-foreground">No attendance data for this month.</p>}
                      </div>
                      {isAdmin && (
-                        <Button size="sm" variant="outline" onClick={() => handleAddLeaveClick(dev)}>
+                        <Button size="sm" variant="outline" onClick={() => handleAddLeaveClick(dev)} className="ml-4 flex-shrink-0">
                             <PlusCircle className="mr-2 h-4 w-4"/> Add Leave
                         </Button>
                      )}
