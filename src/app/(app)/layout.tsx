@@ -9,9 +9,16 @@ async function getAnnouncements(): Promise<Announcement[]> {
     const announcementsRef = collection(db, 'announcements');
     const q = query(announcementsRef, orderBy('createdAt', 'desc'), limit(5));
     const querySnapshot = await getDocs(q);
-    const fetchedAnnouncements: Announcement[] = [];
-    querySnapshot.forEach((doc) => {
-      fetchedAnnouncements.push({ id: doc.id, ...doc.data() } as Announcement);
+    const fetchedAnnouncements: Announcement[] = querySnapshot.docs.map((doc) => {
+      const data = doc.data();
+      // Convert Timestamps to serializable objects
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toJSON() || null,
+        publishedAt: data.publishedAt?.toJSON() || null,
+        updatedAt: data.updatedAt?.toJSON() || null,
+      } as Announcement;
     });
     return fetchedAnnouncements;
   } catch (error) {
