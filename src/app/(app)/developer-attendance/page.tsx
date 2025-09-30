@@ -18,7 +18,7 @@ import { Code2, PlusCircle, Loader2, Calendar, User, DollarSign, AlertCircle, Wa
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, getDaysInMonth } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -29,7 +29,6 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 const FREE_LEAVE_DAYS = 4;
-const SALARY_DEDUCTION_PER_EXTRA_DAY = 100000; // Example deduction, can be changed.
 
 // Client-side Zod schema for the leave form
 const ClientLeaveFormSchema = z.object({
@@ -97,12 +96,18 @@ export default function DeveloperAttendancePage() {
   }
   
   const developerStats = useMemo(() => {
+    const daysInCurrentMonth = getDaysInMonth(currentMonth);
+
     return developers.map(dev => {
       const devLeaves = attendances.filter(a => a.developerId === dev.id);
       const leaveDays = devLeaves.length;
       const extraLeaveDays = Math.max(0, leaveDays - FREE_LEAVE_DAYS);
-      const salaryDeduction = extraLeaveDays * SALARY_DEDUCTION_PER_EXTRA_DAY;
-      const finalSalary = (dev.salary || 0) - salaryDeduction;
+      
+      const monthlySalary = dev.salary || 0;
+      const dailyWage = monthlySalary > 0 && daysInCurrentMonth > 0 ? monthlySalary / daysInCurrentMonth : 0;
+      const salaryDeduction = extraLeaveDays * dailyWage;
+      
+      const finalSalary = monthlySalary - salaryDeduction;
 
       return {
         ...dev,
@@ -113,7 +118,7 @@ export default function DeveloperAttendancePage() {
         leaveDates: devLeaves.map(l => l.leaveDate).sort()
       };
     });
-  }, [developers, attendances]);
+  }, [developers, attendances, currentMonth]);
 
   return (
     <div className="container mx-auto py-2 space-y-6">
@@ -139,7 +144,7 @@ export default function DeveloperAttendancePage() {
           <CardTitle>Monthly Leave Summary</CardTitle>
           <CardDescription>
             Track monthly leave for each developer. Each developer is allowed {FREE_LEAVE_DAYS} leave days per month.
-            Exceeding this will result in a salary deduction of {SALARY_DEDUCTION_PER_EXTRA_DAY.toLocaleString()} per extra day.
+            Exceeding this will result in a salary deduction based on their daily wage for the selected month.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -158,7 +163,7 @@ export default function DeveloperAttendancePage() {
                         <DollarSign className="mr-2 h-4 w-4"/> Base Salary: {dev.salary ? dev.salary.toLocaleString() : 'N/A'}
                       </p>
                       <p className={cn("text-sm font-semibold flex items-center", dev.salaryDeduction > 0 ? "text-destructive" : "text-green-600")}>
-                        <Wallet className="mr-2 h-4 w-4"/> Total Salary: {dev.finalSalary ? dev.finalSalary.toLocaleString() : 'N/A'}
+                        <Wallet className="mr-2 h-4 w-4"/> Total Salary: {dev.finalSalary ? dev.finalSalary.toLocaleString('en-US', { maximumFractionDigits: 0 }) : 'N/A'}
                       </p>
                     </div>
                     <div className="flex-shrink-0 flex flex-col items-start sm:items-end gap-2">
@@ -174,7 +179,7 @@ export default function DeveloperAttendancePage() {
                       </div>
                       {dev.salaryDeduction > 0 && (
                         <Badge variant="destructive" className="flex items-center gap-1.5">
-                            <DollarSign className="h-3 w-3"/>Deduct: {dev.salaryDeduction.toLocaleString()}
+                            <DollarSign className="h-3 w-3"/>Deduct: {dev.salaryDeduction.toLocaleString('en-US', { maximumFractionDigits: 0 })}
                         </Badge>
                       )}
                     </div>
