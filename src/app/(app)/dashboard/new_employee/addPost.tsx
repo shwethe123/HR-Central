@@ -120,7 +120,7 @@ export function AddNewEmployeeForm({ onFormSubmissionSuccess, className }: AddNe
   const onSubmit = async (data: EmployeeFormData) => {
     const formData = new FormData();
     // Set default values for fields removed from this specific form
-    formData.append('company', 'Default Company'); // Or a relevant default
+    formData.append('company', 'Default Company'); 
     formData.append('department', 'Software Development');
     formData.append('role', 'Developer');
     
@@ -161,7 +161,7 @@ export function AddNewEmployeeForm({ onFormSubmissionSuccess, className }: AddNe
   };
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className={cn("space-y-4", className)}>
+    <form onSubmit={form.handleSubmit(onSubmit)} className={cn("space-y-4 max-h-[70vh] overflow-y-auto p-1", className)}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
             <Label htmlFor="name-add">Full Name</Label>
