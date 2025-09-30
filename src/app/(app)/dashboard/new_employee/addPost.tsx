@@ -122,7 +122,7 @@ export function AddNewEmployeeForm({ onFormSubmissionSuccess, className }: AddNe
     // Set default values for fields removed from this specific form
     formData.append('company', 'Default Company'); 
     formData.append('department', 'Software Development');
-    formData.append('role', 'Developer');
+    formData.append('role', 'Software Developer');
     
     // Add other form data
     Object.entries(data).forEach(([key, value]) => {

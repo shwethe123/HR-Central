@@ -33,7 +33,7 @@ export default function NewEmployeesPage() {
       const employeesCollectionRef = collection(db, "employees");
       // Filter by role in Firestore to only get developers
       const q = query(employeesCollectionRef, 
-        where("role", "==", "Developer")
+        where("role", "==", "Software Developer")
       );
       const querySnapshot = await getDocs(q);
       const fetchedEmployees: Employee[] = querySnapshot.docs.map(doc => {

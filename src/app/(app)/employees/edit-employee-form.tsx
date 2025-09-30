@@ -36,7 +36,7 @@ const ClientEditEmployeeSchema = z.object({
   company: z.string().min(1, { message: "Company is required." }),
   department: z.string().min(1, { message: "Department is required." }),
   role: z.string().min(1, { message: "Role is required." }),
-  email: z.string().email({ message: "Invalid email address." }),
+  email: z.string().email({ message: "Invalid email address." }).optional().or(z.literal('')),
   phone: z.string().optional(),
   github: z.string().optional(),
   startDate: z.date({ required_error: "Start date is required." }),
@@ -330,8 +330,8 @@ export function EditEmployeeForm({
                   <SelectValue placeholder="Select Role" />
                 </SelectTrigger>
                 <SelectContent>
-                   {["ခေါင်းဆောင်","ဈေးရောင်း", "စာရင်းကိုင်", "Hစစ်", "ပစ္စည်းမှာ", "အဝင်", "ငွေကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ကားတင်", "Developer"].map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
-                  {uniqueRoles.filter(role => !["ခေါင်းဆောင်","ဈေးရောင်း", "စာရင်းကိုင်", "Hစစ်", "ပစ္စည်းမှာ", "အဝင်", "ပစ္စည်းမှာ", "ငွေကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ကားတင်", "Developer"].includes(role)).map(role => (
+                   {["ခေါင်းဆောင်","ဈေးရောင်း", "စာရင်းကိုင်", "Hစစ်", "ပစ္စည်းမှာ", "အဝင်", "ငွေကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ကားတင်", "Software Developer"].map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+                  {uniqueRoles.filter(role => !["ခေါင်းဆောင်","ဈေးရောင်း", "စာရင်းကိုင်", "Hစစ်", "ပစ္စည်းမှာ", "အဝင်", "ပစ္စည်းမှာ", "ငွေကိုင်", "စက်ကိုင်", "အပြင်သွား", "စီစစ်ရေး", "ကားတင်", "Software Developer"].includes(role)).map(role => (
                     <SelectItem key={role} value={role}>{role}</SelectItem>
                   ))}
                 </SelectContent>
