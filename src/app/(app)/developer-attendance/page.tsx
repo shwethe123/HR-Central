@@ -31,6 +31,15 @@ import { useAuth } from '@/contexts/auth-context';
 
 const FREE_LEAVE_DAYS = 4;
 
+const formatCurrency = (amount: number, currency: string = 'MMK') => {
+  if (currency === 'USD') {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+  }
+  // For MMK or other currencies, just format with commas, no currency symbol/code
+  return amount.toLocaleString('en-US', { maximumFractionDigits: 0 });
+};
+
+
 // Client-side Zod schema for the leave form
 const ClientLeaveFormSchema = z.object({
   leaveDate: z.string().min(1, { message: "Leave date is required." }),
@@ -110,7 +119,6 @@ export default function DeveloperAttendancePage() {
       const extraLeaveDays = Math.max(0, leaveDays - FREE_LEAVE_DAYS);
       
       const monthlySalary = dev.salary || 0;
-      // Calculate daily wage based on working days (total days - free leave days)
       const dailyWage = monthlySalary > 0 && workingDaysInMonth > 0 ? monthlySalary / workingDaysInMonth : 0;
       const salaryDeduction = extraLeaveDays * dailyWage;
       
@@ -180,10 +188,10 @@ export default function DeveloperAttendancePage() {
                     <div className="space-y-2">
                       <p className="font-semibold text-lg flex items-center"><User className="mr-2 h-5 w-5 text-muted-foreground" />{dev.name}</p>
                       <p className="text-sm text-muted-foreground flex items-center">
-                        <DollarSign className="mr-2 h-4 w-4"/> Base Salary: {dev.salary ? dev.salary.toLocaleString() : 'N/A'}
+                        <DollarSign className="mr-2 h-4 w-4"/> Base Salary: {dev.salary ? formatCurrency(dev.salary) : 'N/A'}
                       </p>
                       <p className={cn("text-sm font-semibold flex items-center", dev.salaryDeduction > 0 ? "text-destructive" : "text-green-600")}>
-                        <Wallet className="mr-2 h-4 w-4"/> Total Salary: {dev.finalSalary ? dev.finalSalary.toLocaleString('en-US', { maximumFractionDigits: 0 }) : 'N/A'}
+                        <Wallet className="mr-2 h-4 w-4"/> Total Salary: {dev.finalSalary ? formatCurrency(Math.round(dev.finalSalary)) : 'N/A'}
                       </p>
                     </div>
                     <div className="flex-shrink-0 flex flex-col items-start sm:items-end gap-2">
@@ -199,7 +207,7 @@ export default function DeveloperAttendancePage() {
                       </div>
                       {dev.salaryDeduction > 0 && (
                         <Badge variant="destructive" className="flex items-center gap-1.5">
-                            <DollarSign className="h-3 w-3"/>Deduct: {dev.salaryDeduction.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                            <DollarSign className="h-3 w-3"/>Deduct: {formatCurrency(Math.round(dev.salaryDeduction))}
                         </Badge>
                       )}
                     </div>
