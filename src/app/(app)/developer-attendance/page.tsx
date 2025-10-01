@@ -31,12 +31,10 @@ import { useAuth } from '@/contexts/auth-context';
 
 const FREE_LEAVE_DAYS = 4;
 
-const formatCurrency = (amount: number, currency: string = 'MMK') => {
-  if (currency === 'USD') {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
-  }
-  // For MMK or other currencies, just format with commas, no currency symbol/code
-  return amount.toLocaleString('en-US', { maximumFractionDigits: 0 });
+const formatCurrency = (amount: number) => {
+    // This function will now only handle formatting a number to a string with commas.
+    // It will not perform rounding.
+    return amount.toLocaleString('en-US', { maximumFractionDigits: 0, minimumFractionDigits: 0 });
 };
 
 
@@ -119,9 +117,12 @@ export default function DeveloperAttendancePage() {
       const extraLeaveDays = Math.max(0, leaveDays - FREE_LEAVE_DAYS);
       
       const monthlySalary = dev.salary || 0;
+      // Calculate daily wage without rounding
       const dailyWage = monthlySalary > 0 && workingDaysInMonth > 0 ? monthlySalary / workingDaysInMonth : 0;
+      // Calculate total deduction without rounding
       const salaryDeduction = extraLeaveDays * dailyWage;
       
+      // Calculate final salary without rounding
       const finalSalary = monthlySalary - salaryDeduction;
 
       const leaveDateObjects = devLeaves.map(l => {
@@ -141,8 +142,8 @@ export default function DeveloperAttendancePage() {
         ...dev,
         leaveDays,
         extraLeaveDays,
-        salaryDeduction,
-        finalSalary,
+        salaryDeduction, // Keep as precise number
+        finalSalary, // Keep as precise number
         monthlyAttendance
       };
     });
@@ -216,7 +217,7 @@ export default function DeveloperAttendancePage() {
                   <div className="flex justify-between items-start">
                      <div className="flex flex-wrap gap-1.5 flex-grow">
                         {dev.monthlyAttendance.length > 0 ? dev.monthlyAttendance.map(day => (
-                            <Badge key={day.date.toString()} variant={day.isLeave ? "secondary" : "default"} className={cn("font-mono flex items-center gap-1", day.isLeave ? "text-muted-foreground" : "bg-green-100 text-green-800 border-green-300 hover:bg-green-200")}>
+                            <Badge key={day.date.toString()} variant={day.isLeave ? "secondary" : "default"} className={cn("font-mono flex items-center gap-1", day.isLeave ? "" : "bg-green-100 text-green-800 border-green-300 hover:bg-green-200")}>
                                {day.isLeave ? <X className="h-3 w-3"/> : <Check className="h-3 w-3"/>}
                                {format(day.date, 'dd')}
                             </Badge>
