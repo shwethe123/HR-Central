@@ -109,6 +109,7 @@ export default function DeveloperAttendancePage() {
       const extraLeaveDays = Math.max(0, leaveDays - FREE_LEAVE_DAYS);
       
       const monthlySalary = dev.salary || 0;
+      // Calculate daily wage based on the total number of days in the month.
       const dailyWage = monthlySalary > 0 && daysInCurrentMonth > 0 ? monthlySalary / daysInCurrentMonth : 0;
       const salaryDeduction = extraLeaveDays * dailyWage;
       
@@ -305,3 +306,4 @@ function LeaveFormDialog({ isOpen, onOpenChange, developer, onSuccess }: LeaveFo
      </Dialog>
   );
 }
+
