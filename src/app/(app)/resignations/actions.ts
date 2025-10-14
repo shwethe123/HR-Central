@@ -3,9 +3,9 @@
 
 import { z } from 'zod';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
-import type { Employee } from '@/types';
+import type { Employee, ResignationComment } from '@/types';
 
 const ResignationFormSchema = z.object({
   employeeId: z.string().min(1, { message: "An employee must be selected." }),
@@ -14,7 +14,6 @@ const ResignationFormSchema = z.object({
   reason: z.string().max(500, "Reason is too long.").optional().or(z.literal('')),
   rehireEligibility: z.enum(["Eligible", "Ineligible", "Conditional"]),
   notes: z.string().max(1000, "Notes are too long.").optional().or(z.literal('')),
-  rehireComment: z.string().max(1000, "Re-hire comment is too long.").optional().or(z.literal('')),
 }).refine(data => new Date(data.resignationDate) >= new Date(data.noticeDate), {
   message: "Resignation date cannot be before the notice date.",
   path: ["resignationDate"],
@@ -38,7 +37,6 @@ export async function addResignation(
     reason: formData.get('reason'),
     rehireEligibility: formData.get('rehireEligibility'),
     notes: formData.get('notes'),
-    rehireComment: formData.get('rehireComment'),
   });
 
   if (!validatedFields.success) {
@@ -52,7 +50,6 @@ export async function addResignation(
   const { employeeId, ...data } = validatedFields.data;
 
   try {
-    // Get employee name for storing in the record
     const employeeDoc = await getDoc(doc(db, "employees", employeeId));
     if (!employeeDoc.exists()) {
       return { message: "Selected employee not found.", success: false };
@@ -63,6 +60,7 @@ export async function addResignation(
       employeeId,
       employeeName,
       ...data,
+      comments: [], // Initialize with an empty comments array
       createdAt: serverTimestamp(),
     });
 
@@ -79,4 +77,65 @@ export async function addResignation(
       success: false,
     };
   }
+}
+
+
+const AddCommentSchema = z.object({
+    resignationId: z.string().min(1, { message: "Resignation ID is required." }),
+    commentText: z.string().min(1, { message: "Comment cannot be empty." }).max(1000),
+    authorName: z.string().min(1, { message: "Author name is required." }),
+});
+
+export type AddCommentFormState = {
+  message: string | null;
+  errors?: z.ZodError<z.infer<typeof AddCommentSchema>>['formErrors']['fieldErrors'];
+  success?: boolean;
+};
+
+export async function addCommentToResignation(
+    prevState: AddCommentFormState,
+    formData: FormData
+): Promise<AddCommentFormState> {
+    const validatedFields = AddCommentSchema.safeParse({
+        resignationId: formData.get('resignationId'),
+        commentText: formData.get('commentText'),
+        authorName: formData.get('authorName'),
+    });
+
+    if (!validatedFields.success) {
+        return {
+            message: "Validation failed.",
+            errors: validatedFields.error.flatten().fieldErrors,
+            success: false,
+        };
+    }
+
+    const { resignationId, commentText, authorName } = validatedFields.data;
+
+    try {
+        const resignationDocRef = doc(db, 'resignations', resignationId);
+
+        const newComment: ResignationComment = {
+            text: commentText,
+            authorName: authorName,
+            createdAt: serverTimestamp() as Timestamp,
+        };
+
+        await updateDoc(resignationDocRef, {
+            comments: arrayUnion(newComment)
+        });
+
+        revalidatePath('/resignations');
+
+        return {
+            message: "Comment added successfully.",
+            success: true,
+        };
+    } catch (error) {
+        console.error("Error adding comment to resignation:", error);
+        return {
+            message: error instanceof Error ? error.message : "Failed to add comment.",
+            success: false,
+        };
+    }
 }

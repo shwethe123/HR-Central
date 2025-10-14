@@ -45,6 +45,12 @@ export type CleaningSchedule = {
 };
 
 
+export type ResignationComment = {
+  text: string;
+  authorName: string;
+  createdAt: Timestamp;
+};
+
 // New type for Resignation records
 export type Resignation = {
   id: string;
@@ -55,7 +61,7 @@ export type Resignation = {
   reason?: string; // Reason for leaving
   rehireEligibility: "Eligible" | "Ineligible" | "Conditional";
   notes?: string; // HR notes
-  rehireComment?: string; // New field for re-hire comments
+  comments: ResignationComment[]; // Array for multiple comments
   createdAt: Timestamp; // When the record was created
 };
 

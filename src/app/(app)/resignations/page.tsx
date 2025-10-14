@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import type { Resignation, Employee } from "@/types";
+import type { Resignation, Employee, ResignationComment } from "@/types";
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -12,29 +12,45 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AddResignationForm } from "./add-resignation-form";
-import { UserMinus, PlusCircle, Loader2, Search, MoreHorizontal } from 'lucide-react';
+import { AddCommentForm } from "./add-comment-form";
+import { UserMinus, PlusCircle, Loader2, Search, MoreHorizontal, MessageSquare, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, Timestamp, limit } from 'firebase/firestore';
 import { format, differenceInDays, isValid } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const RESIGNATIONS_FETCH_LIMIT = 50;
 const EMPLOYEES_FETCH_LIMIT = 150;
 
-const formatDate = (dateString: string | undefined): string => {
-  if (!dateString) return 'N/A';
-  try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'Invalid Date';
-    return format(date, "MMM d, yyyy");
-  } catch (e) {
-    return 'Invalid Date String';
+const formatDate = (dateInput: string | Timestamp | undefined): string => {
+  if (!dateInput) return 'N/A';
+  let date: Date;
+  if (typeof dateInput === 'string') {
+    try {
+      date = new Date(dateInput);
+    } catch (e) { return 'Invalid Date String'; }
+  } else if (dateInput instanceof Timestamp) {
+    date = dateInput.toDate();
+  } else {
+    return 'Invalid Date Type';
   }
+  if (isNaN(date.getTime())) return 'Invalid Date';
+  return format(date, "MMM d, yyyy, h:mm a");
 };
+
 
 const eligibilityVariant = (eligibility: Resignation['rehireEligibility']) => {
   switch (eligibility) {
@@ -54,6 +70,7 @@ export default function ResignationsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedResignation, setSelectedResignation] = useState<Resignation | null>(null);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [isCommentDialogOpen, setIsCommentDialogOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -93,9 +110,20 @@ export default function ResignationsPage() {
     setIsFormDialogOpen(false);
   };
   
+  const handleCommentSubmissionSuccess = () => {
+    fetchData();
+    setIsCommentDialogOpen(false);
+    setSelectedResignation(null);
+  };
+  
   const handleViewDetails = (resignation: Resignation) => {
     setSelectedResignation(resignation);
     setIsDetailsDialogOpen(true);
+  };
+
+  const handleAddComment = (resignation: Resignation) => {
+    setSelectedResignation(resignation);
+    setIsCommentDialogOpen(true);
   };
 
   const filteredResignations = useMemo(() => {
@@ -180,8 +208,8 @@ export default function ResignationsPage() {
                     <div className="space-y-1 flex-grow">
                       <p className="font-semibold text-lg">{res.employeeName}</p>
                       <div className="text-sm text-muted-foreground flex items-center flex-wrap gap-x-3 gap-y-1">
-                        <span>Notice: {formatDate(res.noticeDate)}</span>
-                        <span>Last Day: {formatDate(res.resignationDate)}</span>
+                        <span>Notice: {format(noticeDate, "MMM d, yyyy")}</span>
+                        <span>Last Day: {format(resignationDate, "MMM d, yyyy")}</span>
                         {noticeDays !== null && noticeDays >= 0 && (
                           <span className="font-medium text-primary">({noticeDays} days notice)</span>
                         )}
@@ -192,10 +220,25 @@ export default function ResignationsPage() {
                       <Badge variant={eligibilityVariant(res.rehireEligibility)}>
                         {res.rehireEligibility} for Re-hire
                       </Badge>
-                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleViewDetails(res)}>
-                        <MoreHorizontal className="h-4 w-4" />
-                        <span className="sr-only">View Details</span>
-                      </Button>
+                       <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Actions</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem onSelect={() => handleViewDetails(res)}>
+                              <FileText className="mr-2 h-4 w-4" />
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleAddComment(res)}>
+                              <MessageSquare className="mr-2 h-4 w-4" />
+                              Add Comment
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
                   </div>
                 );
@@ -207,7 +250,7 @@ export default function ResignationsPage() {
 
       {/* Details Dialog */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Resignation Details</DialogTitle>
             <DialogDescription>
@@ -222,11 +265,11 @@ export default function ResignationsPage() {
               </div>
                <div className="grid grid-cols-[140px_1fr] items-center gap-2">
                 <span className="font-medium text-muted-foreground">Notice Date:</span>
-                <span>{formatDate(selectedResignation.noticeDate)}</span>
+                <span>{format(new Date(selectedResignation.noticeDate), "MMM d, yyyy")}</span>
               </div>
               <div className="grid grid-cols-[140px_1fr] items-center gap-2">
                 <span className="font-medium text-muted-foreground">Resignation Date:</span>
-                <span>{formatDate(selectedResignation.resignationDate)}</span>
+                <span>{format(new Date(selectedResignation.resignationDate), "MMM d, yyyy")}</span>
               </div>
               <div className="grid grid-cols-[140px_1fr] items-center gap-2">
                 <span className="font-medium text-muted-foreground">Re-hire Eligibility:</span>
@@ -242,9 +285,25 @@ export default function ResignationsPage() {
                 <span className="font-medium text-muted-foreground">HR Notes:</span>
                  <p className="whitespace-pre-wrap">{selectedResignation.notes || 'No notes provided.'}</p>
               </div>
-              <div className="grid grid-cols-[140px_1fr] items-start gap-2">
-                <span className="font-medium text-muted-foreground">Re-hire Comment:</span>
-                <p className="whitespace-pre-wrap">{selectedResignation.rehireComment || 'No comment.'}</p>
+
+               <div className="col-span-2 space-y-2">
+                 <span className="font-medium text-muted-foreground">Comments:</span>
+                 <ScrollArea className="h-32 w-full rounded-md border p-2">
+                    {selectedResignation.comments && selectedResignation.comments.length > 0 ? (
+                        <div className="space-y-3">
+                        {selectedResignation.comments.map((comment, index) => (
+                            <div key={index} className="text-xs">
+                                <p className="whitespace-pre-wrap">{comment.text}</p>
+                                <p className="text-muted-foreground/80 mt-1">
+                                    - {comment.authorName} on {formatDate(comment.createdAt)}
+                                </p>
+                            </div>
+                        ))}
+                        </div>
+                    ) : (
+                        <p className="text-xs text-muted-foreground text-center py-4">No comments yet.</p>
+                    )}
+                 </ScrollArea>
               </div>
             </div>
           )}
@@ -255,6 +314,27 @@ export default function ResignationsPage() {
             </div>
         </DialogContent>
       </Dialog>
+      
+      {/* Add Comment Dialog */}
+      {selectedResignation && (
+        <Dialog open={isCommentDialogOpen} onOpenChange={(isOpen) => {
+            setIsCommentDialogOpen(isOpen);
+            if (!isOpen) setSelectedResignation(null);
+        }}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Add Comment for {selectedResignation.employeeName}</DialogTitle>
+                    <DialogDescription>
+                        This comment will be added to the resignation record.
+                    </DialogDescription>
+                </DialogHeader>
+                <AddCommentForm
+                    resignationId={selectedResignation.id}
+                    onFormSubmissionSuccess={handleCommentSubmissionSuccess}
+                />
+            </DialogContent>
+        </Dialog>
+      )}
 
     </div>
   );
