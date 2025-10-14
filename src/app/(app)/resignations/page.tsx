@@ -220,7 +220,7 @@ export default function ResignationsPage() {
                     key={res.id}
                     className={cn(
                       "border rounded-lg p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-muted/50 transition-colors",
-                      hasComments && "border-primary"
+                      hasComments && "border-orange-500"
                     )}
                   >
                     <div className="space-y-1 flex-grow">
