@@ -216,7 +216,13 @@ export default function ResignationsPage() {
                 const hasComments = res.comments && res.comments.length > 0;
 
                 return (
-                  <div key={res.id} className="border rounded-lg p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-muted/50 transition-colors">
+                  <div
+                    key={res.id}
+                    className={cn(
+                      "border rounded-lg p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-muted/50 transition-colors",
+                      hasComments && "border-primary"
+                    )}
+                  >
                     <div className="space-y-1 flex-grow">
                       <p className="font-semibold text-lg">{res.employeeName}</p>
                       <div className="text-sm text-muted-foreground flex items-center flex-wrap gap-x-3 gap-y-1">
@@ -235,7 +241,7 @@ export default function ResignationsPage() {
                        <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreHorizontal className={cn("h-4 w-4", hasComments ? "text-primary" : "text-muted-foreground")} />
+                                <MoreHorizontal className="h-4 w-4" />
                                 <span className="sr-only">Actions</span>
                             </Button>
                           </DropdownMenuTrigger>
