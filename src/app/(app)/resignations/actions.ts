@@ -3,7 +3,7 @@
 
 import { z } from 'zod';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, getDoc, updateDoc, arrayUnion, Timestamp } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
 import type { Employee, ResignationComment } from '@/types';
 
@@ -115,10 +115,12 @@ export async function addCommentToResignation(
     try {
         const resignationDocRef = doc(db, 'resignations', resignationId);
 
-        const newComment: ResignationComment = {
+        // Use a standard Date object and convert to ISO string.
+        // serverTimestamp() cannot be used inside arrayUnion.
+        const newComment = {
             text: commentText,
             authorName: authorName,
-            createdAt: serverTimestamp() as Timestamp,
+            createdAt: new Date().toISOString(), // Use ISO string instead of serverTimestamp()
         };
 
         await updateDoc(resignationDocRef, {

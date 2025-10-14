@@ -27,7 +27,7 @@ import { UserMinus, PlusCircle, Loader2, Search, MoreHorizontal, MessageSquare, 
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, Timestamp, limit } from 'firebase/firestore';
-import { format, differenceInDays, isValid } from 'date-fns';
+import { format, differenceInDays, isValid, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -40,14 +40,14 @@ const formatDate = (dateInput: string | Timestamp | undefined): string => {
   let date: Date;
   if (typeof dateInput === 'string') {
     try {
-      date = new Date(dateInput);
+      date = parseISO(dateInput);
     } catch (e) { return 'Invalid Date String'; }
   } else if (dateInput instanceof Timestamp) {
     date = dateInput.toDate();
   } else {
     return 'Invalid Date Type';
   }
-  if (isNaN(date.getTime())) return 'Invalid Date';
+  if (!isValid(date)) return 'Invalid Date';
   return format(date, "MMM d, yyyy, h:mm a");
 };
 

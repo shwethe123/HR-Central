@@ -48,7 +48,7 @@ export type CleaningSchedule = {
 export type ResignationComment = {
   text: string;
   authorName: string;
-  createdAt: Timestamp;
+  createdAt: Timestamp | string; // Allow string for new comments from server
 };
 
 // New type for Resignation records
