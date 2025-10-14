@@ -23,7 +23,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AddResignationForm } from "./add-resignation-form";
 import { AddCommentForm } from "./add-comment-form";
-import { UserMinus, PlusCircle, Loader2, Search, MoreHorizontal, MessageSquare, FileText } from 'lucide-react';
+import { UserMinus, PlusCircle, Loader2, Search, MoreHorizontal, MessageSquare, FileText, Calendar, Info, StickyNote, GitPullRequest, UserCheck, UserX } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, Timestamp, limit } from 'firebase/firestore';
@@ -31,6 +31,7 @@ import { format, differenceInDays, isValid, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 
 const RESIGNATIONS_FETCH_LIMIT = 50;
 const EMPLOYEES_FETCH_LIMIT = 150;
@@ -59,6 +60,15 @@ const eligibilityVariant = (eligibility: Resignation['rehireEligibility']) => {
     case 'Conditional': return 'secondary';
     default: return 'outline' as "default" | "destructive" | "secondary" | "outline" | null | undefined;
   }
+};
+
+const EligibilityIcon = ({ eligibility }: { eligibility: Resignation['rehireEligibility'] }) => {
+    switch (eligibility) {
+        case 'Eligible': return <UserCheck className="mr-2 h-4 w-4 text-green-500" />;
+        case 'Ineligible': return <UserX className="mr-2 h-4 w-4 text-red-500" />;
+        case 'Conditional': return <GitPullRequest className="mr-2 h-4 w-4 text-yellow-500" />;
+        default: return null;
+    }
 };
 
 export default function ResignationsPage() {
@@ -251,63 +261,70 @@ export default function ResignationsPage() {
       {/* Details Dialog */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
         <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Resignation Details</DialogTitle>
+          <DialogHeader className="pb-4">
+            <DialogTitle className="text-xl">Resignation Details</DialogTitle>
             <DialogDescription>
-              Full record for {selectedResignation?.employeeName}.
+              Full record for <span className="font-semibold text-primary">{selectedResignation?.employeeName}</span>.
             </DialogDescription>
           </DialogHeader>
           {selectedResignation && (
-            <div className="grid gap-4 py-4 text-sm">
-              <div className="grid grid-cols-[140px_1fr] items-center gap-2">
-                <span className="font-medium text-muted-foreground">Employee Name:</span>
-                <span>{selectedResignation.employeeName}</span>
-              </div>
-               <div className="grid grid-cols-[140px_1fr] items-center gap-2">
-                <span className="font-medium text-muted-foreground">Notice Date:</span>
-                <span>{format(new Date(selectedResignation.noticeDate), "MMM d, yyyy")}</span>
-              </div>
-              <div className="grid grid-cols-[140px_1fr] items-center gap-2">
-                <span className="font-medium text-muted-foreground">Resignation Date:</span>
-                <span>{format(new Date(selectedResignation.resignationDate), "MMM d, yyyy")}</span>
-              </div>
-              <div className="grid grid-cols-[140px_1fr] items-center gap-2">
-                <span className="font-medium text-muted-foreground">Re-hire Eligibility:</span>
-                <Badge variant={eligibilityVariant(selectedResignation.rehireEligibility)} className="w-fit">
+            <div className="space-y-6 text-sm">
+                <Card className="bg-muted/50">
+                    <CardContent className="p-4 grid grid-cols-2 gap-4">
+                         <div>
+                            <p className="font-medium text-muted-foreground flex items-center"><Calendar className="mr-2 h-4 w-4" />Notice Date</p>
+                            <p className="font-semibold">{format(new Date(selectedResignation.noticeDate), "PPP")}</p>
+                        </div>
+                        <div>
+                            <p className="font-medium text-muted-foreground flex items-center"><Calendar className="mr-2 h-4 w-4" />Resignation Date</p>
+                            <p className="font-semibold">{format(new Date(selectedResignation.resignationDate), "PPP")}</p>
+                        </div>
+                    </CardContent>
+                </Card>
+
+              <div className="space-y-3">
+                 <p className="font-medium text-muted-foreground flex items-center"><EligibilityIcon eligibility={selectedResignation.rehireEligibility} />Re-hire Eligibility</p>
+                <Badge variant={eligibilityVariant(selectedResignation.rehireEligibility)} className="w-fit text-sm py-1">
                     {selectedResignation.rehireEligibility}
                 </Badge>
               </div>
-               <div className="grid grid-cols-[140px_1fr] items-start gap-2">
-                <span className="font-medium text-muted-foreground">Reason for Leaving:</span>
-                <p className="whitespace-pre-wrap">{selectedResignation.reason || 'N/A'}</p>
+              <Separator />
+               <div className="space-y-2">
+                 <p className="font-medium text-muted-foreground flex items-center"><Info className="mr-2 h-4 w-4" />Reason for Leaving</p>
+                 <p className="pl-6 whitespace-pre-wrap">{selectedResignation.reason || 'N/A'}</p>
               </div>
-               <div className="grid grid-cols-[140px_1fr] items-start gap-2">
-                <span className="font-medium text-muted-foreground">HR Notes:</span>
-                 <p className="whitespace-pre-wrap">{selectedResignation.notes || 'No notes provided.'}</p>
+               <div className="space-y-2">
+                 <p className="font-medium text-muted-foreground flex items-center"><StickyNote className="mr-2 h-4 w-4" />HR Notes</p>
+                 <p className="pl-6 whitespace-pre-wrap">{selectedResignation.notes || 'No notes provided.'}</p>
               </div>
+              
+              <Separator />
 
-               <div className="col-span-2 space-y-2">
-                 <span className="font-medium text-muted-foreground">Comments:</span>
-                 <ScrollArea className="h-32 w-full rounded-md border p-2">
+               <div className="space-y-3">
+                 <p className="font-medium text-muted-foreground flex items-center"><MessageSquare className="mr-2 h-4 w-4" />Comments</p>
+                 <ScrollArea className="h-36 w-full rounded-md border p-3">
                     {selectedResignation.comments && selectedResignation.comments.length > 0 ? (
-                        <div className="space-y-3">
-                        {selectedResignation.comments.map((comment, index) => (
+                        <div className="space-y-4">
+                        {selectedResignation.comments.slice().reverse().map((comment, index) => (
                             <div key={index} className="text-xs">
-                                <p className="whitespace-pre-wrap">{comment.text}</p>
-                                <p className="text-muted-foreground/80 mt-1">
-                                    - {comment.authorName} on {formatDate(comment.createdAt)}
-                                </p>
+                                <div className="flex justify-between items-center mb-1">
+                                    <p className="font-semibold text-foreground">{comment.authorName}</p>
+                                    <p className="text-muted-foreground/80">
+                                        {formatDate(comment.createdAt)}
+                                    </p>
+                                </div>
+                                <p className="whitespace-pre-wrap p-2 bg-muted rounded-md">{comment.text}</p>
                             </div>
                         ))}
                         </div>
                     ) : (
-                        <p className="text-xs text-muted-foreground text-center py-4">No comments yet.</p>
+                        <p className="text-xs text-muted-foreground text-center py-10">No comments yet.</p>
                     )}
                  </ScrollArea>
               </div>
             </div>
           )}
-           <div className="flex justify-end pt-2">
+           <div className="flex justify-end pt-4">
               <Button variant="outline" onClick={() => setIsDetailsDialogOpen(false)}>
                 Close
               </Button>
