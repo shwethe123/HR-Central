@@ -55,6 +55,7 @@ export type Resignation = {
   reason?: string; // Reason for leaving
   rehireEligibility: "Eligible" | "Ineligible" | "Conditional";
   notes?: string; // HR notes
+  rehireComment?: string; // New field for re-hire comments
   createdAt: Timestamp; // When the record was created
 };
 

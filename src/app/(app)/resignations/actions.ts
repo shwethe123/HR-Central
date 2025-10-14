@@ -14,6 +14,7 @@ const ResignationFormSchema = z.object({
   reason: z.string().max(500, "Reason is too long.").optional().or(z.literal('')),
   rehireEligibility: z.enum(["Eligible", "Ineligible", "Conditional"]),
   notes: z.string().max(1000, "Notes are too long.").optional().or(z.literal('')),
+  rehireComment: z.string().max(1000, "Re-hire comment is too long.").optional().or(z.literal('')),
 }).refine(data => new Date(data.resignationDate) >= new Date(data.noticeDate), {
   message: "Resignation date cannot be before the notice date.",
   path: ["resignationDate"],
@@ -37,6 +38,7 @@ export async function addResignation(
     reason: formData.get('reason'),
     rehireEligibility: formData.get('rehireEligibility'),
     notes: formData.get('notes'),
+    rehireComment: formData.get('rehireComment'),
   });
 
   if (!validatedFields.success) {

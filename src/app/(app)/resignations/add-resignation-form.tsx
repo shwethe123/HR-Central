@@ -31,6 +31,7 @@ const ClientResignationSchema = z.object({
   reason: z.string().optional(),
   rehireEligibility: z.enum(["Eligible", "Ineligible", "Conditional"], { required_error: "Re-hire eligibility is required." }),
   notes: z.string().optional(),
+  rehireComment: z.string().optional(),
 }).refine(data => new Date(data.resignationDate) >= new Date(data.noticeDate), {
     message: "Resignation date cannot be before the notice date.",
     path: ["resignationDate"],
@@ -57,6 +58,7 @@ export function AddResignationForm({ employees, onFormSubmissionSuccess, classNa
       reason: '',
       rehireEligibility: 'Conditional',
       notes: '',
+      rehireComment: '',
     },
   });
 
@@ -155,6 +157,12 @@ export function AddResignationForm({ employees, onFormSubmissionSuccess, classNa
         <Label htmlFor="notes">HR Notes (Optional)</Label>
         <Textarea id="notes" {...form.register('notes')} placeholder="E.g., reason for ineligibility, performance summary..."/>
         {form.formState.errors.notes && <p className="text-sm text-destructive mt-1">{form.formState.errors.notes.message}</p>}
+      </div>
+
+      <div>
+        <Label htmlFor="rehireComment">Re-hire Comment (Optional)</Label>
+        <Textarea id="rehireComment" {...form.register('rehireComment')} placeholder="E.g., 'Re-hired on 2024-10-01 for new project'"/>
+        {form.formState.errors.rehireComment && <p className="text-sm text-destructive mt-1">{form.formState.errors.rehireComment.message}</p>}
       </div>
 
       <div className="flex justify-end pt-2">

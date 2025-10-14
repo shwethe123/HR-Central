@@ -242,6 +242,10 @@ export default function ResignationsPage() {
                 <span className="font-medium text-muted-foreground">HR Notes:</span>
                  <p className="whitespace-pre-wrap">{selectedResignation.notes || 'No notes provided.'}</p>
               </div>
+              <div className="grid grid-cols-[140px_1fr] items-start gap-2">
+                <span className="font-medium text-muted-foreground">Re-hire Comment:</span>
+                <p className="whitespace-pre-wrap">{selectedResignation.rehireComment || 'No comment.'}</p>
+              </div>
             </div>
           )}
            <div className="flex justify-end pt-2">
