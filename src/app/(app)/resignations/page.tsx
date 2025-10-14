@@ -32,6 +32,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 const RESIGNATIONS_FETCH_LIMIT = 50;
 const EMPLOYEES_FETCH_LIMIT = 150;
@@ -212,6 +213,7 @@ export default function ResignationsPage() {
                 if (isValid(noticeDate) && isValid(resignationDate)) {
                   noticeDays = differenceInDays(resignationDate, noticeDate);
                 }
+                const hasComments = res.comments && res.comments.length > 0;
 
                 return (
                   <div key={res.id} className="border rounded-lg p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-muted/50 transition-colors">
@@ -233,7 +235,7 @@ export default function ResignationsPage() {
                        <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreHorizontal className="h-4 w-4" />
+                                <MoreHorizontal className={cn("h-4 w-4", hasComments ? "text-primary" : "text-muted-foreground")} />
                                 <span className="sr-only">Actions</span>
                             </Button>
                           </DropdownMenuTrigger>
@@ -340,7 +342,7 @@ export default function ResignationsPage() {
         }}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Add Comment for {selectedResignation.employeeName}</DialogTitle>
+                    <DialogTitle>Add Comment for {selectedResignation.name}</DialogTitle>
                     <DialogDescription>
                         This comment will be added to the resignation record.
                     </DialogDescription>
