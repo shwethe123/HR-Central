@@ -342,7 +342,7 @@ export default function ResignationsPage() {
         }}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Add Comment for {selectedResignation.name}</DialogTitle>
+                    <DialogTitle>Add Comment for {selectedResignation.employeeName}</DialogTitle>
                     <DialogDescription>
                         This comment will be added to the resignation record.
                     </DialogDescription>
