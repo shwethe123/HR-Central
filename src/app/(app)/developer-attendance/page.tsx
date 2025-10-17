@@ -216,10 +216,11 @@ export default function DeveloperAttendancePage() {
   
   const developerStats: DeveloperStats[] = useMemo(() => {
     const totalDaysInMonth = getDaysInMonth(currentMonth);
-    const workingDaysInMonth = totalDaysInMonth - 4;
+    const workingDaysInMonth = totalDaysInMonth - 4; // As per user request
     
     return developers.map(dev => {
       const devLeaves = attendances.filter(a => a.developerId === dev.id);
+      
       const leaveDaysCount = devLeaves.length;
       
       const extraLeaveDays = Math.max(0, leaveDaysCount - FREE_LEAVE_DAYS);
@@ -709,6 +710,11 @@ function SalarySlipDialog({ isOpen, onOpenChange, devStats, month, onPrint, slip
               <div ref={slipRef} className="space-y-4 p-4 rounded-md border bg-muted/50">
                   <h3 className="font-bold text-center text-lg">{devStats.name}</h3>
                   <p className="text-center text-sm text-muted-foreground -mt-3">{format(month, 'MMMM yyyy')}</p>
+                  {devStats.paymentInfo && (
+                    <p className="text-center text-sm text-muted-foreground -mt-2 flex items-center justify-center gap-2">
+                        <Wallet className="h-4 w-4" /> <span>{devStats.paymentInfo}</span>
+                    </p>
+                  )}
                   
                   <Separator />
                   <DetailRow label="Base Salary" value={devStats.salary || 0} isBold={true} />
