@@ -20,7 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { AddResignationForm } from "./add-resignation-form";
 import { AddCommentForm } from "./add-comment-form";
 import { UserMinus, PlusCircle, Loader2, Search, MoreHorizontal, MessageSquare, FileText, Calendar, Info, StickyNote, GitPullRequest, UserCheck, UserX } from 'lucide-react';
@@ -87,6 +87,7 @@ export default function ResignationsPage() {
     setIsLoading(true);
     try {
       const resignationsQuery = query(collection(db, "resignations"), orderBy("createdAt", "desc"), limit(RESIGNATIONS_FETCH_LIMIT));
+      // Fetch all employees without limit for the dropdown
       const employeesQuery = query(collection(db, "employees"), orderBy("name", "asc"));
 
       const [resignationsSnapshot, employeesSnapshot] = await Promise.all([
@@ -205,60 +206,56 @@ export default function ResignationsPage() {
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredResignations.map(res => {
                 const noticeDate = new Date(res.noticeDate);
                 const resignationDate = new Date(res.resignationDate);
-                let noticeDays: number | null = null;
-                if (isValid(noticeDate) && isValid(resignationDate)) {
-                  noticeDays = differenceInDays(resignationDate, noticeDate);
-                }
                 const hasComments = res.comments && res.comments.length > 0;
 
                 return (
-                  <div
-                    key={res.id}
-                    className={cn(
-                      "border rounded-lg p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-muted/50 transition-colors",
-                      hasComments && "border-orange-500"
-                    )}
-                  >
-                    <div className="space-y-1 flex-grow">
-                      <p className="font-semibold text-lg">{res.employeeName}</p>
-                      <div className="text-sm text-muted-foreground flex items-center flex-wrap gap-x-3 gap-y-1">
-                        <span>Notice: {format(noticeDate, "MMM d, yyyy")}</span>
-                        <span>Last Day: {format(resignationDate, "MMM d, yyyy")}</span>
-                        {noticeDays !== null && noticeDays >= 0 && (
-                          <span className="font-medium text-primary">({noticeDays} days notice)</span>
-                        )}
-                      </div>
-                      {res.reason && <p className="text-sm italic text-muted-foreground line-clamp-1">Reason: "{res.reason}"</p>}
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <Badge variant={eligibilityVariant(res.rehireEligibility)}>
-                        {res.rehireEligibility} for Re-hire
-                      </Badge>
-                       <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <Card key={res.id} className={cn("flex flex-col", hasComments && "border-orange-500")}>
+                    <CardHeader>
+                      <div className="flex justify-between items-start">
+                          <div>
+                            <CardTitle>{res.employeeName}</CardTitle>
+                            <CardDescription>
+                              Resigned: {format(resignationDate, "MMM d, yyyy")}
+                            </CardDescription>
+                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
                                 <MoreHorizontal className="h-4 w-4" />
                                 <span className="sr-only">Actions</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem onSelect={() => handleViewDetails(res)}>
-                              <FileText className="mr-2 h-4 w-4" />
-                              View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => handleAddComment(res)}>
-                              <MessageSquare className="mr-2 h-4 w-4" />
-                              Add Comment
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-                  </div>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuItem onSelect={() => handleViewDetails(res)}>
+                                <FileText className="mr-2 h-4 w-4" />
+                                View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => handleAddComment(res)}>
+                                <MessageSquare className="mr-2 h-4 w-4" />
+                                Add Comment
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="flex-grow space-y-3">
+                       <div className="text-sm text-muted-foreground">
+                          <p><strong>Notice Date:</strong> {format(noticeDate, "MMM d, yyyy")}</p>
+                          <p><strong>Last Day:</strong> {format(resignationDate, "MMM d, yyyy")}</p>
+                       </div>
+                       <Badge variant={eligibilityVariant(res.rehireEligibility)}>
+                          {res.rehireEligibility} for Re-hire
+                       </Badge>
+                    </CardContent>
+                    <CardFooter>
+                       {hasComments && <p className="text-xs text-orange-600 font-semibold">{res.comments.length} comment(s)</p>}
+                    </CardFooter>
+                  </Card>
                 );
               })}
             </div>
