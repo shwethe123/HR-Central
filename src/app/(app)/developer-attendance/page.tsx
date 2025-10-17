@@ -172,16 +172,21 @@ export default function DeveloperAttendancePage() {
   const developerStats = useMemo(() => {
     const today = startOfDay(new Date());
     const monthStart = startOfMonth(currentMonth);
-    
     const lastDayOfMonth = endOfMonth(currentMonth);
-    const monthEnd = isSameMonth(currentMonth, today) && isBefore(today, lastDayOfMonth) 
+    
+    // Interval for UI display (up to today for the current month)
+    const displayIntervalEnd = isSameMonth(currentMonth, today) && isBefore(today, lastDayOfMonth) 
       ? today 
       : lastDayOfMonth;
+    const allDaysInDisplayInterval = eachDayOfInterval({ start: monthStart, end: displayIntervalEnd });
+
+    // Interval for salary calculation (the entire month)
+    const allDaysInMonth = eachDayOfInterval({ start: monthStart, end: lastDayOfMonth });
     
-    const allDaysInInterval = eachDayOfInterval({ start: monthStart, end: monthEnd });
     const holidayDateStrings = publicHolidays.map(h => h.date);
-    
-    const workingDaysInMonth = allDaysInInterval.filter(day => {
+
+    // Calculate total working days in the month for salary calculation
+    const workingDaysInMonth = allDaysInMonth.filter(day => {
         const dayOfWeek = getDay(day);
         const isWeekend = WEEKEND_DAYS.includes(dayOfWeek);
         const isHoliday = holidayDateStrings.includes(format(day, 'yyyy-MM-dd'));
@@ -192,7 +197,8 @@ export default function DeveloperAttendancePage() {
       const devLeaves = attendances.filter(a => a.developerId === dev.id);
       const leaveDateStrings = devLeaves.map(l => l.leaveDate);
 
-      const leaveDaysCount = allDaysInInterval.filter(day => {
+      // Count leave days based on the full month's data, excluding weekends and holidays
+      const leaveDaysCount = allDaysInMonth.filter(day => {
           const formattedDay = format(day, 'yyyy-MM-dd');
           const dayOfWeek = getDay(day);
           const isWeekend = WEEKEND_DAYS.includes(dayOfWeek);
@@ -209,7 +215,8 @@ export default function DeveloperAttendancePage() {
       
       const finalSalary = monthlySalary - salaryDeduction;
 
-      const monthlyAttendance = allDaysInInterval.map(day => {
+      // Generate attendance UI for the display interval (up to today)
+      const monthlyAttendance = allDaysInDisplayInterval.map(day => {
         const formattedDay = format(day, 'yyyy-MM-dd');
         const leaveRecord = devLeaves.find(leave => leave.leaveDate === formattedDay);
         const isHoliday = holidayDateStrings.includes(formattedDay);
