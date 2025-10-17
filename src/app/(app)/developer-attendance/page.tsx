@@ -38,7 +38,7 @@ import { Code2, PlusCircle, Loader2, Calendar, User, DollarSign, Wallet, Check, 
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
-import { format, eachDayOfInterval, isSameDay, parseISO, isValid, startOfMonth, endOfMonth, getDaysInMonth } from 'date-fns';
+import { format, eachDayOfInterval, isSameDay, parseISO, isValid, startOfMonth, endOfMonth, getDaysInMonth, isBefore, isToday } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -188,8 +188,8 @@ export default function DeveloperAttendancePage() {
   };
   
   const developerStats = useMemo(() => {
-    const daysInMonth = getDaysInMonth(currentMonth);
-    const workingDaysInMonth = daysInMonth - 4; 
+    const totalDaysInMonth = getDaysInMonth(currentMonth);
+    const workingDaysInMonth = totalDaysInMonth - 4; // As per new requirement
     
     const holidayDates = publicHolidays.map(h => h.date);
 
@@ -197,6 +197,7 @@ export default function DeveloperAttendancePage() {
       const devLeaves = attendances.filter(a => a.developerId === dev.id);
 
       const leaveDaysCount = devLeaves.filter(leave => {
+        // Only count a leave day if it's not a public holiday
         return !holidayDates.includes(leave.leaveDate);
       }).length;
       
@@ -351,54 +352,58 @@ export default function DeveloperAttendancePage() {
                   <div className="flex justify-between items-start">
                      <div className="flex flex-wrap gap-1.5 flex-grow">
                         {dev.monthlyAttendance.length > 0 ? dev.monthlyAttendance.map(day => {
-                            const dayNumber = format(day.date, 'dd');
-                            let badgeContent;
-                            switch (day.status) {
-                                case 'Leave':
-                                    badgeContent = (
-                                        <Badge
-                                            key={`${dev.id}-${day.date.toString()}`}
-                                            variant="destructive"
-                                            className={cn(
-                                                "font-mono flex items-center gap-1",
-                                                isAdmin && "cursor-pointer hover:opacity-75"
-                                            )}
-                                            onClick={() => day.id && handleUnleaveClick(dev.name, day.id)}
-                                            title={isAdmin ? `Remove leave for ${dev.name}` : "Leave Day"}
-                                        >
-                                            <X className="h-3 w-3"/>
-                                            {dayNumber}
-                                        </Badge>
-                                    );
-                                    break;
-                                case 'Holiday':
-                                    badgeContent = (
-                                         <Badge 
-                                            key={`${dev.id}-${day.date.toString()}`}
-                                            variant="default"
-                                            className={cn(
-                                                "font-mono flex items-center gap-1 bg-black text-white border-black",
-                                                isAdmin && "cursor-pointer hover:opacity-75"
-                                            )}
-                                            onClick={() => day.holidayDetails && handleHolidayClick(day.holidayDetails)}
-                                            title={isAdmin ? `Remove Holiday: ${day.holidayDetails?.name}` : day.holidayDetails?.name}
-                                          >
-                                            <Calendar className="h-3 w-3"/>
-                                            {dayNumber}
-                                        </Badge>
-                                    );
-                                    break;
-                                case 'WorkDay':
-                                default:
-                                    badgeContent = (
-                                        <Badge key={`${dev.id}-${day.date.toString()}`} variant="default" className="font-mono flex items-center gap-1 bg-green-100 text-green-800 border-green-300 hover:bg-green-200">
-                                            <Check className="h-3 w-3"/>
-                                            {dayNumber}
-                                        </Badge>
-                                    );
-                                    break;
+                            const today = new Date();
+                            if (isBefore(day.date, today) || isToday(day.date)) {
+                                const dayNumber = format(day.date, 'dd');
+                                let badgeContent;
+                                switch (day.status) {
+                                    case 'Leave':
+                                        badgeContent = (
+                                            <Badge
+                                                key={`${dev.id}-${day.date.toString()}`}
+                                                variant="destructive"
+                                                className={cn(
+                                                    "font-mono flex items-center gap-1",
+                                                    isAdmin && "cursor-pointer hover:opacity-75"
+                                                )}
+                                                onClick={() => day.id && handleUnleaveClick(dev.name, day.id)}
+                                                title={isAdmin ? `Remove leave for ${dev.name}` : "Leave Day"}
+                                            >
+                                                <X className="h-3 w-3"/>
+                                                {dayNumber}
+                                            </Badge>
+                                        );
+                                        break;
+                                    case 'Holiday':
+                                        badgeContent = (
+                                             <Badge 
+                                                key={`${dev.id}-${day.date.toString()}`}
+                                                variant="default"
+                                                className={cn(
+                                                    "font-mono flex items-center gap-1 bg-black text-white border-black",
+                                                    isAdmin && "cursor-pointer hover:opacity-75"
+                                                )}
+                                                onClick={() => day.holidayDetails && handleHolidayClick(day.holidayDetails)}
+                                                title={isAdmin ? `Remove Holiday: ${day.holidayDetails?.name}` : day.holidayDetails?.name}
+                                              >
+                                                <Calendar className="h-3 w-3"/>
+                                                {dayNumber}
+                                            </Badge>
+                                        );
+                                        break;
+                                    case 'WorkDay':
+                                    default:
+                                        badgeContent = (
+                                            <Badge key={`${dev.id}-${day.date.toString()}`} variant="default" className="font-mono flex items-center gap-1 bg-green-100 text-green-800 border-green-300 hover:bg-green-200">
+                                                <Check className="h-3 w-3"/>
+                                                {dayNumber}
+                                            </Badge>
+                                        );
+                                        break;
+                                }
+                                return badgeContent;
                             }
-                            return badgeContent;
+                            return null;
                         }) : <p className="text-xs text-muted-foreground">No attendance data for this month interval.</p>}
                      </div>
                   </div>
