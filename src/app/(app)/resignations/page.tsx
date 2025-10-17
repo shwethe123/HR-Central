@@ -35,7 +35,7 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
 const RESIGNATIONS_FETCH_LIMIT = 50;
-const EMPLOYEES_FETCH_LIMIT = 150;
+const EMPLOYEES_FETCH_LIMIT = 150; // This is no longer used for the employee query, but kept for reference
 
 const formatDate = (dateInput: string | Timestamp | undefined): string => {
   if (!dateInput) return 'N/A';
@@ -87,7 +87,7 @@ export default function ResignationsPage() {
     setIsLoading(true);
     try {
       const resignationsQuery = query(collection(db, "resignations"), orderBy("createdAt", "desc"), limit(RESIGNATIONS_FETCH_LIMIT));
-      const employeesQuery = query(collection(db, "employees"), orderBy("name", "asc"), limit(EMPLOYEES_FETCH_LIMIT));
+      const employeesQuery = query(collection(db, "employees"), orderBy("name", "asc"));
 
       const [resignationsSnapshot, employeesSnapshot] = await Promise.all([
         getDocs(resignationsQuery),
