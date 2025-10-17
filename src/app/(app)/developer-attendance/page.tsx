@@ -276,12 +276,6 @@ export default function DeveloperAttendancePage() {
                                     );
                                     break;
                                 case 'Weekend':
-                                     badgeContent = (
-                                        <Badge key={day.date.toString()} variant="outline" className="font-mono flex items-center gap-1 border-gray-400">
-                                            {format(day.date, 'dd')}
-                                        </Badge>
-                                    );
-                                    break;
                                 case 'WorkDay':
                                 default:
                                     badgeContent = (
