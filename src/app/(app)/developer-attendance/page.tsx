@@ -10,7 +10,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
@@ -703,6 +702,7 @@ function SalarySlipDialog({ isOpen, onOpenChange, devStats, month, onPrint, slip
           <DialogContent className="sm:max-w-md">
               <DialogHeader>
                   <DialogTitle>Salary Slip</DialogTitle>
+                   <h3 className="font-bold text-center text-lg">Commpany Name - waansaung</h3>
                   <DialogDescription>
                       Detailed salary breakdown for {devStats.name} for {format(month, 'MMMM yyyy')}.
                   </DialogDescription>
@@ -712,7 +712,7 @@ function SalarySlipDialog({ isOpen, onOpenChange, devStats, month, onPrint, slip
                   <p className="text-center text-sm text-muted-foreground -mt-3">{format(month, 'MMMM yyyy')}</p>
                   {devStats.paymentInfo && (
                     <p className="text-center text-sm text-muted-foreground -mt-2 flex items-center justify-center gap-2">
-                        <Wallet className="h-4 w-4" /> <span>{devStats.paymentInfo}</span>
+                        <Wallet className="h-4 w-4" /> <span>{devStats.paymentInfo || 'N/A'}</span>
                     </p>
                   )}
                   
