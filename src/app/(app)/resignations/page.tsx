@@ -210,10 +210,11 @@ export default function ResignationsPage() {
               {filteredResignations.map(res => {
                 const noticeDate = new Date(res.noticeDate);
                 const resignationDate = new Date(res.resignationDate);
+                const noticePeriod = differenceInDays(resignationDate, noticeDate);
                 const hasComments = res.comments && res.comments.length > 0;
 
                 return (
-                  <Card key={res.id} className={cn("flex flex-col", hasComments && "border-orange-500")}>
+                  <div key={res.id} className={cn("rounded-lg border bg-card text-card-foreground shadow-sm", hasComments && "border-orange-500")}>
                     <CardHeader>
                       <div className="flex justify-between items-start">
                           <div>
@@ -245,8 +246,7 @@ export default function ResignationsPage() {
                     </CardHeader>
                     <CardContent className="flex-grow space-y-3">
                        <div className="text-sm text-muted-foreground">
-                          <p><strong>Notice Date:</strong> {format(noticeDate, "MMM d, yyyy")}</p>
-                          <p><strong>Last Day:</strong> {format(resignationDate, "MMM d, yyyy")}</p>
+                          <p><strong>Notice Period:</strong> {noticePeriod} days</p>
                        </div>
                        <Badge variant={eligibilityVariant(res.rehireEligibility)}>
                           {res.rehireEligibility} for Re-hire
@@ -255,7 +255,7 @@ export default function ResignationsPage() {
                     <CardFooter>
                        {hasComments && <p className="text-xs text-orange-600 font-semibold">{res.comments.length} comment(s)</p>}
                     </CardFooter>
-                  </Card>
+                  </div>
                 );
               })}
             </div>
@@ -283,6 +283,10 @@ export default function ResignationsPage() {
                         <div>
                             <p className="font-medium text-muted-foreground flex items-center"><Calendar className="mr-2 h-4 w-4" />Resignation Date</p>
                             <p className="font-semibold">{format(new Date(selectedResignation.resignationDate), "PPP")}</p>
+                        </div>
+                        <div className="col-span-2">
+                             <p className="font-medium text-muted-foreground flex items-center"><Calendar className="mr-2 h-4 w-4" />Notice Period</p>
+                            <p className="font-semibold">{differenceInDays(new Date(selectedResignation.resignationDate), new Date(selectedResignation.noticeDate))} days</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -345,7 +349,7 @@ export default function ResignationsPage() {
         }}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Add Comment for {selectedResignation.employeeName}</DialogTitle>
+                    <DialogTitle>Add Comment for {selectedResignation.name}</DialogTitle>
                     <DialogDescription>
                         This comment will be added to the resignation record.
                     </DialogDescription>
