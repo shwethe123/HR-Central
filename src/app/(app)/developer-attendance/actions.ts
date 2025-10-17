@@ -3,7 +3,7 @@
 
 import { z } from 'zod';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, getDoc, deleteDoc } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
 
 const AddDeveloperLeaveSchema = z.object({
@@ -54,6 +54,46 @@ export async function addDeveloperLeave(
     console.error("Error adding developer leave record:", error);
     return {
       message: error instanceof Error ? error.message : "An unknown server error occurred.",
+      success: false,
+    };
+  }
+}
+
+const DeleteDeveloperLeaveSchema = z.object({
+  attendanceId: z.string().min(1, { message: "Attendance ID is required to delete." }),
+});
+
+export type DeleteDeveloperLeaveState = {
+  message: string | null;
+  success: boolean;
+};
+
+export async function deleteDeveloperLeave(
+  attendanceId: string
+): Promise<DeleteDeveloperLeaveState> {
+  const validatedFields = DeleteDeveloperLeaveSchema.safeParse({ attendanceId });
+
+  if (!validatedFields.success) {
+    return {
+      message: "Invalid Attendance ID provided.",
+      success: false,
+    };
+  }
+  
+  try {
+    const leaveDocRef = doc(db, 'developerAttendances', attendanceId);
+    await deleteDoc(leaveDocRef);
+
+    revalidatePath('/developer-attendance');
+
+    return {
+      message: 'Leave record has been successfully removed.',
+      success: true,
+    };
+  } catch (error) {
+    console.error(`Error deleting leave record (ID: ${attendanceId}):`, error);
+     return {
+      message: error instanceof Error ? error.message : 'An unknown server error occurred while deleting.',
       success: false,
     };
   }

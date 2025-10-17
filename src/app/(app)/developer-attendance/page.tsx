@@ -12,9 +12,19 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { addDeveloperLeave, type AddDeveloperLeaveState } from "./actions";
-import { Code2, PlusCircle, Loader2, Calendar, User, DollarSign, Wallet, Check, X } from 'lucide-react';
+import { addDeveloperLeave, deleteDeveloperLeave, type AddDeveloperLeaveState } from "./actions";
+import { Code2, PlusCircle, Loader2, Calendar, User, DollarSign, Wallet, Check, X, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
@@ -50,10 +60,13 @@ export default function DeveloperAttendancePage() {
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
+  const [leaveToDelete, setLeaveToDelete] = useState<{devName: string, attendanceId: string} | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const { toast } = useToast();
   const { isAdmin } = useAuth();
 
-  const fetchDevelopersAndAttendance = useCallback(async (month: Date) => {
+  const fetchAllData = useCallback(async (month: Date) => {
     setIsLoading(true);
     try {
       const developersQuery = query(collection(db, "developers"));
@@ -85,18 +98,38 @@ export default function DeveloperAttendancePage() {
   }, [toast]);
 
   useEffect(() => {
-    fetchDevelopersAndAttendance(currentMonth);
-  }, [currentMonth, fetchDevelopersAndAttendance]);
+    fetchAllData(currentMonth);
+  }, [currentMonth, fetchAllData]);
   
   const handleAddLeaveClick = (dev: Employee) => {
     setSelectedDeveloper(dev);
     setIsFormDialogOpen(true);
   };
+  
+  const handleUnleaveClick = (devName: string, attendanceId: string) => {
+    if (!isAdmin) return;
+    setLeaveToDelete({ devName, attendanceId });
+  };
+  
+  const handleDeleteConfirm = async () => {
+    if (!leaveToDelete) return;
+    setIsDeleting(true);
+    const result = await deleteDeveloperLeave(leaveToDelete.attendanceId);
+    if (result.success) {
+        toast({ title: 'Success', description: `Leave day for ${leaveToDelete.devName} removed.` });
+        fetchAllData(currentMonth); // Refetch data to ensure UI consistency
+    } else {
+        toast({ title: 'Error', description: result.message, variant: 'destructive' });
+    }
+    setLeaveToDelete(null);
+    setIsDeleting(false);
+  };
+
 
   const onFormSuccess = () => {
     setIsFormDialogOpen(false);
     setSelectedDeveloper(null);
-    fetchDevelopersAndAttendance(currentMonth); // Refresh data
+    fetchAllData(currentMonth); // Refresh data
   }
   
   const developerStats = useMemo(() => {
@@ -112,8 +145,8 @@ export default function DeveloperAttendancePage() {
     
     return developers.map(dev => {
       const devLeaves = attendances.filter(a => a.developerId === dev.id);
-      
-      const leaveDays = devLeaves.map(l => new Date(l.leaveDate)).filter(d => !WEEKEND_DAYS.includes(getDay(d))).length;
+      const leaveDateObjects = devLeaves.map(l => ({ date: new Date(l.leaveDate), id: l.id }));
+      const leaveDays = devLeaves.filter(l => !WEEKEND_DAYS.includes(getDay(new Date(l.leaveDate)))).length;
       
       const extraLeaveDays = Math.max(0, leaveDays - FREE_LEAVE_DAYS);
       
@@ -123,15 +156,16 @@ export default function DeveloperAttendancePage() {
       
       const finalSalary = monthlySalary - salaryDeduction;
 
-      const leaveDateObjects = devLeaves.map(l => new Date(l.leaveDate));
-
       const monthlyAttendance = allDaysInInterval.map(day => {
-        const isLeave = leaveDateObjects.some(leaveDate => isSameDay(day, leaveDate));
+        const leaveRecord = leaveDateObjects.find(leave => isSameDay(day, leave.date));
         const isWeekend = WEEKEND_DAYS.includes(getDay(day));
         
         let status: 'WorkDay' | 'Leave' | 'Weekend' = 'WorkDay';
-        if (isLeave) {
+        let attendanceId: string | undefined = undefined;
+
+        if (leaveRecord) {
           status = 'Leave';
+          attendanceId = leaveRecord.id;
         } else if (isWeekend) {
           status = 'Weekend';
         }
@@ -139,6 +173,7 @@ export default function DeveloperAttendancePage() {
         return {
             date: day,
             status: status,
+            attendanceId: attendanceId
         };
       });
 
@@ -225,7 +260,16 @@ export default function DeveloperAttendancePage() {
                             switch (day.status) {
                                 case 'Leave':
                                     badgeContent = (
-                                        <Badge key={day.date.toString()} variant="secondary" className="font-mono flex items-center gap-1">
+                                        <Badge 
+                                            key={day.date.toString()} 
+                                            variant="secondary" 
+                                            className={cn(
+                                              "font-mono flex items-center gap-1",
+                                              isAdmin && "cursor-pointer hover:bg-red-200 hover:text-red-800"
+                                            )}
+                                            onClick={() => day.attendanceId && handleUnleaveClick(dev.name, day.attendanceId)}
+                                            title={isAdmin ? "Click to remove this leave day" : "Leave Day"}
+                                          >
                                             <X className="h-3 w-3"/>
                                             {format(day.date, 'dd')}
                                         </Badge>
@@ -271,6 +315,31 @@ export default function DeveloperAttendancePage() {
             developer={selectedDeveloper}
             onSuccess={onFormSuccess}
         />
+      )}
+
+      {leaveToDelete && (
+         <AlertDialog open={!!leaveToDelete} onOpenChange={(open) => !open && setLeaveToDelete(null)}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className='flex items-center gap-2'>
+                  <AlertTriangle className="h-6 w-6 text-destructive" /> 
+                  Confirm Leave Removal
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to remove this leave day for <strong>{leaveToDelete.devName}</strong>? This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setLeaveToDelete(null)} disabled={isDeleting}>
+                  Cancel
+                </AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteConfirm} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
+                  {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Confirm
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
       )}
     </div>
   );
