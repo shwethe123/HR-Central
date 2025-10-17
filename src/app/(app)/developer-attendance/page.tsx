@@ -150,12 +150,12 @@ export default function DeveloperAttendancePage() {
     const result = await deletePublicHoliday(holidayToDelete.id);
     if (result.success) {
         toast({ title: "Holiday Removed", description: result.message});
+        await fetchAllData(currentMonth);
     } else {
         toast({ title: "Error", description: result.message, variant: 'destructive' });
     }
     setHolidayToDelete(null);
     setIsDeleting(false);
-    await fetchAllData(currentMonth);
   }
 
   const onLeaveFormSuccess = () => {
@@ -174,18 +174,15 @@ export default function DeveloperAttendancePage() {
     const monthStart = startOfMonth(currentMonth);
     const lastDayOfMonth = endOfMonth(currentMonth);
     
-    // Interval for UI display (up to today for the current month)
     const displayIntervalEnd = isSameMonth(currentMonth, today) && isBefore(today, lastDayOfMonth) 
       ? today 
       : lastDayOfMonth;
     const allDaysInDisplayInterval = eachDayOfInterval({ start: monthStart, end: displayIntervalEnd });
 
-    // Interval for salary calculation (the entire month)
     const allDaysInMonth = eachDayOfInterval({ start: monthStart, end: lastDayOfMonth });
     
     const holidayDateStrings = publicHolidays.map(h => h.date);
 
-    // Calculate total working days in the month for salary calculation
     const workingDaysInMonth = allDaysInMonth.filter(day => {
         const dayOfWeek = getDay(day);
         const isWeekend = WEEKEND_DAYS.includes(dayOfWeek);
@@ -197,7 +194,6 @@ export default function DeveloperAttendancePage() {
       const devLeaves = attendances.filter(a => a.developerId === dev.id);
       const leaveDateStrings = devLeaves.map(l => l.leaveDate);
 
-      // Count leave days based on the full month's data, excluding weekends and holidays
       const leaveDaysCount = allDaysInMonth.filter(day => {
           const formattedDay = format(day, 'yyyy-MM-dd');
           const dayOfWeek = getDay(day);
@@ -215,7 +211,6 @@ export default function DeveloperAttendancePage() {
       
       const finalSalary = monthlySalary - salaryDeduction;
 
-      // Generate attendance UI for the display interval (up to today)
       const monthlyAttendance = allDaysInDisplayInterval.map(day => {
         const formattedDay = format(day, 'yyyy-MM-dd');
         const leaveRecord = devLeaves.find(leave => leave.leaveDate === formattedDay);
@@ -226,10 +221,10 @@ export default function DeveloperAttendancePage() {
         let status: 'WorkDay' | 'Leave' | 'Weekend' | 'Holiday' = 'WorkDay';
         if (isHoliday) {
             status = 'Holiday';
-        } else if (isWeekend) {
-            status = 'Weekend';
         } else if (leaveRecord) {
             status = 'Leave';
+        } else if (isWeekend) {
+            status = 'Weekend';
         }
 
         return {
@@ -368,15 +363,8 @@ export default function DeveloperAttendancePage() {
                                         </Badge>
                                     );
                                     break;
-                                case 'Weekend':
-                                    badgeContent = (
-                                        <Badge key={`${dev.id}-${day.date.toString()}`} variant="outline" className="font-mono flex items-center gap-1 border-gray-300 text-gray-500">
-                                            <Check className="h-3 w-3"/>
-                                            {dayNumber}
-                                        </Badge>
-                                    );
-                                    break;
                                 case 'WorkDay':
+                                case 'Weekend':
                                 default:
                                     badgeContent = (
                                         <Badge key={`${dev.id}-${day.date.toString()}`} variant="default" className="font-mono flex items-center gap-1 bg-green-100 text-green-800 border-green-300 hover:bg-green-200">
