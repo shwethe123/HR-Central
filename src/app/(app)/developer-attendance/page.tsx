@@ -2,7 +2,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useActionState, startTransition } from 'react';
-import { useFormStatus } from 'react-dom';
 import type { Employee, DeveloperAttendance, PublicHoliday } from "@/types";
 import { Button } from '@/components/ui/button';
 import {
@@ -32,19 +31,16 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { addDeveloperLeave, deleteDeveloperLeave, type AddDeveloperLeaveState, addPublicHoliday, deletePublicHoliday } from "./actions";
+import { addDeveloperLeave, deleteDeveloperLeave, addPublicHoliday, deletePublicHoliday } from "./actions";
 import { AddHolidayForm } from "./add-holiday-form";
 import { Code2, PlusCircle, Loader2, Calendar, User, DollarSign, Wallet, Check, X, AlertTriangle, CalendarPlus, MoreHorizontal } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
-import { format, eachDayOfInterval, isSameDay, parseISO, isValid, isSameMonth, isBefore, startOfMonth, endOfMonth, getDaysInMonth } from 'date-fns';
+import { format, eachDayOfInterval, isSameDay, parseISO, isValid, startOfMonth, endOfMonth, getDaysInMonth } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/auth-context';
@@ -54,12 +50,6 @@ const FREE_LEAVE_DAYS = 4;
 const formatCurrency = (amount: number) => {
     return amount.toLocaleString('en-US', { maximumFractionDigits: 0, minimumFractionDigits: 0 });
 };
-
-const ClientLeaveFormSchema = z.object({
-  leaveDate: z.string().min(1, { message: "Leave date is required." }),
-  reason: z.string().max(500).optional(),
-});
-type LeaveFormData = z.infer<typeof ClientLeaveFormSchema>;
 
 export default function DeveloperAttendancePage() {
   const [developers, setDevelopers] = useState<Employee[]>([]);
@@ -75,8 +65,11 @@ export default function DeveloperAttendancePage() {
   const [holidayToDelete, setHolidayToDelete] = useState<PublicHoliday | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // States for the new deduction dialog
+  const [isDeductionDialogOpen, setIsDeductionDialogOpen] = useState(false);
+  const [developerForDeduction, setDeveloperForDeduction] = useState<Employee | null>(null);
+
   const [generalDeductions, setGeneralDeductions] = useState<Record<string, number>>({});
-  const [visibleDeductionInputId, setVisibleDeductionInputId] = useState<string | null>(null);
 
 
   const { toast } = useToast();
@@ -108,8 +101,8 @@ export default function DeveloperAttendancePage() {
       const fetchedHolidays: PublicHoliday[] = holidaysSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PublicHoliday));
       
       setDevelopers(fetchedDevelopers);
-      setAttendances([...fetchedAttendances]);
-      setHolidays([...fetchedHolidays]);
+      setAttendances(fetchedAttendances);
+      setHolidays(fetchedHolidays);
 
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -130,6 +123,11 @@ export default function DeveloperAttendancePage() {
   const handleAddLeaveClick = (dev: Employee) => {
     setSelectedDeveloper(dev);
     setIsLeaveFormDialogOpen(true);
+  };
+
+  const handleAddDeductionClick = (dev: Employee) => {
+    setDeveloperForDeduction(dev);
+    setIsDeductionDialogOpen(true);
   };
   
   const handleUnleaveClick = (devName: string, attendanceId: string) => {
@@ -173,43 +171,34 @@ export default function DeveloperAttendancePage() {
   const onLeaveFormSuccess = () => {
     setIsLeaveFormDialogOpen(false);
     setSelectedDeveloper(null);
-    fetchAllData(currentMonth); // Refresh data
+    fetchAllData(currentMonth);
   }
   
   const onHolidayFormSuccess = () => {
     setIsHolidayFormDialogOpen(false);
-    fetchAllData(currentMonth); // Refresh data
+    fetchAllData(currentMonth);
   }
 
-  const handleGeneralDeductionChange = (developerId: string, amount: string) => {
-    const numericAmount = Number(amount.replace(/,/g, '')) || 0;
-    setGeneralDeductions(prev => ({ ...prev, [developerId]: numericAmount }));
-  };
-
-  const toggleDeductionInput = (developerId: string) => {
-    setVisibleDeductionInputId(prevId => prevId === developerId ? null : developerId);
+  const onDeductionSave = (developerId: string, amount: number) => {
+    setGeneralDeductions(prev => ({ ...prev, [developerId]: amount }));
+    toast({ title: "Deduction Saved", description: `General deduction of ${formatCurrency(amount)} saved.`});
+    setIsDeductionDialogOpen(false);
+    setDeveloperForDeduction(null);
   };
   
   const developerStats = useMemo(() => {
-    const today = new Date();
-    const monthStart = startOfMonth(currentMonth);
-    const lastDayOfMonth = endOfMonth(currentMonth);
-    
-    const displayIntervalEnd = isSameMonth(currentMonth, today) && isBefore(today, lastDayOfMonth) 
-      ? today 
-      : lastDayOfMonth;
+    const daysInMonth = getDaysInMonth(currentMonth);
+    const workingDaysInMonth = daysInMonth - 4;
 
-    const allDaysInDisplayInterval = eachDayOfInterval({ start: monthStart, end: displayIntervalEnd });
-    
-    const holidayDateStrings = publicHolidays.map(h => h.date);
-
-    const totalDaysInMonth = getDaysInMonth(currentMonth);
-    const workingDaysInMonth = totalDaysInMonth - 4; 
+    const holidayDates = publicHolidays.map(h => h.date);
 
     return developers.map(dev => {
-      const devLeaves = attendances.filter(a => a.developerId === dev.id);
-      
-      const leaveDaysCount = devLeaves.length;
+      const devLeavesInMonth = attendances.filter(a => a.developerId === dev.id);
+
+      const leaveDaysCount = devLeavesInMonth.filter(leave => {
+        const leaveDateStr = leave.leaveDate;
+        return !holidayDates.includes(leaveDateStr);
+      }).length;
       
       const extraLeaveDays = Math.max(0, leaveDaysCount - FREE_LEAVE_DAYS);
       
@@ -220,10 +209,12 @@ export default function DeveloperAttendancePage() {
       const generalDeductionAmount = generalDeductions[dev.id] || 0;
       const finalSalary = monthlySalary - salaryDeduction - generalDeductionAmount;
 
-      const monthlyAttendance = allDaysInDisplayInterval.map(day => {
+      const allDaysInMonth = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
+
+      const monthlyAttendance = allDaysInMonth.map(day => {
         const formattedDay = format(day, 'yyyy-MM-dd');
         
-        const leaveRecord = devLeaves.find(leave => leave.leaveDate === formattedDay);
+        const leaveRecord = devLeavesInMonth.find(leave => leave.leaveDate === formattedDay);
         const holidayRecord = publicHolidays.find(h => h.date === formattedDay);
 
         let status: 'WorkDay' | 'Leave' | 'Holiday' = 'WorkDay';
@@ -288,7 +279,7 @@ export default function DeveloperAttendancePage() {
         <CardHeader>
           <CardTitle>Monthly Leave Summary</CardTitle>
           <CardDescription>
-            Track monthly leave for each developer. Each developer is allowed {FREE_LEAVE_DAYS} leave days per month.
+            Each developer is allowed {FREE_LEAVE_DAYS} leave days per month.
             Exceeding this will result in a salary deduction.
           </CardDescription>
         </CardHeader>
@@ -311,7 +302,7 @@ export default function DeveloperAttendancePage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem onSelect={() => toggleDeductionInput(dev.id)}>
+                          <DropdownMenuItem onSelect={() => handleAddDeductionClick(dev)}>
                             General Deduction
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -324,9 +315,10 @@ export default function DeveloperAttendancePage() {
                       <p className="text-sm text-muted-foreground flex items-center">
                         <DollarSign className="mr-2 h-4 w-4"/> Base Salary: {dev.salary ? formatCurrency(dev.salary) : 'N/A'}
                       </p>
-                      <p className={cn("text-sm font-semibold flex items-center", (dev.finalSalary ?? 0) < (dev.salary ?? 0) ? "text-destructive" : "text-green-600")}>
-                        <Wallet className="mr-2 h-4 w-4"/> Final Salary: {dev.finalSalary ? formatCurrency(Math.round(dev.finalSalary)) : 'N/A'}
-                      </p>
+                       <Badge variant="destructive" className="flex items-center gap-1.5 max-w-fit"
+                          style={{ visibility: dev.generalDeduction > 0 ? 'visible' : 'hidden' }}>
+                           <DollarSign className="h-3 w-3"/>Deduct (General): {formatCurrency(dev.generalDeduction)}
+                       </Badge>
                     </div>
                     <div className="flex-shrink-0 flex flex-col items-start sm:items-end lg:items-start gap-2 lg:col-span-1">
                       <div className="flex items-center gap-4">
@@ -345,23 +337,9 @@ export default function DeveloperAttendancePage() {
                        </Badge>
                     </div>
                      <div className="lg:col-span-1">
-                      {visibleDeductionInputId === dev.id && (
-                        <div className="space-y-1">
-                          <Label htmlFor={`general-deduction-${dev.id}`} className="text-xs text-muted-foreground">General Deduction (အထွေထွေဖြတ်ငွေ)</Label>
-                          <Input
-                            id={`general-deduction-${dev.id}`}
-                            type="text"
-                            placeholder="0"
-                            className="h-9"
-                            value={generalDeductions[dev.id] ? formatCurrency(generalDeductions[dev.id]) : ''}
-                            onChange={(e) => handleGeneralDeductionChange(dev.id, e.target.value)}
-                          />
-                        </div>
-                      )}
-                      <Badge variant="destructive" className="mt-2 flex items-center gap-1.5"
-                           style={{ visibility: dev.generalDeduction > 0 ? 'visible' : 'hidden' }}>
-                           <DollarSign className="h-3 w-3"/>Deduct (General): {formatCurrency(dev.generalDeduction)}
-                       </Badge>
+                        <p className={cn("text-lg font-semibold flex items-center", (dev.finalSalary ?? 0) < (dev.salary ?? 0) ? "text-destructive" : "text-green-600")}>
+                            <Wallet className="mr-2 h-4 w-4"/> Final Salary: {dev.finalSalary ? formatCurrency(Math.round(dev.finalSalary)) : 'N/A'}
+                        </p>
                     </div>
                   </div>
                   <div className="border-t my-3"></div>
@@ -439,6 +417,16 @@ export default function DeveloperAttendancePage() {
             onSuccess={onLeaveFormSuccess}
         />
       )}
+
+      {developerForDeduction && (
+        <DeductionFormDialog
+          isOpen={isDeductionDialogOpen}
+          onOpenChange={setIsDeductionDialogOpen}
+          developer={developerForDeduction}
+          currentDeduction={generalDeductions[developerForDeduction.id] || 0}
+          onSave={onDeductionSave}
+        />
+      )}
       
       {/* Holiday Deletion Dialog */}
       <AlertDialog open={!!holidayToDelete} onOpenChange={(open) => !open && setHolidayToDelete(null)}>
@@ -501,30 +489,41 @@ interface LeaveFormDialogProps {
 
 function LeaveFormDialog({ isOpen, onOpenChange, developer, onSuccess }: LeaveFormDialogProps) {
   const { toast } = useToast();
+  const [leaveDate, setLeaveDate] = useState('');
+  const [reason, setReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const form = useForm<LeaveFormData>({
-    resolver: zodResolver(ClientLeaveFormSchema),
-    defaultValues: { leaveDate: '', reason: '' }
-  });
-  
-  const onSubmit = async (data: LeaveFormData) => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!leaveDate) {
+      toast({ title: "Error", description: "Leave date is required.", variant: "destructive" });
+      return;
+    }
     setIsSubmitting(true);
     const result = await addDeveloperLeave({
         developerId: developer.id,
-        leaveDate: data.leaveDate,
-        reason: data.reason
+        leaveDate: leaveDate,
+        reason: reason
     });
     
     if (result.success) {
       toast({ title: "Success", description: result.message });
-      form.reset();
+      setLeaveDate('');
+      setReason('');
       onSuccess();
     } else {
       toast({ title: "Error", description: result.message, variant: "destructive" });
     }
     setIsSubmitting(false);
   }
+  
+  // Reset form when dialog opens
+  useEffect(() => {
+    if (isOpen) {
+        setLeaveDate('');
+        setReason('');
+    }
+  }, [isOpen]);
 
   function SubmitButton() {
       return (
@@ -544,16 +543,14 @@ function LeaveFormDialog({ isOpen, onOpenChange, developer, onSuccess }: LeaveFo
                     Record a single day of leave for this developer.
                 </DialogDescription>
             </DialogHeader>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-2">
+            <form onSubmit={handleSubmit} className="space-y-4 pt-2">
                 <div>
                     <Label htmlFor="leaveDate">Leave Date</Label>
-                    <Input id="leaveDate" type="date" {...form.register('leaveDate')} />
-                    {form.formState.errors.leaveDate && <p className="text-sm text-destructive mt-1">{form.formState.errors.leaveDate.message}</p>}
+                    <Input id="leaveDate" type="date" value={leaveDate} onChange={e => setLeaveDate(e.target.value)} required />
                 </div>
                  <div>
                     <Label htmlFor="reason">Reason (Optional)</Label>
-                    <Textarea id="reason" {...form.register('reason')} placeholder="e.g., Sick leave, Personal matter" />
-                    {form.formState.errors.reason && <p className="text-sm text-destructive mt-1">{form.formState.errors.reason.message}</p>}
+                    <Textarea id="reason" value={reason} onChange={e => setReason(e.target.value)} placeholder="e.g., Sick leave, Personal matter" />
                 </div>
                 <div className="flex justify-end">
                     <SubmitButton />
@@ -563,6 +560,55 @@ function LeaveFormDialog({ isOpen, onOpenChange, developer, onSuccess }: LeaveFo
      </Dialog>
   );
 }
+
+// Deduction Form Dialog Component
+interface DeductionFormDialogProps {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  developer: Employee;
+  currentDeduction: number;
+  onSave: (developerId: string, amount: number) => void;
+}
+
+function DeductionFormDialog({ isOpen, onOpenChange, developer, currentDeduction, onSave }: DeductionFormDialogProps) {
+    const [amount, setAmount] = useState(currentDeduction);
+
+    useEffect(() => {
+        setAmount(currentDeduction);
+    }, [currentDeduction, isOpen]);
+
+    const handleSave = () => {
+        onSave(developer.id, amount);
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>General Deduction for {developer.name}</DialogTitle>
+                    <DialogDescription>
+                        Enter any general salary deductions for this month. This is separate from leave-based deductions.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-2 py-4">
+                    <Label htmlFor="deductionAmount">Deduction Amount (အထွေထွေဖြတ်ငွေ)</Label>
+                    <Input
+                        id="deductionAmount"
+                        type="number"
+                        value={amount}
+                        onChange={(e) => setAmount(Number(e.target.value))}
+                        placeholder="0"
+                    />
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button onClick={handleSave}>Save Deduction</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 
 // Add Holiday Form Dialog Component
 interface HolidayFormDialogProps {
