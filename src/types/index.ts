@@ -30,6 +30,15 @@ export type DeveloperAttendance = {
   createdAt: Timestamp;
 };
 
+// New type for Public Holiday records
+export type PublicHoliday = {
+  id: string;
+  name: string;
+  date: string; // e.g., "2024-12-25"
+  createdAt: Timestamp;
+};
+
+
 // New type for Cleaning Schedule records
 export type CleaningStatus = 'Pending' | 'Completed' | 'Verified';
 

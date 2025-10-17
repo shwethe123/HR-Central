@@ -98,3 +98,71 @@ export async function deleteDeveloperLeave(
     };
   }
 }
+
+// New action for adding a public holiday
+const AddPublicHolidaySchema = z.object({
+  name: z.string().min(2, { message: "Holiday name is required (min 2 chars)." }),
+  date: z.string().refine((date) => !isNaN(Date.parse(date)), { message: "A valid date is required." }),
+});
+
+export type AddPublicHolidayState = {
+  message: string | null;
+  errors?: z.ZodError<z.infer<typeof AddPublicHolidaySchema>>['formErrors']['fieldErrors'];
+  success?: boolean;
+};
+
+export async function addPublicHoliday(
+  prevState: AddPublicHolidayState,
+  formData: FormData
+): Promise<AddPublicHolidayState> {
+  const validatedFields = AddPublicHolidaySchema.safeParse({
+    name: formData.get('name'),
+    date: formData.get('date'),
+  });
+
+  if (!validatedFields.success) {
+    return {
+      message: "Validation failed.",
+      errors: validatedFields.error.flatten().fieldErrors,
+      success: false,
+    };
+  }
+
+  try {
+    await addDoc(collection(db, 'publicHolidays'), {
+      ...validatedFields.data,
+      createdAt: serverTimestamp(),
+    });
+
+    revalidatePath('/developer-attendance');
+    
+    return {
+      message: `${validatedFields.data.name} on ${validatedFields.data.date} added as a public holiday.`,
+      success: true,
+    };
+  } catch (error) {
+    return {
+      message: error instanceof Error ? error.message : "Failed to add public holiday.",
+      success: false,
+    };
+  }
+}
+
+// New action for deleting a public holiday
+export async function deletePublicHoliday(holidayId: string): Promise<{ success: boolean; message: string; }> {
+  if (!holidayId) {
+    return { success: false, message: "Holiday ID is required." };
+  }
+
+  try {
+    await deleteDoc(doc(db, 'publicHolidays', holidayId));
+    revalidatePath('/developer-attendance');
+    return { success: true, message: "Public holiday deleted." };
+  } catch (error) {
+    console.error(`Error deleting public holiday (ID: ${holidayId}):`, error);
+    return { 
+        success: false, 
+        message: error instanceof Error ? error.message : "Failed to delete public holiday." 
+    };
+  }
+}

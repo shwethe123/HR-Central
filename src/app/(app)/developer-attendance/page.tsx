@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useActionState, startTransition } from 'react';
-import type { Employee, DeveloperAttendance } from "@/types";
+import type { Employee, DeveloperAttendance, PublicHoliday } from "@/types";
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -23,12 +23,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { addDeveloperLeave, deleteDeveloperLeave, type AddDeveloperLeaveState } from "./actions";
-import { Code2, PlusCircle, Loader2, Calendar, User, DollarSign, Wallet, Check, X, AlertTriangle } from 'lucide-react';
+import { addDeveloperLeave, deleteDeveloperLeave, type AddDeveloperLeaveState, deletePublicHoliday } from "./actions";
+import { AddHolidayForm } from "./add-holiday-form";
+import { Code2, PlusCircle, Loader2, Calendar, User, DollarSign, Wallet, Check, X, AlertTriangle, CalendarPlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, getDaysInMonth, parseISO, isValid, isSameMonth, isBefore, startOfDay, getDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, getDaysInMonth, parseISO, isValid, isSameMonth, isBefore, getDay } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -55,12 +56,15 @@ type LeaveFormData = z.infer<typeof ClientLeaveFormSchema>;
 export default function DeveloperAttendancePage() {
   const [developers, setDevelopers] = useState<Employee[]>([]);
   const [attendances, setAttendances] = useState<DeveloperAttendance[]>([]);
+  const [publicHolidays, setHolidays] = useState<PublicHoliday[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDeveloper, setSelectedDeveloper] = useState<Employee | null>(null);
-  const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
+  const [isLeaveFormDialogOpen, setIsLeaveFormDialogOpen] = useState(false);
+  const [isHolidayFormDialogOpen, setIsHolidayFormDialogOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const [leaveToDelete, setLeaveToDelete] = useState<{devName: string, attendanceId: string} | null>(null);
+  const [holidayToDelete, setHolidayToDelete] = useState<PublicHoliday | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const { toast } = useToast();
@@ -70,10 +74,8 @@ export default function DeveloperAttendancePage() {
     setIsLoading(true);
     try {
       const developersQuery = query(collection(db, "developers"));
-      const devSnapshot = await getDocs(developersQuery);
-      const fetchedDevelopers: Employee[] = devSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Employee));
-      setDevelopers(fetchedDevelopers);
-
+      const holidaysQuery = query(collection(db, "publicHolidays"));
+      
       const monthStart = format(startOfMonth(month), 'yyyy-MM-dd');
       const monthEnd = format(endOfMonth(month), 'yyyy-MM-dd');
       const attendanceQuery = query(
@@ -81,15 +83,26 @@ export default function DeveloperAttendancePage() {
         where('leaveDate', '>=', monthStart),
         where('leaveDate', '<=', monthEnd)
       );
-      const attSnapshot = await getDocs(attendanceQuery);
+      
+      const [devSnapshot, attSnapshot, holidaysSnapshot] = await Promise.all([
+        getDocs(developersQuery),
+        getDocs(attendanceQuery),
+        getDocs(holidaysQuery),
+      ]);
+
+      const fetchedDevelopers: Employee[] = devSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Employee));
       const fetchedAttendances: DeveloperAttendance[] = attSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeveloperAttendance));
+      const fetchedHolidays: PublicHoliday[] = holidaysSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PublicHoliday));
+      
+      setDevelopers(fetchedDevelopers);
       setAttendances(fetchedAttendances);
+      setHolidays(fetchedHolidays);
 
     } catch (error) {
       console.error("Error fetching data:", error);
       toast({
         title: "Error",
-        description: "Failed to fetch developer or attendance data.",
+        description: "Failed to fetch developer, attendance, or holiday data.",
         variant: "destructive",
       });
     } finally {
@@ -103,7 +116,7 @@ export default function DeveloperAttendancePage() {
   
   const handleAddLeaveClick = (dev: Employee) => {
     setSelectedDeveloper(dev);
-    setIsFormDialogOpen(true);
+    setIsLeaveFormDialogOpen(true);
   };
   
   const handleUnleaveClick = (devName: string, attendanceId: string) => {
@@ -111,42 +124,81 @@ export default function DeveloperAttendancePage() {
     setLeaveToDelete({ devName, attendanceId });
   };
   
-  const handleDeleteConfirm = async () => {
+  const handleHolidayClick = (holiday: PublicHoliday) => {
+     if (!isAdmin) return;
+     setHolidayToDelete(holiday);
+  }
+
+  const handleDeleteLeaveConfirm = async () => {
     if (!leaveToDelete) return;
     setIsDeleting(true);
     const result = await deleteDeveloperLeave(leaveToDelete.attendanceId);
     if (result.success) {
         toast({ title: 'Success', description: `Leave day for ${leaveToDelete.devName} removed.` });
-        fetchAllData(currentMonth); // Refetch data to ensure UI consistency
+        await fetchAllData(currentMonth); 
     } else {
         toast({ title: 'Error', description: result.message, variant: 'destructive' });
     }
     setLeaveToDelete(null);
     setIsDeleting(false);
   };
+  
+  const handleDeleteHolidayConfirm = async () => {
+    if (!holidayToDelete) return;
+    setIsDeleting(true);
+    const result = await deletePublicHoliday(holidayToDelete.id);
+    if (result.success) {
+      toast({ title: "Holiday Removed", description: `${holidayToDelete.name} has been removed successfully.`});
+      await fetchAllData(currentMonth);
+    } else {
+      toast({ title: "Error", description: result.message, variant: "destructive" });
+    }
+    setHolidayToDelete(null);
+    setIsDeleting(false);
+  }
 
 
-  const onFormSuccess = () => {
-    setIsFormDialogOpen(false);
+  const onLeaveFormSuccess = () => {
+    setIsLeaveFormDialogOpen(false);
     setSelectedDeveloper(null);
+    fetchAllData(currentMonth); // Refresh data
+  }
+  
+  const onHolidayFormSuccess = () => {
+    setIsHolidayFormDialogOpen(false);
     fetchAllData(currentMonth); // Refresh data
   }
   
   const developerStats = useMemo(() => {
     const today = startOfDay(new Date());
     const monthStart = startOfMonth(currentMonth);
-    const monthEnd = isSameMonth(currentMonth, today) && isBefore(today, endOfMonth(currentMonth)) 
+    
+    // Determine the last day to show: today if it's the current month and not the end, otherwise the end of the month
+    const lastDayOfMonth = endOfMonth(currentMonth);
+    const monthEnd = isSameMonth(currentMonth, today) && isBefore(today, lastDayOfMonth) 
       ? today 
-      : endOfMonth(currentMonth);
+      : lastDayOfMonth;
     
     const allDaysInInterval = eachDayOfInterval({ start: monthStart, end: monthEnd });
+    const holidayDateStrings = publicHolidays.map(h => h.date);
     
-    const workingDaysInMonth = allDaysInInterval.filter(day => !WEEKEND_DAYS.includes(getDay(day))).length;
+    const workingDaysInMonth = allDaysInInterval.filter(day => {
+        const dayOfWeek = getDay(day);
+        const isWeekend = WEEKEND_DAYS.includes(dayOfWeek);
+        const isHoliday = holidayDateStrings.includes(format(day, 'yyyy-MM-dd'));
+        return !isWeekend && !isHoliday;
+    }).length;
     
     return developers.map(dev => {
       const devLeaves = attendances.filter(a => a.developerId === dev.id);
-      const leaveDateObjects = devLeaves.map(l => ({ date: new Date(l.leaveDate), id: l.id }));
-      const leaveDays = devLeaves.filter(l => !WEEKEND_DAYS.includes(getDay(new Date(l.leaveDate)))).length;
+      const leaveDateStrings = devLeaves.map(l => l.leaveDate);
+
+      const leaveDays = devLeaves.filter(l => {
+          const leaveDate = new Date(l.leaveDate);
+          const isWeekend = WEEKEND_DAYS.includes(getDay(leaveDate));
+          const isHoliday = holidayDateStrings.includes(l.leaveDate);
+          return !isWeekend && !isHoliday;
+      }).length;
       
       const extraLeaveDays = Math.max(0, leaveDays - FREE_LEAVE_DAYS);
       
@@ -157,23 +209,31 @@ export default function DeveloperAttendancePage() {
       const finalSalary = monthlySalary - salaryDeduction;
 
       const monthlyAttendance = allDaysInInterval.map(day => {
-        const leaveRecord = leaveDateObjects.find(leave => isSameDay(day, leave.date));
+        const formattedDay = format(day, 'yyyy-MM-dd');
+        const leaveRecord = devLeaves.find(leave => leave.leaveDate === formattedDay);
+        const holidayRecord = publicHolidays.find(h => h.date === formattedDay);
         const isWeekend = WEEKEND_DAYS.includes(getDay(day));
         
-        let status: 'WorkDay' | 'Leave' | 'Weekend' = 'WorkDay';
-        let attendanceId: string | undefined = undefined;
+        let status: 'WorkDay' | 'Leave' | 'Weekend' | 'Holiday' = 'WorkDay';
+        let id: string | undefined = undefined;
+        let holidayDetails: PublicHoliday | undefined = undefined;
 
-        if (leaveRecord) {
-          status = 'Leave';
-          attendanceId = leaveRecord.id;
+        if (holidayRecord) {
+            status = 'Holiday';
+            id = holidayRecord.id;
+            holidayDetails = holidayRecord;
         } else if (isWeekend) {
-          status = 'Weekend';
+            status = 'Weekend';
+        } else if (leaveRecord) {
+            status = 'Leave';
+            id = leaveRecord.id;
         }
 
         return {
             date: day,
             status: status,
-            attendanceId: attendanceId
+            id: id,
+            holidayDetails: holidayDetails,
         };
       });
 
@@ -186,7 +246,7 @@ export default function DeveloperAttendancePage() {
         monthlyAttendance
       };
     });
-  }, [developers, attendances, currentMonth]);
+  }, [developers, attendances, publicHolidays, currentMonth]);
 
   return (
     <div className="container mx-auto py-2 space-y-6">
@@ -196,6 +256,18 @@ export default function DeveloperAttendancePage() {
           Developer Attendance
         </h1>
         <div className="flex items-center gap-2">
+            {isAdmin && (
+              <Dialog open={isHolidayFormDialogOpen} onOpenChange={setIsHolidayFormDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline"><CalendarPlus className="mr-2 h-4 w-4"/> Add Holiday</Button>
+                </DialogTrigger>
+                <HolidayFormDialog 
+                    isOpen={isHolidayFormDialogOpen}
+                    onOpenChange={setIsHolidayFormDialogOpen}
+                    onSuccess={onHolidayFormSuccess}
+                />
+              </Dialog>
+            )}
             <Label htmlFor="month-picker">Month</Label>
             <Input
                 id="month-picker"
@@ -211,7 +283,7 @@ export default function DeveloperAttendancePage() {
         <CardHeader>
           <CardTitle>Monthly Leave Summary</CardTitle>
           <CardDescription>
-            Track monthly leave for each developer. Each developer is allowed {FREE_LEAVE_DAYS} leave days per month (weekends excluded).
+            Track monthly leave for each developer. Each developer is allowed {FREE_LEAVE_DAYS} leave days per month (weekends & public holidays excluded).
             Exceeding this will result in a salary deduction.
           </CardDescription>
         </CardHeader>
@@ -261,16 +333,33 @@ export default function DeveloperAttendancePage() {
                                 case 'Leave':
                                     badgeContent = (
                                         <Badge 
-                                            key={day.date.toString()} 
+                                            key={`${dev.id}-${day.date.toString()}`}
                                             variant="secondary" 
                                             className={cn(
                                               "font-mono flex items-center gap-1",
                                               isAdmin && "cursor-pointer hover:bg-red-200 hover:text-red-800"
                                             )}
-                                            onClick={() => day.attendanceId && handleUnleaveClick(dev.name, day.attendanceId)}
-                                            title={isAdmin ? "Click to remove this leave day" : "Leave Day"}
+                                            onClick={() => day.id && handleUnleaveClick(dev.name, day.id)}
+                                            title={isAdmin ? `Remove leave for ${dev.name}` : "Leave Day"}
                                           >
                                             <X className="h-3 w-3"/>
+                                            {format(day.date, 'dd')}
+                                        </Badge>
+                                    );
+                                    break;
+                                case 'Holiday':
+                                    badgeContent = (
+                                         <Badge 
+                                            key={`${dev.id}-${day.date.toString()}`}
+                                            variant="destructive"
+                                            className={cn(
+                                                "font-mono flex items-center gap-1 bg-black text-white",
+                                                isAdmin && "cursor-pointer hover:opacity-75"
+                                            )}
+                                            onClick={() => day.holidayDetails && handleHolidayClick(day.holidayDetails)}
+                                            title={isAdmin ? `Remove Holiday: ${day.holidayDetails?.name}` : day.holidayDetails?.name}
+                                          >
+                                            <Calendar className="h-3 w-3"/>
                                             {format(day.date, 'dd')}
                                         </Badge>
                                     );
@@ -279,7 +368,7 @@ export default function DeveloperAttendancePage() {
                                 case 'WorkDay':
                                 default:
                                     badgeContent = (
-                                        <Badge key={day.date.toString()} variant="default" className="font-mono flex items-center gap-1 bg-green-100 text-green-800 border-green-300 hover:bg-green-200">
+                                        <Badge key={`${dev.id}-${day.date.toString()}`} variant="default" className="font-mono flex items-center gap-1 bg-green-100 text-green-800 border-green-300 hover:bg-green-200">
                                             <Check className="h-3 w-3"/>
                                             {format(day.date, 'dd')}
                                         </Badge>
@@ -304,12 +393,35 @@ export default function DeveloperAttendancePage() {
       
       {selectedDeveloper && (
         <LeaveFormDialog 
-            isOpen={isFormDialogOpen}
-            onOpenChange={setIsFormDialogOpen}
+            isOpen={isLeaveFormDialogOpen}
+            onOpenChange={setIsLeaveFormDialogOpen}
             developer={selectedDeveloper}
-            onSuccess={onFormSuccess}
+            onSuccess={onLeaveFormSuccess}
         />
       )}
+      
+      {/* Holiday Deletion Dialog */}
+      <AlertDialog open={!!holidayToDelete} onOpenChange={(open) => !open && setHolidayToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className='flex items-center gap-2'>
+              <AlertTriangle className="h-6 w-6 text-destructive" /> 
+              Confirm Holiday Removal
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove the public holiday: <strong>{holidayToDelete?.name}</strong> on {holidayToDelete?.date}?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setHolidayToDelete(null)} disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteHolidayConfirm} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
+              {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirm Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
 
       {leaveToDelete && (
          <AlertDialog open={!!leaveToDelete} onOpenChange={(open) => !open && setLeaveToDelete(null)}>
@@ -327,7 +439,7 @@ export default function DeveloperAttendancePage() {
                 <AlertDialogCancel onClick={() => setLeaveToDelete(null)} disabled={isDeleting}>
                   Cancel
                 </AlertDialogCancel>
-                <AlertDialogAction onClick={handleDeleteConfirm} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
+                <AlertDialogAction onClick={handleDeleteLeaveConfirm} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
                   {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Confirm
                 </AlertDialogAction>
@@ -406,4 +518,27 @@ function LeaveFormDialog({ isOpen, onOpenChange, developer, onSuccess }: LeaveFo
         </DialogContent>
      </Dialog>
   );
+}
+
+// Add Holiday Form Dialog Component
+interface HolidayFormDialogProps {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess: () => void;
+}
+
+function HolidayFormDialog({ isOpen, onOpenChange, onSuccess }: HolidayFormDialogProps) {
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Add Public Holiday</DialogTitle>
+                    <DialogDescription>
+                        Record a new public holiday for all developers. This day will not be counted as a working day.
+                    </DialogDescription>
+                </DialogHeader>
+                <AddHolidayForm onFormSubmissionSuccess={onSuccess} />
+            </DialogContent>
+        </Dialog>
+    );
 }
