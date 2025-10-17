@@ -175,6 +175,12 @@ export default function DeveloperAttendancePage() {
     const monthStart = startOfMonth(currentMonth);
     const lastDayOfMonth = endOfMonth(currentMonth);
     
+    const displayIntervalEnd = isSameMonth(currentMonth, today) && isBefore(today, lastDayOfMonth) 
+      ? today 
+      : lastDayOfMonth;
+
+    const allDaysInDisplayInterval = eachDayOfInterval({ start: monthStart, end: displayIntervalEnd });
+    
     const holidayDateStrings = publicHolidays.map(h => h.date);
 
     const workingDaysInMonth = eachDayOfInterval({ start: monthStart, end: lastDayOfMonth }).filter(day => {
@@ -184,15 +190,11 @@ export default function DeveloperAttendancePage() {
         return !isWeekend && !isHoliday;
     }).length;
 
-    const displayIntervalEnd = isSameMonth(currentMonth, today) && isBefore(today, lastDayOfMonth) 
-      ? today 
-      : lastDayOfMonth;
-    const allDaysInDisplayInterval = eachDayOfInterval({ start: monthStart, end: displayIntervalEnd });
-    
     return developers.map(dev => {
-      const devLeaves = attendances.filter(a => a.developerId === dev.id);
-
-      const leaveDaysCount = devLeaves.filter(leave => {
+      // Correctly count leave days for the specific developer from the already month-filtered 'attendances' state
+      const leaveDaysCount = attendances.filter(leave => {
+        if (leave.developerId !== dev.id) return false;
+        
         const leaveDate = parseISO(leave.leaveDate);
         if (!isValid(leaveDate)) return false;
         
@@ -200,6 +202,7 @@ export default function DeveloperAttendancePage() {
         const isWeekend = WEEKEND_DAYS.includes(dayOfWeek);
         const isHoliday = holidayDateStrings.includes(leave.leaveDate);
         
+        // Count as a leave day only if it's not a weekend or a public holiday
         return !isWeekend && !isHoliday;
       }).length;
       
@@ -213,21 +216,22 @@ export default function DeveloperAttendancePage() {
 
       const monthlyAttendance = allDaysInDisplayInterval.map(day => {
         const formattedDay = format(day, 'yyyy-MM-dd');
-        const leaveRecord = devLeaves.find(leave => leave.leaveDate === formattedDay);
-        const isHoliday = holidayDateStrings.includes(formattedDay);
-        const holidayRecord = isHoliday ? publicHolidays.find(h => h.date === formattedDay) : undefined;
+        const dayOfWeek = getDay(day);
         
+        const leaveRecord = attendances.find(leave => leave.developerId === dev.id && leave.leaveDate === formattedDay);
+        const holidayRecord = publicHolidays.find(h => h.date === formattedDay);
+
         let status: 'WorkDay' | 'Leave' | 'Holiday' = 'WorkDay';
         if (leaveRecord) {
             status = 'Leave';
-        } else if (isHoliday) {
+        } else if (holidayRecord) {
             status = 'Holiday';
         }
 
         return {
             date: day,
             status: status,
-            id: leaveRecord?.id || holidayRecord?.id, // Use leave ID or holiday ID
+            id: leaveRecord?.id || holidayRecord?.id,
             holidayDetails: holidayRecord,
         };
       });
@@ -362,12 +366,17 @@ export default function DeveloperAttendancePage() {
                                     break;
                                 case 'WorkDay':
                                 default:
-                                    badgeContent = (
-                                        <Badge key={`${dev.id}-${day.date.toString()}`} variant="default" className="font-mono flex items-center gap-1 bg-green-100 text-green-800 border-green-300 hover:bg-green-200">
-                                            <Check className="h-3 w-3"/>
-                                            {dayNumber}
-                                        </Badge>
-                                    );
+                                     const isWeekend = WEEKEND_DAYS.includes(getDay(day.date));
+                                     if(isWeekend) {
+                                        badgeContent = null; // Don't render a badge for weekends
+                                     } else {
+                                        badgeContent = (
+                                            <Badge key={`${dev.id}-${day.date.toString()}`} variant="default" className="font-mono flex items-center gap-1 bg-green-100 text-green-800 border-green-300 hover:bg-green-200">
+                                                <Check className="h-3 w-3"/>
+                                                {dayNumber}
+                                            </Badge>
+                                        );
+                                     }
                                     break;
                             }
                             return badgeContent;
