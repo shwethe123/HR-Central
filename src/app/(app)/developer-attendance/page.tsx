@@ -331,22 +331,23 @@ export default function DeveloperAttendancePage() {
                   <div className="flex justify-between items-start">
                      <div className="flex flex-wrap gap-1.5 flex-grow">
                         {dev.monthlyAttendance.length > 0 ? dev.monthlyAttendance.map(day => {
+                            const dayNumber = format(day.date, 'dd');
                             let badgeContent;
                             switch (day.status) {
                                 case 'Leave':
                                     badgeContent = (
-                                        <Badge 
+                                        <Badge
                                             key={`${dev.id}-${day.date.toString()}`}
-                                            variant="secondary" 
+                                            variant="destructive"
                                             className={cn(
-                                              "font-mono flex items-center gap-1",
-                                              isAdmin && "cursor-pointer hover:bg-red-200 hover:text-red-800"
+                                                "font-mono flex items-center gap-1",
+                                                isAdmin && "cursor-pointer hover:opacity-75"
                                             )}
                                             onClick={() => day.id && handleUnleaveClick(dev.name, day.id)}
                                             title={isAdmin ? `Remove leave for ${dev.name}` : "Leave Day"}
-                                          >
+                                        >
                                             <X className="h-3 w-3"/>
-                                            {format(day.date, 'dd')}
+                                            {dayNumber}
                                         </Badge>
                                     );
                                     break;
@@ -354,23 +355,24 @@ export default function DeveloperAttendancePage() {
                                     badgeContent = (
                                          <Badge 
                                             key={`${dev.id}-${day.date.toString()}`}
-                                            variant="destructive"
+                                            variant="default"
                                             className={cn(
-                                                "font-mono flex items-center gap-1 bg-black text-white",
+                                                "font-mono flex items-center gap-1 bg-black text-white border-black",
                                                 isAdmin && "cursor-pointer hover:opacity-75"
                                             )}
                                             onClick={() => day.holidayDetails && handleHolidayClick(day.holidayDetails)}
                                             title={isAdmin ? `Remove Holiday: ${day.holidayDetails?.name}` : day.holidayDetails?.name}
                                           >
                                             <Calendar className="h-3 w-3"/>
-                                            {format(day.date, 'dd')}
+                                            {dayNumber}
                                         </Badge>
                                     );
                                     break;
                                 case 'Weekend':
                                     badgeContent = (
                                         <Badge key={`${dev.id}-${day.date.toString()}`} variant="outline" className="font-mono flex items-center gap-1 border-gray-300 text-gray-500">
-                                            {format(day.date, 'dd')}
+                                            <Check className="h-3 w-3"/>
+                                            {dayNumber}
                                         </Badge>
                                     );
                                     break;
@@ -379,7 +381,7 @@ export default function DeveloperAttendancePage() {
                                     badgeContent = (
                                         <Badge key={`${dev.id}-${day.date.toString()}`} variant="default" className="font-mono flex items-center gap-1 bg-green-100 text-green-800 border-green-300 hover:bg-green-200">
                                             <Check className="h-3 w-3"/>
-                                            {format(day.date, 'dd')}
+                                            {dayNumber}
                                         </Badge>
                                     );
                                     break;
