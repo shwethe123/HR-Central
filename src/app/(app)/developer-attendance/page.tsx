@@ -96,7 +96,7 @@ export default function DeveloperAttendancePage() {
       const fetchedHolidays: PublicHoliday[] = holidaysSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PublicHoliday));
       
       setDevelopers(fetchedDevelopers);
-      setAttendances(fetchedAttendances);
+      setAttendances([...fetchedAttendances]);
       setHolidays([...fetchedHolidays]);
 
     } catch (error) {
@@ -544,3 +544,4 @@ function HolidayFormDialog({ isOpen, onOpenChange, onSuccess }: HolidayFormDialo
         </Dialog>
     );
 }
+
