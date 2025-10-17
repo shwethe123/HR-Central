@@ -146,17 +146,12 @@ export default function DeveloperAttendancePage() {
   const handleDeleteHolidayConfirm = async () => {
     if (!holidayToDelete) return;
     setIsDeleting(true);
-    const result = await deletePublicHoliday(holidayToDelete.id);
-    if (result.success) {
-      toast({ title: "Holiday Removed", description: `${holidayToDelete.name} has been removed successfully.`});
-      await fetchAllData(currentMonth);
-    } else {
-      toast({ title: "Error", description: result.message, variant: "destructive" });
-    }
+    await deletePublicHoliday(holidayToDelete.id);
+    toast({ title: "Holiday Removed", description: `${holidayToDelete.name} has been removed successfully.`});
     setHolidayToDelete(null);
     setIsDeleting(false);
+    await fetchAllData(currentMonth);
   }
-
 
   const onLeaveFormSuccess = () => {
     setIsLeaveFormDialogOpen(false);
@@ -173,7 +168,6 @@ export default function DeveloperAttendancePage() {
     const today = startOfDay(new Date());
     const monthStart = startOfMonth(currentMonth);
     
-    // Determine the last day to show: today if it's the current month and not the end, otherwise the end of the month
     const lastDayOfMonth = endOfMonth(currentMonth);
     const monthEnd = isSameMonth(currentMonth, today) && isBefore(today, lastDayOfMonth) 
       ? today 
@@ -487,6 +481,17 @@ function LeaveFormDialog({ isOpen, onOpenChange, developer, onSuccess }: LeaveFo
     startTransition(() => formAction(formData));
   }
 
+  // We need to use `useFormStatus` from inside the form.
+  function SubmitButton() {
+      const { pending } = useFormStatus();
+      return (
+          <Button type="submit" disabled={pending}>
+              {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Leave Day
+          </Button>
+      )
+  }
+
   return (
      <Dialog open={isOpen} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-md">
@@ -508,10 +513,7 @@ function LeaveFormDialog({ isOpen, onOpenChange, developer, onSuccess }: LeaveFo
                     {form.formState.errors.reason && <p className="text-sm text-destructive mt-1">{form.formState.errors.reason.message}</p>}
                 </div>
                 <div className="flex justify-end">
-                    <Button type="submit" disabled={form.formState.isSubmitting}>
-                        {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Save Leave Day
-                    </Button>
+                    <SubmitButton />
                 </div>
             </form>
         </DialogContent>
@@ -541,3 +543,4 @@ function HolidayFormDialog({ isOpen, onOpenChange, onSuccess }: HolidayFormDialo
         </Dialog>
     );
 }
+
