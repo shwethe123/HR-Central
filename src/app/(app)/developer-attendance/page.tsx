@@ -38,7 +38,7 @@ import { Code2, PlusCircle, Loader2, Calendar, User, DollarSign, Wallet, Check, 
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
-import { format, eachDayOfInterval, isSameDay, parseISO, isValid, startOfMonth, endOfMonth, getDaysInMonth, isBefore, isToday } from 'date-fns';
+import { format, eachDayOfInterval, isSameDay, parseISO, isValid, startOfMonth, endOfMonth, getDaysInMonth, isBefore, isToday, isWeekend } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -189,7 +189,8 @@ export default function DeveloperAttendancePage() {
   
   const developerStats = useMemo(() => {
     const totalDaysInMonth = getDaysInMonth(currentMonth);
-    const workingDaysInMonth = totalDaysInMonth - 4; // As per new requirement
+    // New logic: Working days = total days in month - 4
+    const workingDaysInMonth = totalDaysInMonth - 4;
     
     const holidayDates = publicHolidays.map(h => h.date);
 
@@ -197,7 +198,7 @@ export default function DeveloperAttendancePage() {
       const devLeaves = attendances.filter(a => a.developerId === dev.id);
 
       const leaveDaysCount = devLeaves.filter(leave => {
-        // Only count a leave day if it's not a public holiday
+        // Count a leave day if it's not a public holiday
         return !holidayDates.includes(leave.leaveDate);
       }).length;
       
@@ -245,6 +246,10 @@ export default function DeveloperAttendancePage() {
     });
   }, [developers, attendances, publicHolidays, currentMonth, generalDeductions]);
 
+  const totalFinalSalary = useMemo(() => {
+    return developerStats.reduce((total, dev) => total + (dev.finalSalary || 0), 0);
+  }, [developerStats]);
+
   return (
     <div className="container mx-auto py-2 space-y-6">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -280,9 +285,14 @@ export default function DeveloperAttendancePage() {
         <CardHeader>
           <CardTitle>Monthly Leave Summary</CardTitle>
           <CardDescription>
-            Each developer is allowed {FREE_LEAVE_DAYS} leave days per month.
-            Exceeding this will result in a salary deduction based on {getDaysInMonth(currentMonth)} - 4 = {getDaysInMonth(currentMonth)-4} working days.
+            Each developer is allowed {FREE_LEAVE_DAYS} leave days per month. Exceeding this will result in salary deduction.
           </CardDescription>
+           <div className="pt-2">
+            <p className="text-lg font-semibold flex items-center text-green-600">
+              <DollarSign className="mr-2 h-5 w-5"/>
+              Total Final Salary for {format(currentMonth, 'MMMM')}: {formatCurrency(Math.round(totalFinalSalary))}
+            </p>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -303,7 +313,7 @@ export default function DeveloperAttendancePage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem onSelect={() => handleAddLeaveClick(dev)}>
+                           <DropdownMenuItem onSelect={() => handleAddLeaveClick(dev)}>
                             <PlusCircle className="mr-2 h-4 w-4" />
                             Add Leave
                           </DropdownMenuItem>
