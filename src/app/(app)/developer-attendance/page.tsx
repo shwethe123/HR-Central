@@ -14,6 +14,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -26,11 +34,11 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { addDeveloperLeave, deleteDeveloperLeave, type AddDeveloperLeaveState, addPublicHoliday, deletePublicHoliday } from "./actions";
 import { AddHolidayForm } from "./add-holiday-form";
-import { Code2, PlusCircle, Loader2, Calendar, User, DollarSign, Wallet, Check, X, AlertTriangle, CalendarPlus } from 'lucide-react';
+import { Code2, PlusCircle, Loader2, Calendar, User, DollarSign, Wallet, Check, X, AlertTriangle, CalendarPlus, MoreHorizontal } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, getDaysInMonth, parseISO, isValid, isSameMonth, isBefore, isWeekend } from 'date-fns';
+import { collection, getDocs, query, where, Timestamp, startOfMonth, endOfMonth, getDaysInMonth } from 'firebase/firestore';
+import { format, eachDayOfInterval, isSameDay, parseISO, isValid, isSameMonth, isBefore } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -68,6 +76,8 @@ export default function DeveloperAttendancePage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const [generalDeductions, setGeneralDeductions] = useState<Record<string, number>>({});
+  const [visibleDeductionInputId, setVisibleDeductionInputId] = useState<string | null>(null);
+
 
   const { toast } = useToast();
   const { isAdmin } = useAuth();
@@ -175,6 +185,10 @@ export default function DeveloperAttendancePage() {
     const numericAmount = Number(amount.replace(/,/g, '')) || 0;
     setGeneralDeductions(prev => ({ ...prev, [developerId]: numericAmount }));
   };
+
+  const toggleDeductionInput = (developerId: string) => {
+    setVisibleDeductionInputId(prevId => prevId === developerId ? null : developerId);
+  };
   
   const developerStats = useMemo(() => {
     const today = new Date();
@@ -193,13 +207,9 @@ export default function DeveloperAttendancePage() {
     const workingDaysInMonth = totalDaysInMonth - 4; 
 
     return developers.map(dev => {
+      const devLeaves = attendances.filter(a => a.developerId === dev.id);
       
-      const devLeaves = attendances.filter(leave => leave.developerId === dev.id);
-
-      const leaveDaysCount = devLeaves.filter(leave => {
-        const isHoliday = holidayDateStrings.includes(leave.leaveDate);
-        return !isHoliday;
-      }).length;
+      const leaveDaysCount = devLeaves.length;
       
       const extraLeaveDays = Math.max(0, leaveDaysCount - FREE_LEAVE_DAYS);
       
@@ -290,7 +300,24 @@ export default function DeveloperAttendancePage() {
           ) : (
             <div className="space-y-4">
               {developerStats.map(dev => (
-                <Card key={dev.id} className="p-4">
+                <Card key={dev.id} className="p-4 relative">
+                   {isAdmin && (
+                    <div className="absolute top-2 right-2">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-7 w-7">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuItem onSelect={() => toggleDeductionInput(dev.id)}>
+                            General Deduction
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="space-y-2 lg:col-span-1">
                       <p className="font-semibold text-lg flex items-center"><User className="mr-2 h-5 w-5 text-muted-foreground" />{dev.name}</p>
@@ -317,17 +344,21 @@ export default function DeveloperAttendancePage() {
                            <DollarSign className="h-3 w-3"/>Deduct (Leave): {formatCurrency(Math.round(dev.salaryDeduction))}
                        </Badge>
                     </div>
-                    <div className="lg:col-span-1">
-                      <Label htmlFor={`general-deduction-${dev.id}`} className="text-xs text-muted-foreground">General Deduction (အထွေထွေဖြတ်ငွေ)</Label>
-                      <Input
-                        id={`general-deduction-${dev.id}`}
-                        type="text"
-                        placeholder="0"
-                        className="h-9 mt-1"
-                        value={generalDeductions[dev.id] ? formatCurrency(generalDeductions[dev.id]) : ''}
-                        onChange={(e) => handleGeneralDeductionChange(dev.id, e.target.value)}
-                      />
-                       <Badge variant="destructive" className="mt-2 flex items-center gap-1.5"
+                     <div className="lg:col-span-1">
+                      {visibleDeductionInputId === dev.id && (
+                        <div className="space-y-1">
+                          <Label htmlFor={`general-deduction-${dev.id}`} className="text-xs text-muted-foreground">General Deduction (အထွေထွေဖြတ်ငွေ)</Label>
+                          <Input
+                            id={`general-deduction-${dev.id}`}
+                            type="text"
+                            placeholder="0"
+                            className="h-9"
+                            value={generalDeductions[dev.id] ? formatCurrency(generalDeductions[dev.id]) : ''}
+                            onChange={(e) => handleGeneralDeductionChange(dev.id, e.target.value)}
+                          />
+                        </div>
+                      )}
+                      <Badge variant="destructive" className="mt-2 flex items-center gap-1.5"
                            style={{ visibility: dev.generalDeduction > 0 ? 'visible' : 'hidden' }}>
                            <DollarSign className="h-3 w-3"/>Deduct (General): {formatCurrency(dev.generalDeduction)}
                        </Badge>
