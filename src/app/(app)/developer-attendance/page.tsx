@@ -23,13 +23,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { addDeveloperLeave, deleteDeveloperLeave, type AddDeveloperLeaveState, deletePublicHoliday } from "./actions";
+import { addDeveloperLeave, deleteDeveloperLeave, type AddDeveloperLeaveState, addPublicHoliday, deletePublicHoliday } from "./actions";
 import { AddHolidayForm } from "./add-holiday-form";
 import { Code2, PlusCircle, Loader2, Calendar, User, DollarSign, Wallet, Check, X, AlertTriangle, CalendarPlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, getDaysInMonth, parseISO, isValid, isSameMonth, isBefore, getDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, getDaysInMonth, parseISO, isValid, isSameMonth, isBefore, getDay, startOfDay } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -96,7 +96,7 @@ export default function DeveloperAttendancePage() {
       
       setDevelopers(fetchedDevelopers);
       setAttendances(fetchedAttendances);
-      setHolidays(fetchedHolidays);
+      setHolidays([...fetchedHolidays]);
 
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -191,11 +191,11 @@ export default function DeveloperAttendancePage() {
     
     return developers.map(dev => {
       const devLeaves = attendances.filter(a => a.developerId === dev.id);
-      const leaveDateStrings = devLeaves.map(l => l.leaveDate);
-
+      
       const leaveDays = devLeaves.filter(l => {
           const leaveDate = new Date(l.leaveDate);
-          const isWeekend = WEEKEND_DAYS.includes(getDay(leaveDate));
+          const dayOfWeek = getDay(leaveDate);
+          const isWeekend = WEEKEND_DAYS.includes(dayOfWeek);
           const isHoliday = holidayDateStrings.includes(l.leaveDate);
           return !isWeekend && !isHoliday;
       }).length;
@@ -211,17 +211,16 @@ export default function DeveloperAttendancePage() {
       const monthlyAttendance = allDaysInInterval.map(day => {
         const formattedDay = format(day, 'yyyy-MM-dd');
         const leaveRecord = devLeaves.find(leave => leave.leaveDate === formattedDay);
-        const holidayRecord = publicHolidays.find(h => h.date === formattedDay);
+        const isHoliday = holidayDateStrings.includes(formattedDay);
+        const holidayRecord = isHoliday ? publicHolidays.find(h => h.date === formattedDay) : undefined;
         const isWeekend = WEEKEND_DAYS.includes(getDay(day));
         
         let status: 'WorkDay' | 'Leave' | 'Weekend' | 'Holiday' = 'WorkDay';
         let id: string | undefined = undefined;
-        let holidayDetails: PublicHoliday | undefined = undefined;
 
-        if (holidayRecord) {
+        if (isHoliday) {
             status = 'Holiday';
-            id = holidayRecord.id;
-            holidayDetails = holidayRecord;
+            id = holidayRecord?.id;
         } else if (isWeekend) {
             status = 'Weekend';
         } else if (leaveRecord) {
@@ -233,7 +232,7 @@ export default function DeveloperAttendancePage() {
             date: day,
             status: status,
             id: id,
-            holidayDetails: holidayDetails,
+            holidayDetails: holidayRecord,
         };
       });
 
