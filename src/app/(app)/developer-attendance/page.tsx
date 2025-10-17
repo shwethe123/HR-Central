@@ -189,16 +189,15 @@ export default function DeveloperAttendancePage() {
   
   const developerStats = useMemo(() => {
     const daysInMonth = getDaysInMonth(currentMonth);
-    const workingDaysInMonth = daysInMonth - 4;
-
+    const workingDaysInMonth = daysInMonth - 4; 
+    
     const holidayDates = publicHolidays.map(h => h.date);
 
     return developers.map(dev => {
-      const devLeavesInMonth = attendances.filter(a => a.developerId === dev.id);
+      const devLeaves = attendances.filter(a => a.developerId === dev.id);
 
-      const leaveDaysCount = devLeavesInMonth.filter(leave => {
-        const leaveDateStr = leave.leaveDate;
-        return !holidayDates.includes(leaveDateStr);
+      const leaveDaysCount = devLeaves.filter(leave => {
+        return !holidayDates.includes(leave.leaveDate);
       }).length;
       
       const extraLeaveDays = Math.max(0, leaveDaysCount - FREE_LEAVE_DAYS);
@@ -215,7 +214,7 @@ export default function DeveloperAttendancePage() {
       const monthlyAttendance = allDaysInMonth.map(day => {
         const formattedDay = format(day, 'yyyy-MM-dd');
         
-        const leaveRecord = devLeavesInMonth.find(leave => leave.leaveDate === formattedDay);
+        const leaveRecord = devLeaves.find(leave => leave.leaveDate === formattedDay);
         const holidayRecord = publicHolidays.find(h => h.date === formattedDay);
 
         let status: 'WorkDay' | 'Leave' | 'Holiday' = 'WorkDay';
@@ -281,7 +280,7 @@ export default function DeveloperAttendancePage() {
           <CardTitle>Monthly Leave Summary</CardTitle>
           <CardDescription>
             Each developer is allowed {FREE_LEAVE_DAYS} leave days per month.
-            Exceeding this will result in a salary deduction.
+            Exceeding this will result in a salary deduction based on {getDaysInMonth(currentMonth)} - 4 = {getDaysInMonth(currentMonth)-4} working days.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -303,7 +302,12 @@ export default function DeveloperAttendancePage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuItem onSelect={() => handleAddLeaveClick(dev)}>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Add Leave
+                          </DropdownMenuItem>
                           <DropdownMenuItem onSelect={() => handleAddDeductionClick(dev)}>
+                            <DollarSign className="mr-2 h-4 w-4" />
                             General Deduction
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -397,11 +401,6 @@ export default function DeveloperAttendancePage() {
                             return badgeContent;
                         }) : <p className="text-xs text-muted-foreground">No attendance data for this month interval.</p>}
                      </div>
-                     {isAdmin && (
-                        <Button size="sm" variant="outline" onClick={() => handleAddLeaveClick(dev)} className="ml-4 flex-shrink-0">
-                            <PlusCircle className="mr-2 h-4 w-4"/> Add Leave
-                        </Button>
-                     )}
                   </div>
                 </Card>
               ))}
