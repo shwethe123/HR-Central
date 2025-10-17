@@ -30,7 +30,7 @@ import { Code2, PlusCircle, Loader2, Calendar, User, DollarSign, Wallet, Check, 
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, getDaysInMonth, parseISO, isValid, isSameMonth, isBefore } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, getDaysInMonth, parseISO, isValid, isSameMonth, isBefore, isWeekend } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -66,6 +66,8 @@ export default function DeveloperAttendancePage() {
   const [leaveToDelete, setLeaveToDelete] = useState<{devName: string, attendanceId: string} | null>(null);
   const [holidayToDelete, setHolidayToDelete] = useState<PublicHoliday | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const [generalDeductions, setGeneralDeductions] = useState<Record<string, number>>({});
 
   const { toast } = useToast();
   const { isAdmin } = useAuth();
@@ -168,6 +170,11 @@ export default function DeveloperAttendancePage() {
     setIsHolidayFormDialogOpen(false);
     fetchAllData(currentMonth); // Refresh data
   }
+
+  const handleGeneralDeductionChange = (developerId: string, amount: string) => {
+    const numericAmount = Number(amount.replace(/,/g, '')) || 0;
+    setGeneralDeductions(prev => ({ ...prev, [developerId]: numericAmount }));
+  };
   
   const developerStats = useMemo(() => {
     const today = new Date();
@@ -182,16 +189,16 @@ export default function DeveloperAttendancePage() {
     
     const holidayDateStrings = publicHolidays.map(h => h.date);
 
-    // New logic for calculating working days based on user request
     const totalDaysInMonth = getDaysInMonth(currentMonth);
-    const workingDaysInMonth = totalDaysInMonth - 4; // Subtract 4 fixed days
+    const workingDaysInMonth = totalDaysInMonth - 4; 
 
     return developers.map(dev => {
-      // Calculate leave days taken by this developer in the current month, excluding holidays.
-      const leaveDaysCount = attendances.filter(leave => {
-        if (leave.developerId !== dev.id) return false;
+      
+      const devLeaves = attendances.filter(leave => leave.developerId === dev.id);
+
+      const leaveDaysCount = devLeaves.filter(leave => {
         const isHoliday = holidayDateStrings.includes(leave.leaveDate);
-        return !isHoliday; // Count as a leave day only if it's not a public holiday
+        return !isHoliday;
       }).length;
       
       const extraLeaveDays = Math.max(0, leaveDaysCount - FREE_LEAVE_DAYS);
@@ -200,12 +207,13 @@ export default function DeveloperAttendancePage() {
       const dailyWage = monthlySalary > 0 && workingDaysInMonth > 0 ? monthlySalary / workingDaysInMonth : 0;
       const salaryDeduction = extraLeaveDays * dailyWage;
       
-      const finalSalary = monthlySalary - salaryDeduction;
+      const generalDeductionAmount = generalDeductions[dev.id] || 0;
+      const finalSalary = monthlySalary - salaryDeduction - generalDeductionAmount;
 
       const monthlyAttendance = allDaysInDisplayInterval.map(day => {
         const formattedDay = format(day, 'yyyy-MM-dd');
         
-        const leaveRecord = attendances.find(leave => leave.developerId === dev.id && leave.leaveDate === formattedDay);
+        const leaveRecord = devLeaves.find(leave => leave.leaveDate === formattedDay);
         const holidayRecord = publicHolidays.find(h => h.date === formattedDay);
 
         let status: 'WorkDay' | 'Leave' | 'Holiday' = 'WorkDay';
@@ -228,11 +236,12 @@ export default function DeveloperAttendancePage() {
         leaveDays: leaveDaysCount,
         extraLeaveDays,
         salaryDeduction,
+        generalDeduction: generalDeductionAmount,
         finalSalary,
         monthlyAttendance
       };
     });
-  }, [developers, attendances, publicHolidays, currentMonth]);
+  }, [developers, attendances, publicHolidays, currentMonth, generalDeductions]);
 
   return (
     <div className="container mx-auto py-2 space-y-6">
@@ -269,7 +278,7 @@ export default function DeveloperAttendancePage() {
         <CardHeader>
           <CardTitle>Monthly Leave Summary</CardTitle>
           <CardDescription>
-            Track monthly leave for each developer. Each developer is allowed {FREE_LEAVE_DAYS} leave days per month (public holidays excluded).
+            Track monthly leave for each developer. Each developer is allowed {FREE_LEAVE_DAYS} leave days per month.
             Exceeding this will result in a salary deduction.
           </CardDescription>
         </CardHeader>
@@ -282,17 +291,17 @@ export default function DeveloperAttendancePage() {
             <div className="space-y-4">
               {developerStats.map(dev => (
                 <Card key={dev.id} className="p-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="space-y-2 lg:col-span-1">
                       <p className="font-semibold text-lg flex items-center"><User className="mr-2 h-5 w-5 text-muted-foreground" />{dev.name}</p>
                       <p className="text-sm text-muted-foreground flex items-center">
                         <DollarSign className="mr-2 h-4 w-4"/> Base Salary: {dev.salary ? formatCurrency(dev.salary) : 'N/A'}
                       </p>
-                      <p className={cn("text-sm font-semibold flex items-center", dev.salaryDeduction > 0 ? "text-destructive" : "text-green-600")}>
-                        <Wallet className="mr-2 h-4 w-4"/> Total Salary: {dev.finalSalary ? formatCurrency(Math.round(dev.finalSalary)) : 'N/A'}
+                      <p className={cn("text-sm font-semibold flex items-center", dev.finalSalary < dev.salary ? "text-destructive" : "text-green-600")}>
+                        <Wallet className="mr-2 h-4 w-4"/> Final Salary: {dev.finalSalary ? formatCurrency(Math.round(dev.finalSalary)) : 'N/A'}
                       </p>
                     </div>
-                    <div className="flex-shrink-0 flex flex-col items-start sm:items-end gap-2">
+                    <div className="flex-shrink-0 flex flex-col items-start sm:items-end lg:items-start gap-2 lg:col-span-1">
                       <div className="flex items-center gap-4">
                           <div className="text-center">
                             <p className="text-2xl font-bold">{dev.leaveDays}</p>
@@ -303,11 +312,25 @@ export default function DeveloperAttendancePage() {
                             <p className="text-xs text-muted-foreground">Extra Days</p>
                           </div>
                       </div>
-                      {dev.salaryDeduction > 0 && (
-                        <Badge variant="destructive" className="flex items-center gap-1.5">
-                            <DollarSign className="h-3 w-3"/>Deduct: {formatCurrency(Math.round(dev.salaryDeduction))}
-                        </Badge>
-                      )}
+                       <Badge variant="destructive" className="flex items-center gap-1.5"
+                          style={{ visibility: dev.salaryDeduction > 0 ? 'visible' : 'hidden' }}>
+                           <DollarSign className="h-3 w-3"/>Deduct (Leave): {formatCurrency(Math.round(dev.salaryDeduction))}
+                       </Badge>
+                    </div>
+                    <div className="lg:col-span-1">
+                      <Label htmlFor={`general-deduction-${dev.id}`} className="text-xs text-muted-foreground">General Deduction (အထွေထွေဖြတ်ငွေ)</Label>
+                      <Input
+                        id={`general-deduction-${dev.id}`}
+                        type="text"
+                        placeholder="0"
+                        className="h-9 mt-1"
+                        value={generalDeductions[dev.id] ? formatCurrency(generalDeductions[dev.id]) : ''}
+                        onChange={(e) => handleGeneralDeductionChange(dev.id, e.target.value)}
+                      />
+                       <Badge variant="destructive" className="mt-2 flex items-center gap-1.5"
+                           style={{ visibility: dev.generalDeduction > 0 ? 'visible' : 'hidden' }}>
+                           <DollarSign className="h-3 w-3"/>Deduct (General): {formatCurrency(dev.generalDeduction)}
+                       </Badge>
                     </div>
                   </div>
                   <div className="border-t my-3"></div>
