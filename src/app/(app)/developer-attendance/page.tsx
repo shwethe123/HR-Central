@@ -14,11 +14,11 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { addDeveloperLeave, type AddDeveloperLeaveState } from "./actions";
-import { Code2, PlusCircle, Loader2, Calendar, User, DollarSign, AlertCircle, Wallet, Check, X } from 'lucide-react';
+import { Code2, PlusCircle, Loader2, Calendar, User, DollarSign, Wallet, Check, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, getDaysInMonth, parseISO, isValid } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, getDaysInMonth, parseISO, isValid, isSameMonth, isBefore, startOfDay, getDay } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -30,15 +30,12 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/auth-context';
 
 const FREE_LEAVE_DAYS = 4;
+const WEEKEND_DAYS = [0, 6]; // Sunday: 0, Saturday: 6
 
 const formatCurrency = (amount: number) => {
-    // This function will now only handle formatting a number to a string with commas.
-    // It will not perform rounding.
     return amount.toLocaleString('en-US', { maximumFractionDigits: 0, minimumFractionDigits: 0 });
 };
 
-
-// Client-side Zod schema for the leave form
 const ClientLeaveFormSchema = z.object({
   leaveDate: z.string().min(1, { message: "Leave date is required." }),
   reason: z.string().max(500).optional(),
@@ -59,13 +56,11 @@ export default function DeveloperAttendancePage() {
   const fetchDevelopersAndAttendance = useCallback(async (month: Date) => {
     setIsLoading(true);
     try {
-      // Fetch developers
       const developersQuery = query(collection(db, "developers"));
       const devSnapshot = await getDocs(developersQuery);
       const fetchedDevelopers: Employee[] = devSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Employee));
       setDevelopers(fetchedDevelopers);
 
-      // Fetch attendances for the selected month
       const monthStart = format(startOfMonth(month), 'yyyy-MM-dd');
       const monthEnd = format(endOfMonth(month), 'yyyy-MM-dd');
       const attendanceQuery = query(
@@ -105,45 +100,54 @@ export default function DeveloperAttendancePage() {
   }
   
   const developerStats = useMemo(() => {
-    const daysInCurrentMonth = getDaysInMonth(currentMonth);
-    const workingDaysInMonth = daysInCurrentMonth - FREE_LEAVE_DAYS;
+    const today = startOfDay(new Date());
     const monthStart = startOfMonth(currentMonth);
-    const monthEnd = endOfMonth(currentMonth);
-    const allDaysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
-
+    const monthEnd = isSameMonth(currentMonth, today) && isBefore(today, endOfMonth(currentMonth)) 
+      ? today 
+      : endOfMonth(currentMonth);
+    
+    const allDaysInInterval = eachDayOfInterval({ start: monthStart, end: monthEnd });
+    
+    const workingDaysInMonth = allDaysInInterval.filter(day => !WEEKEND_DAYS.includes(getDay(day))).length;
+    
     return developers.map(dev => {
       const devLeaves = attendances.filter(a => a.developerId === dev.id);
-      const leaveDays = devLeaves.length;
+      
+      const leaveDays = devLeaves.map(l => new Date(l.leaveDate)).filter(d => !WEEKEND_DAYS.includes(getDay(d))).length;
+      
       const extraLeaveDays = Math.max(0, leaveDays - FREE_LEAVE_DAYS);
       
       const monthlySalary = dev.salary || 0;
-      // Calculate daily wage without rounding
       const dailyWage = monthlySalary > 0 && workingDaysInMonth > 0 ? monthlySalary / workingDaysInMonth : 0;
-      // Calculate total deduction without rounding
       const salaryDeduction = extraLeaveDays * dailyWage;
       
-      // Calculate final salary without rounding
       const finalSalary = monthlySalary - salaryDeduction;
 
-      const leaveDateObjects = devLeaves.map(l => {
-          const parsed = parseISO(l.leaveDate);
-          return isValid(parsed) ? parsed : null;
-      }).filter((d): d is Date => d !== null);
+      const leaveDateObjects = devLeaves.map(l => new Date(l.leaveDate));
 
-      const monthlyAttendance = allDaysInMonth.map(day => {
-          const isLeave = leaveDateObjects.some(leaveDate => isSameDay(day, leaveDate));
-          return {
-              date: day,
-              isLeave: isLeave,
-          };
+      const monthlyAttendance = allDaysInInterval.map(day => {
+        const isLeave = leaveDateObjects.some(leaveDate => isSameDay(day, leaveDate));
+        const isWeekend = WEEKEND_DAYS.includes(getDay(day));
+        
+        let status: 'WorkDay' | 'Leave' | 'Weekend' = 'WorkDay';
+        if (isLeave) {
+          status = 'Leave';
+        } else if (isWeekend) {
+          status = 'Weekend';
+        }
+
+        return {
+            date: day,
+            status: status,
+        };
       });
 
       return {
         ...dev,
         leaveDays,
         extraLeaveDays,
-        salaryDeduction, // Keep as precise number
-        finalSalary, // Keep as precise number
+        salaryDeduction,
+        finalSalary,
         monthlyAttendance
       };
     });
@@ -172,8 +176,8 @@ export default function DeveloperAttendancePage() {
         <CardHeader>
           <CardTitle>Monthly Leave Summary</CardTitle>
           <CardDescription>
-            Track monthly leave for each developer. Each developer is allowed {FREE_LEAVE_DAYS} leave days per month.
-            Exceeding this will result in a salary deduction based on their daily wage for the selected month.
+            Track monthly leave for each developer. Each developer is allowed {FREE_LEAVE_DAYS} leave days per month (weekends excluded).
+            Exceeding this will result in a salary deduction.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -216,12 +220,36 @@ export default function DeveloperAttendancePage() {
                   <div className="border-t my-3"></div>
                   <div className="flex justify-between items-start">
                      <div className="flex flex-wrap gap-1.5 flex-grow">
-                        {dev.monthlyAttendance.length > 0 ? dev.monthlyAttendance.map(day => (
-                            <Badge key={day.date.toString()} variant={day.isLeave ? "secondary" : "default"} className={cn("font-mono flex items-center gap-1", day.isLeave ? "" : "bg-green-100 text-green-800 border-green-300 hover:bg-green-200")}>
-                               {day.isLeave ? <X className="h-3 w-3"/> : <Check className="h-3 w-3"/>}
-                               {format(day.date, 'dd')}
-                            </Badge>
-                        )) : <p className="text-xs text-muted-foreground">No attendance data for this month.</p>}
+                        {dev.monthlyAttendance.length > 0 ? dev.monthlyAttendance.map(day => {
+                            let badgeContent;
+                            switch (day.status) {
+                                case 'Leave':
+                                    badgeContent = (
+                                        <Badge key={day.date.toString()} variant="secondary" className="font-mono flex items-center gap-1">
+                                            <X className="h-3 w-3"/>
+                                            {format(day.date, 'dd')}
+                                        </Badge>
+                                    );
+                                    break;
+                                case 'Weekend':
+                                     badgeContent = (
+                                        <Badge key={day.date.toString()} variant="outline" className="font-mono flex items-center gap-1 border-gray-400">
+                                            {format(day.date, 'dd')}
+                                        </Badge>
+                                    );
+                                    break;
+                                case 'WorkDay':
+                                default:
+                                    badgeContent = (
+                                        <Badge key={day.date.toString()} variant="default" className="font-mono flex items-center gap-1 bg-green-100 text-green-800 border-green-300 hover:bg-green-200">
+                                            <Check className="h-3 w-3"/>
+                                            {format(day.date, 'dd')}
+                                        </Badge>
+                                    );
+                                    break;
+                            }
+                            return badgeContent;
+                        }) : <p className="text-xs text-muted-foreground">No attendance data for this month interval.</p>}
                      </div>
                      {isAdmin && (
                         <Button size="sm" variant="outline" onClick={() => handleAddLeaveClick(dev)} className="ml-4 flex-shrink-0">
