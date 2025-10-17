@@ -324,7 +324,7 @@ export default function DeveloperAttendancePage() {
                       <p className="text-sm text-muted-foreground flex items-center">
                         <DollarSign className="mr-2 h-4 w-4"/> Base Salary: {dev.salary ? formatCurrency(dev.salary) : 'N/A'}
                       </p>
-                      <p className={cn("text-sm font-semibold flex items-center", dev.finalSalary < dev.salary ? "text-destructive" : "text-green-600")}>
+                      <p className={cn("text-sm font-semibold flex items-center", (dev.finalSalary ?? 0) < (dev.salary ?? 0) ? "text-destructive" : "text-green-600")}>
                         <Wallet className="mr-2 h-4 w-4"/> Final Salary: {dev.finalSalary ? formatCurrency(Math.round(dev.finalSalary)) : 'N/A'}
                       </p>
                     </div>
@@ -501,38 +501,35 @@ interface LeaveFormDialogProps {
 
 function LeaveFormDialog({ isOpen, onOpenChange, developer, onSuccess }: LeaveFormDialogProps) {
   const { toast } = useToast();
-  const [state, formAction] = useActionState(addDeveloperLeave, { message: null, success: false });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<LeaveFormData>({
     resolver: zodResolver(ClientLeaveFormSchema),
     defaultValues: { leaveDate: '', reason: '' }
   });
-
-  useEffect(() => {
-    if (state?.success) {
-      toast({ title: "Success", description: state.message });
+  
+  const onSubmit = async (data: LeaveFormData) => {
+    setIsSubmitting(true);
+    const result = await addDeveloperLeave({
+        developerId: developer.id,
+        leaveDate: data.leaveDate,
+        reason: data.reason
+    });
+    
+    if (result.success) {
+      toast({ title: "Success", description: result.message });
       form.reset();
       onSuccess();
-    } else if (state?.message && !state.success) {
-      toast({ title: "Error", description: state.errors?._form?.[0] || state.message, variant: "destructive" });
+    } else {
+      toast({ title: "Error", description: result.message, variant: "destructive" });
     }
-  }, [state, toast, form, onSuccess]);
-  
-  const onSubmit = (data: LeaveFormData) => {
-    const formData = new FormData();
-    formData.append('developerId', developer.id);
-    formData.append('leaveDate', data.leaveDate);
-    if (data.reason) formData.append('reason', data.reason);
-    
-    startTransition(() => formAction(formData));
+    setIsSubmitting(false);
   }
 
-  // We need to use `useFormStatus` from inside the form.
   function SubmitButton() {
-      const { pending } = useFormStatus();
       return (
-          <Button type="submit" disabled={pending}>
-              {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Save Leave Day
           </Button>
       )

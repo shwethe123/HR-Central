@@ -14,25 +14,19 @@ const AddDeveloperLeaveSchema = z.object({
 });
 
 export type AddDeveloperLeaveState = {
-  message: string | null;
-  errors?: z.ZodError<z.infer<typeof AddDeveloperLeaveSchema>>['formErrors']['fieldErrors'];
-  success?: boolean;
+  message: string;
+  success: boolean;
 };
 
 export async function addDeveloperLeave(
-  prevState: AddDeveloperLeaveState,
-  formData: FormData
+  data: { developerId: string, leaveDate: string, reason?: string }
 ): Promise<AddDeveloperLeaveState> {
-  const validatedFields = AddDeveloperLeaveSchema.safeParse({
-    developerId: formData.get('developerId'),
-    leaveDate: formData.get('leaveDate'),
-    reason: formData.get('reason'),
-  });
+  const validatedFields = AddDeveloperLeaveSchema.safeParse(data);
 
   if (!validatedFields.success) {
+    const firstError = Object.values(validatedFields.error.flatten().fieldErrors)[0]?.[0];
     return {
-      message: "Validation failed. Please check the form fields.",
-      errors: validatedFields.error.flatten().fieldErrors,
+      message: firstError || "Validation failed. Please check the form fields.",
       success: false,
     };
   }
@@ -73,6 +67,7 @@ export async function addDeveloperLeave(
     };
   }
 }
+
 
 const DeleteDeveloperLeaveSchema = z.object({
   attendanceId: z.string().min(1, { message: "Attendance ID is required to delete." }),
