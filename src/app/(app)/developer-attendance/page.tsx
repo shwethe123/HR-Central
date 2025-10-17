@@ -30,7 +30,7 @@ import { Code2, PlusCircle, Loader2, Calendar, User, DollarSign, Wallet, Check, 
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, getDaysInMonth, parseISO, isValid, isSameMonth, isBefore, getDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, getDaysInMonth, parseISO, isValid, isSameMonth, isBefore, getDay, startOfDay } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -42,7 +42,6 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/auth-context';
 
 const FREE_LEAVE_DAYS = 4;
-const WEEKEND_DAYS = [0, 6]; // Sunday: 0, Saturday: 6
 
 const formatCurrency = (amount: number) => {
     return amount.toLocaleString('en-US', { maximumFractionDigits: 0, minimumFractionDigits: 0 });
@@ -171,7 +170,7 @@ export default function DeveloperAttendancePage() {
   }
   
   const developerStats = useMemo(() => {
-    const today = new Date();
+    const today = startOfDay(new Date());
     const monthStart = startOfMonth(currentMonth);
     const lastDayOfMonth = endOfMonth(currentMonth);
     
@@ -184,26 +183,20 @@ export default function DeveloperAttendancePage() {
     const holidayDateStrings = publicHolidays.map(h => h.date);
 
     const workingDaysInMonth = eachDayOfInterval({ start: monthStart, end: lastDayOfMonth }).filter(day => {
-        const dayOfWeek = getDay(day);
-        const isWeekend = WEEKEND_DAYS.includes(dayOfWeek);
         const isHoliday = holidayDateStrings.includes(format(day, 'yyyy-MM-dd'));
-        return !isWeekend && !isHoliday;
+        return !isHoliday;
     }).length;
 
     return developers.map(dev => {
-      // Correctly count leave days for the specific developer from the already month-filtered 'attendances' state
       const leaveDaysCount = attendances.filter(leave => {
         if (leave.developerId !== dev.id) return false;
         
         const leaveDate = parseISO(leave.leaveDate);
         if (!isValid(leaveDate)) return false;
         
-        const dayOfWeek = getDay(leaveDate);
-        const isWeekend = WEEKEND_DAYS.includes(dayOfWeek);
         const isHoliday = holidayDateStrings.includes(leave.leaveDate);
         
-        // Count as a leave day only if it's not a weekend or a public holiday
-        return !isWeekend && !isHoliday;
+        return !isHoliday;
       }).length;
       
       const extraLeaveDays = Math.max(0, leaveDaysCount - FREE_LEAVE_DAYS);
@@ -216,7 +209,6 @@ export default function DeveloperAttendancePage() {
 
       const monthlyAttendance = allDaysInDisplayInterval.map(day => {
         const formattedDay = format(day, 'yyyy-MM-dd');
-        const dayOfWeek = getDay(day);
         
         const leaveRecord = attendances.find(leave => leave.developerId === dev.id && leave.leaveDate === formattedDay);
         const holidayRecord = publicHolidays.find(h => h.date === formattedDay);
@@ -282,7 +274,7 @@ export default function DeveloperAttendancePage() {
         <CardHeader>
           <CardTitle>Monthly Leave Summary</CardTitle>
           <CardDescription>
-            Track monthly leave for each developer. Each developer is allowed {FREE_LEAVE_DAYS} leave days per month (weekends & public holidays excluded).
+            Track monthly leave for each developer. Each developer is allowed {FREE_LEAVE_DAYS} leave days per month (public holidays excluded).
             Exceeding this will result in a salary deduction.
           </CardDescription>
         </CardHeader>
@@ -366,17 +358,12 @@ export default function DeveloperAttendancePage() {
                                     break;
                                 case 'WorkDay':
                                 default:
-                                     const isWeekend = WEEKEND_DAYS.includes(getDay(day.date));
-                                     if(isWeekend) {
-                                        badgeContent = null; // Don't render a badge for weekends
-                                     } else {
-                                        badgeContent = (
-                                            <Badge key={`${dev.id}-${day.date.toString()}`} variant="default" className="font-mono flex items-center gap-1 bg-green-100 text-green-800 border-green-300 hover:bg-green-200">
-                                                <Check className="h-3 w-3"/>
-                                                {dayNumber}
-                                            </Badge>
-                                        );
-                                     }
+                                    badgeContent = (
+                                        <Badge key={`${dev.id}-${day.date.toString()}`} variant="default" className="font-mono flex items-center gap-1 bg-green-100 text-green-800 border-green-300 hover:bg-green-200">
+                                            <Check className="h-3 w-3"/>
+                                            {dayNumber}
+                                        </Badge>
+                                    );
                                     break;
                             }
                             return badgeContent;
@@ -553,5 +540,3 @@ function HolidayFormDialog({ isOpen, onOpenChange, onSuccess }: HolidayFormDialo
         </Dialog>
     );
 }
-
-    
