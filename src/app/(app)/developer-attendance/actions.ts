@@ -5,10 +5,10 @@ import { z } from 'zod';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp, doc, getDoc, deleteDoc } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
+import type { Employee } from '@/types';
 
 const AddDeveloperLeaveSchema = z.object({
   developerId: z.string().min(1, { message: "Developer must be selected." }),
-  developerName: z.string().min(1, { message: "Developer name is required." }),
   leaveDate: z.string().refine((date) => !isNaN(Date.parse(date)), { message: "A valid leave date is required." }),
   reason: z.string().max(500, "Reason is too long.").optional().or(z.literal('')),
 });
@@ -25,7 +25,6 @@ export async function addDeveloperLeave(
 ): Promise<AddDeveloperLeaveState> {
   const validatedFields = AddDeveloperLeaveSchema.safeParse({
     developerId: formData.get('developerId'),
-    developerName: formData.get('developerName'),
     leaveDate: formData.get('leaveDate'),
     reason: formData.get('reason'),
   });
@@ -38,16 +37,32 @@ export async function addDeveloperLeave(
     };
   }
 
+  const { developerId, leaveDate, reason } = validatedFields.data;
+
   try {
+    const devDocRef = doc(db, 'developers', developerId);
+    const devDocSnap = await getDoc(devDocRef);
+
+    if (!devDocSnap.exists()) {
+        return { message: "Selected developer not found in the database.", success: false };
+    }
+    
+    const developerName = (devDocSnap.data() as Employee).name || 'Unknown Developer';
+
     await addDoc(collection(db, 'developerAttendances'), {
-      ...validatedFields.data,
+      developerId,
+      developerName,
+      leaveDate,
+      reason: reason || '',
+      leaveType: 'Leave', // Standardizing the type
+      status: 'Approved',   // Standardizing the status
       createdAt: serverTimestamp(),
     });
 
     revalidatePath('/developer-attendance');
 
     return {
-      message: `Leave day for ${validatedFields.data.developerName} on ${validatedFields.data.leaveDate} has been recorded.`,
+      message: `Leave day for ${developerName} on ${leaveDate} has been recorded.`,
       success: true,
     };
   } catch (error) {
@@ -82,12 +97,18 @@ export async function deleteDeveloperLeave(
   
   try {
     const leaveDocRef = doc(db, 'developerAttendances', attendanceId);
+    const leaveDocSnap = await getDoc(leaveDocRef);
+    if (!leaveDocSnap.exists()) {
+        return { message: "Leave record not found.", success: false };
+    }
+    const devName = leaveDocSnap.data().developerName || "the developer";
+
     await deleteDoc(leaveDocRef);
 
     revalidatePath('/developer-attendance');
 
     return {
-      message: 'Leave record has been successfully removed.',
+      message: `Leave day for ${devName} removed.`,
       success: true,
     };
   } catch (error) {
@@ -155,9 +176,16 @@ export async function deletePublicHoliday(holidayId: string): Promise<{ success:
   }
 
   try {
-    await deleteDoc(doc(db, 'publicHolidays', holidayId));
+    const holidayDocRef = doc(db, 'publicHolidays', holidayId);
+    const holidayDocSnap = await getDoc(holidayDocRef);
+     if (!holidayDocSnap.exists()) {
+        return { message: "Holiday record not found.", success: false };
+    }
+    const holidayName = holidayDocSnap.data().name || "The holiday";
+
+    await deleteDoc(holidayDocRef);
     revalidatePath('/developer-attendance');
-    return { success: true, message: "Public holiday deleted." };
+    return { success: true, message: `${holidayName} has been removed successfully.` };
   } catch (error) {
     console.error(`Error deleting public holiday (ID: ${holidayId}):`, error);
     return { 

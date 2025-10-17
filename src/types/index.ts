@@ -27,6 +27,8 @@ export type DeveloperAttendance = {
   developerName: string;
   leaveDate: string; // The specific date of leave, e.g., "2024-07-31"
   reason?: string; // Optional reason for the leave
+  leaveType: 'Leave' | 'Sick' | 'Meeting'; // Example types
+  status: 'Approved' | 'Pending'; // Example statuses
   createdAt: Timestamp;
 };
 

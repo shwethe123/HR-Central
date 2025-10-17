@@ -135,7 +135,7 @@ export default function DeveloperAttendancePage() {
     setIsDeleting(true);
     const result = await deleteDeveloperLeave(leaveToDelete.attendanceId);
     if (result.success) {
-        toast({ title: 'Success', description: `Leave day for ${leaveToDelete.devName} removed.` });
+        toast({ title: 'Success', description: result.message ?? `Leave day for ${leaveToDelete.devName} removed.` });
         await fetchAllData(currentMonth); 
     } else {
         toast({ title: 'Error', description: result.message, variant: 'destructive' });
@@ -147,8 +147,12 @@ export default function DeveloperAttendancePage() {
   const handleDeleteHolidayConfirm = async () => {
     if (!holidayToDelete) return;
     setIsDeleting(true);
-    await deletePublicHoliday(holidayToDelete.id);
-    toast({ title: "Holiday Removed", description: `${holidayToDelete.name} has been removed successfully.`});
+    const result = await deletePublicHoliday(holidayToDelete.id);
+    if (result.success) {
+        toast({ title: "Holiday Removed", description: result.message});
+    } else {
+        toast({ title: "Error", description: result.message, variant: 'destructive' });
+    }
     setHolidayToDelete(null);
     setIsDeleting(false);
     await fetchAllData(currentMonth);
@@ -186,16 +190,18 @@ export default function DeveloperAttendancePage() {
     
     return developers.map(dev => {
       const devLeaves = attendances.filter(a => a.developerId === dev.id);
-      
-      const leaveDays = devLeaves.filter(l => {
-          const leaveDate = new Date(l.leaveDate);
-          const dayOfWeek = getDay(leaveDate);
+      const leaveDateStrings = devLeaves.map(l => l.leaveDate);
+
+      const leaveDaysCount = allDaysInInterval.filter(day => {
+          const formattedDay = format(day, 'yyyy-MM-dd');
+          const dayOfWeek = getDay(day);
           const isWeekend = WEEKEND_DAYS.includes(dayOfWeek);
-          const isHoliday = holidayDateStrings.includes(l.leaveDate);
-          return !isWeekend && !isHoliday;
+          const isHoliday = holidayDateStrings.includes(formattedDay);
+          const isOnLeave = leaveDateStrings.includes(formattedDay);
+          return isOnLeave && !isWeekend && !isHoliday;
       }).length;
       
-      const extraLeaveDays = Math.max(0, leaveDays - FREE_LEAVE_DAYS);
+      const extraLeaveDays = Math.max(0, leaveDaysCount - FREE_LEAVE_DAYS);
       
       const monthlySalary = dev.salary || 0;
       const dailyWage = monthlySalary > 0 && workingDaysInMonth > 0 ? monthlySalary / workingDaysInMonth : 0;
@@ -211,29 +217,25 @@ export default function DeveloperAttendancePage() {
         const isWeekend = WEEKEND_DAYS.includes(getDay(day));
         
         let status: 'WorkDay' | 'Leave' | 'Weekend' | 'Holiday' = 'WorkDay';
-        let id: string | undefined = undefined;
-
         if (isHoliday) {
             status = 'Holiday';
-            id = holidayRecord?.id;
         } else if (isWeekend) {
             status = 'Weekend';
         } else if (leaveRecord) {
             status = 'Leave';
-            id = leaveRecord.id;
         }
 
         return {
             date: day,
             status: status,
-            id: id,
+            id: leaveRecord?.id || holidayRecord?.id, // Use leave ID or holiday ID
             holidayDetails: holidayRecord,
         };
       });
 
       return {
         ...dev,
-        leaveDays,
+        leaveDays: leaveDaysCount,
         extraLeaveDays,
         salaryDeduction,
         finalSalary,
@@ -359,6 +361,12 @@ export default function DeveloperAttendancePage() {
                                     );
                                     break;
                                 case 'Weekend':
+                                    badgeContent = (
+                                        <Badge key={`${dev.id}-${day.date.toString()}`} variant="outline" className="font-mono flex items-center gap-1 border-gray-300 text-gray-500">
+                                            {format(day.date, 'dd')}
+                                        </Badge>
+                                    );
+                                    break;
                                 case 'WorkDay':
                                 default:
                                     badgeContent = (
@@ -475,7 +483,6 @@ function LeaveFormDialog({ isOpen, onOpenChange, developer, onSuccess }: LeaveFo
   const onSubmit = (data: LeaveFormData) => {
     const formData = new FormData();
     formData.append('developerId', developer.id);
-    formData.append('developerName', developer.name);
     formData.append('leaveDate', data.leaveDate);
     if (data.reason) formData.append('reason', data.reason);
     
@@ -544,4 +551,3 @@ function HolidayFormDialog({ isOpen, onOpenChange, onSuccess }: HolidayFormDialo
         </Dialog>
     );
 }
-
