@@ -30,7 +30,7 @@ import { Code2, PlusCircle, Loader2, Calendar, User, DollarSign, Wallet, Check, 
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, getDaysInMonth, parseISO, isValid, isSameMonth, isBefore, getDay, startOfDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, getDaysInMonth, parseISO, isValid, isSameMonth, isBefore } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -170,7 +170,7 @@ export default function DeveloperAttendancePage() {
   }
   
   const developerStats = useMemo(() => {
-    const today = startOfDay(new Date());
+    const today = new Date();
     const monthStart = startOfMonth(currentMonth);
     const lastDayOfMonth = endOfMonth(currentMonth);
     
@@ -182,21 +182,16 @@ export default function DeveloperAttendancePage() {
     
     const holidayDateStrings = publicHolidays.map(h => h.date);
 
-    const workingDaysInMonth = eachDayOfInterval({ start: monthStart, end: lastDayOfMonth }).filter(day => {
-        const isHoliday = holidayDateStrings.includes(format(day, 'yyyy-MM-dd'));
-        return !isHoliday;
-    }).length;
+    // New logic for calculating working days based on user request
+    const totalDaysInMonth = getDaysInMonth(currentMonth);
+    const workingDaysInMonth = totalDaysInMonth - 4; // Subtract 4 fixed days
 
     return developers.map(dev => {
+      // Calculate leave days taken by this developer in the current month, excluding holidays.
       const leaveDaysCount = attendances.filter(leave => {
         if (leave.developerId !== dev.id) return false;
-        
-        const leaveDate = parseISO(leave.leaveDate);
-        if (!isValid(leaveDate)) return false;
-        
         const isHoliday = holidayDateStrings.includes(leave.leaveDate);
-        
-        return !isHoliday;
+        return !isHoliday; // Count as a leave day only if it's not a public holiday
       }).length;
       
       const extraLeaveDays = Math.max(0, leaveDaysCount - FREE_LEAVE_DAYS);
