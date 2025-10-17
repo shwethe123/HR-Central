@@ -1,7 +1,7 @@
 // src/app/(app)/developer-attendance/page.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo, useActionState, startTransition } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useActionState, startTransition, useRef } from 'react';
 import type { Employee, DeveloperAttendance, PublicHoliday } from "@/types";
 import { Button } from '@/components/ui/button';
 import {
@@ -34,7 +34,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { addDeveloperLeave, deleteDeveloperLeave, addPublicHoliday, deletePublicHoliday } from "./actions";
 import { AddHolidayForm } from "./add-holiday-form";
-import { Code2, PlusCircle, Loader2, Calendar, User, DollarSign, Wallet, Check, X, AlertTriangle, CalendarPlus, MoreHorizontal } from 'lucide-react';
+import { Code2, PlusCircle, Loader2, Calendar, User, DollarSign, Wallet, Check, X, AlertTriangle, CalendarPlus, MoreHorizontal, Printer } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
@@ -45,12 +45,31 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/auth-context';
+import { Separator } from '@/components/ui/separator';
 
 const FREE_LEAVE_DAYS = 4;
 
-const formatCurrency = (amount: number) => {
+const formatCurrency = (amount: number | undefined) => {
+    if (amount === undefined) return 'N/A';
     return amount.toLocaleString('en-US', { maximumFractionDigits: 0, minimumFractionDigits: 0 });
 };
+
+// Define the type for the stats object
+type DeveloperStats = Employee & {
+  leaveDays: number;
+  extraLeaveDays: number;
+  salaryDeduction: number;
+  generalDeduction: number;
+  finalSalary: number;
+  dailyWage: number;
+  monthlyAttendance: {
+      date: Date;
+      status: "WorkDay" | "Leave" | "Holiday";
+      id: string | undefined;
+      holidayDetails: PublicHoliday | undefined;
+  }[];
+};
+
 
 export default function DeveloperAttendancePage() {
   const [developers, setDevelopers] = useState<Employee[]>([]);
@@ -66,11 +85,14 @@ export default function DeveloperAttendancePage() {
   const [holidayToDelete, setHolidayToDelete] = useState<PublicHoliday | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // States for the new deduction dialog
   const [isDeductionDialogOpen, setIsDeductionDialogOpen] = useState(false);
   const [developerForDeduction, setDeveloperForDeduction] = useState<Employee | null>(null);
 
   const [generalDeductions, setGeneralDeductions] = useState<Record<string, number>>({});
+  
+  const [isSalarySlipDialogOpen, setIsSalarySlipDialogOpen] = useState(false);
+  const [developerForSalarySlip, setDeveloperForSalarySlip] = useState<DeveloperStats | null>(null);
+  const salarySlipRef = useRef<HTMLDivElement>(null);
 
 
   const { toast } = useToast();
@@ -131,6 +153,11 @@ export default function DeveloperAttendancePage() {
     setIsDeductionDialogOpen(true);
   };
   
+  const handleViewSalarySlipClick = (devStats: DeveloperStats) => {
+    setDeveloperForSalarySlip(devStats);
+    setIsSalarySlipDialogOpen(true);
+  };
+  
   const handleUnleaveClick = (devName: string, attendanceId: string) => {
     if (!isAdmin) return;
     setLeaveToDelete({ devName, attendanceId });
@@ -187,20 +214,13 @@ export default function DeveloperAttendancePage() {
     setDeveloperForDeduction(null);
   };
   
-  const developerStats = useMemo(() => {
+  const developerStats: DeveloperStats[] = useMemo(() => {
     const totalDaysInMonth = getDaysInMonth(currentMonth);
-    // New logic: Working days = total days in month - 4
     const workingDaysInMonth = totalDaysInMonth - 4;
     
-    const holidayDates = publicHolidays.map(h => h.date);
-
     return developers.map(dev => {
       const devLeaves = attendances.filter(a => a.developerId === dev.id);
-
-      const leaveDaysCount = devLeaves.filter(leave => {
-        // Count a leave day if it's not a public holiday
-        return !holidayDates.includes(leave.leaveDate);
-      }).length;
+      const leaveDaysCount = devLeaves.length;
       
       const extraLeaveDays = Math.max(0, leaveDaysCount - FREE_LEAVE_DAYS);
       
@@ -241,6 +261,7 @@ export default function DeveloperAttendancePage() {
         salaryDeduction,
         generalDeduction: generalDeductionAmount,
         finalSalary,
+        dailyWage,
         monthlyAttendance
       };
     });
@@ -249,6 +270,21 @@ export default function DeveloperAttendancePage() {
   const totalFinalSalary = useMemo(() => {
     return developerStats.reduce((total, dev) => total + (dev.finalSalary || 0), 0);
   }, [developerStats]);
+
+  const handlePrintSlip = () => {
+    const slipElement = salarySlipRef.current;
+    if (slipElement) {
+        const printWindow = window.open('', '', 'height=600,width=800');
+        printWindow?.document.write('<html><head><title>Salary Slip</title>');
+        printWindow?.document.write('<style>body { font-family: sans-serif; } table { width: 100%; border-collapse: collapse; } td, th { border: 1px solid #dddddd; text-align: left; padding: 8px; } .text-right { text-align: right; } .font-bold { font-weight: bold; } .bg-gray-100 { background-color: #f3f4f6; }</style>');
+        printWindow?.document.write('</head><body>');
+        printWindow?.document.write(slipElement.innerHTML);
+        printWindow?.document.write('</body></html>');
+        printWindow?.document.close();
+        printWindow?.focus();
+        printWindow?.print();
+    }
+  };
 
   return (
     <div className="container mx-auto py-2 space-y-6">
@@ -313,6 +349,10 @@ export default function DeveloperAttendancePage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuItem onSelect={() => handleViewSalarySlipClick(dev)}>
+                            <DollarSign className="mr-2 h-4 w-4" />
+                            View Salary Slip
+                          </DropdownMenuItem>
                            <DropdownMenuItem onSelect={() => handleAddLeaveClick(dev)}>
                             <PlusCircle className="mr-2 h-4 w-4" />
                             Add Leave
@@ -441,6 +481,17 @@ export default function DeveloperAttendancePage() {
           currentDeduction={generalDeductions[developerForDeduction.id] || 0}
           onSave={onDeductionSave}
         />
+      )}
+
+      {developerForSalarySlip && (
+         <SalarySlipDialog
+            isOpen={isSalarySlipDialogOpen}
+            onOpenChange={setIsSalarySlipDialogOpen}
+            devStats={developerForSalarySlip}
+            month={currentMonth}
+            onPrint={handlePrintSlip}
+            slipRef={salarySlipRef}
+         />
       )}
       
       {/* Holiday Deletion Dialog */}
@@ -622,6 +673,71 @@ function DeductionFormDialog({ isOpen, onOpenChange, developer, currentDeduction
             </DialogContent>
         </Dialog>
     );
+}
+
+// Salary Slip Dialog Component
+interface SalarySlipDialogProps {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  devStats: DeveloperStats | null;
+  month: Date;
+  onPrint: () => void;
+  slipRef: React.RefObject<HTMLDivElement>;
+}
+
+function SalarySlipDialog({ isOpen, onOpenChange, devStats, month, onPrint, slipRef }: SalarySlipDialogProps) {
+  if (!devStats) return null;
+
+  const DetailRow = ({ label, value, isBold = false, isTotal = false }: { label: string, value: string | number, isBold?: boolean, isTotal?: boolean }) => (
+    <div className={cn("flex justify-between py-2", !isTotal && "border-b border-dashed")}>
+        <p className={cn(isBold ? "font-semibold" : "text-muted-foreground")}>{label}</p>
+        <p className={cn("font-mono", isBold ? "font-bold" : "")}>
+            {typeof value === 'number' ? formatCurrency(value) : value}
+        </p>
+    </div>
+  );
+
+  return (
+      <Dialog open={isOpen} onOpenChange={onOpenChange}>
+          <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                  <DialogTitle>Salary Slip</DialogTitle>
+                  <DialogDescription>
+                      Detailed salary breakdown for {devStats.name} for {format(month, 'MMMM yyyy')}.
+                  </DialogDescription>
+              </DialogHeader>
+              <div ref={slipRef} className="space-y-4 p-4 rounded-md border bg-muted/50">
+                  <h3 className="font-bold text-center text-lg">{devStats.name}</h3>
+                  <p className="text-center text-sm text-muted-foreground -mt-3">{format(month, 'MMMM yyyy')}</p>
+                  
+                  <Separator />
+                  <DetailRow label="Base Salary" value={devStats.salary || 0} isBold={true} />
+                  <Separator />
+
+                  <p className="text-sm font-semibold pt-2">Attendance</p>
+                  <DetailRow label="Total Leave Days" value={devStats.leaveDays} />
+                  <DetailRow label="Allowed Leave Days" value={FREE_LEAVE_DAYS} />
+                  <DetailRow label="Extra Leave Days" value={devStats.extraLeaveDays} />
+                  
+                  <Separator />
+                  <p className="text-sm font-semibold pt-2">Deductions</p>
+                  <DetailRow label="Deduction per Day" value={Math.round(devStats.dailyWage)} />
+                  <DetailRow label="Leave Deduction" value={-Math.round(devStats.salaryDeduction)} />
+                  <DetailRow label="General Deduction" value={-devStats.generalDeduction} />
+                  
+                  <Separator className="my-4"/>
+                  
+                  <div className="bg-background p-3 rounded-md">
+                    <DetailRow label="Final Salary" value={Math.round(devStats.finalSalary)} isBold={true} isTotal={true}/>
+                  </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+                <Button onClick={onPrint}><Printer className="mr-2 h-4 w-4"/> Print Slip</Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
+  );
 }
 
 
