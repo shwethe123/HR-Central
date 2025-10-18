@@ -46,6 +46,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/auth-context';
 import { Separator } from '@/components/ui/separator';
+import jsPDF from 'jspdf';
 
 const FREE_LEAVE_DAYS = 4;
 
@@ -295,48 +296,136 @@ export default function DeveloperAttendancePage() {
     return developerStats.reduce((sum, dev) => sum + dev.finalSalary, 0);
   }, [developerStats]);
 
-  const handlePrintSlip = () => {
+  const handlePrintSlip = async () => {
     const slipElement = salarySlipRef.current;
-    if (slipElement) {
-        const printWindow = window.open('', '', 'height=700,width=800');
-        printWindow?.document.write('<html><head><title>Salary Slip</title>');
-        printWindow?.document.write(`<style>
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #111827; margin: 0; padding: 20px; background-color: #f9fafb; }
-            @media print {
-                body { padding: 0; background-color: #fff; }
-                .no-print { display: none; }
-                .slip-container { box-shadow: none; border: 1px solid #e5e7eb; }
-            }
-            .slip-container { width: 100%; max-width: 400px; margin: auto; background-color: #ffffff; border-radius: 8px; padding: 24px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); }
-            h3, p { margin: 0; }
-            .header { text-align: center; padding-bottom: 16px; }
-            .header .company-name { font-size: 24px; font-weight: 800; letter-spacing: -0.05em; color: #5DADE2; }
-            .header .employee-name { font-size: 18px; font-weight: 600; margin-top: 16px; }
-            .header .period { font-size: 14px; color: #6b7280; }
-            .account-info { font-size: 12px; color: #6b7280; margin-top: 8px; display: inline-flex; align-items: center; gap: 8px; background-color: #f3f4f6; padding: 4px 8px; border-radius: 4px;}
-            .section-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; text-align: center; margin: 16px 0; }
-            .section-grid-item { background-color: #f3f4f6; padding: 8px; border-radius: 6px; }
-            .section-grid-item .value { font-size: 24px; font-weight: 700; }
-            .section-grid-item .label { font-size: 12px; color: #6b7280; }
-            .details { margin-top: 16px; }
-            .detail-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px dashed #e5e7eb; }
-            .detail-row .label { font-size: 14px; color: #4b5563; }
-            .detail-row .value { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-weight: 500; }
-            .detail-row.negative .value { color: #ef4444; }
-            .footer { margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb; }
-            .footer .net-payable { background-color: rgba(93, 173, 226, 0.1); padding: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; }
-            .footer .net-payable .label { font-size: 18px; font-weight: 700; color: #5DADE2; }
-            .footer .net-payable .value { font-size: 24px; font-weight: 700; color: #5DADE2; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}
-            hr.separator { border: none; border-top: 1px solid #e5e7eb; margin: 16px 0; }
-        </style>`);
-        printWindow?.document.write('</head><body>');
-        printWindow?.document.write(slipElement.innerHTML);
-        printWindow?.document.write('</body></html>');
-        printWindow?.document.close();
-        printWindow?.focus();
-        printWindow?.print();
+    if (slipElement && developerForSalarySlip) {
+      const doc = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: [85.6, 54], // Credit card size
+      });
+
+      const cardWidth = 85.6;
+      const cardHeight = 54;
+      const margin = 4;
+
+      const darkBlue = '#0A2240';
+      const accentBlue = '#00AEEF';
+      const white = '#FFFFFF';
+      const lightGray = '#D3D3D3';
+      const grayText = '#9CA3AF';
+
+      doc.setFillColor(darkBlue);
+      doc.rect(0, 0, cardWidth, cardHeight, 'F');
+      
+      const accentWidth = 28;
+      doc.setFillColor(accentBlue);
+      doc.rect(0, 0, accentWidth, cardHeight, 'F');
+
+      const avatarSize = 20;
+      const avatarX = (accentWidth - avatarSize) / 2;
+      const avatarY = margin + 2;
+
+      let avatarAdded = false;
+      if (developerForSalarySlip.avatar) {
+          try {
+              const response = await fetch(developerForSalarySlip.avatar);
+              const blob = await response.blob();
+              const reader = new FileReader();
+              const toDataURL = () => new Promise<string>((resolve) => {
+                  reader.onloadend = () => resolve(reader.result as string);
+                  reader.readAsDataURL(blob);
+              });
+              const dataUrl = await toDataURL();
+              const imgFormat = dataUrl.substring(dataUrl.indexOf('/') + 1, dataUrl.indexOf(';'));
+              doc.addImage(dataUrl, imgFormat.toUpperCase(), avatarX, avatarY, avatarSize, avatarSize);
+              avatarAdded = true;
+          } catch (e) {
+              console.error(`Error adding image to PDF (URL: ${developerForSalarySlip.avatar}). Error: ${e}. Falling back to initials.`);
+          }
+      }
+
+      if (!avatarAdded) {
+          const initials = developerForSalarySlip.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
+          doc.setFillColor(white);
+          doc.circle(accentWidth / 2, avatarY + avatarSize / 2, avatarSize / 2, 'F');
+          doc.setTextColor(darkBlue);
+          doc.setFontSize(10);
+          doc.setFont(undefined, 'bold');
+          const initialsWidth = doc.getTextWidth(initials);
+          doc.text(initials, (accentWidth - initialsWidth) / 2, avatarY + avatarSize / 2 + 3.5);
+      }
+      
+      doc.setTextColor(white);
+      doc.setFontSize(8);
+      doc.setFont(undefined, 'bold');
+      const companyName = "waansaung";
+      const companyNameWidth = doc.getTextWidth(companyName);
+      doc.text(companyName, (accentWidth - companyNameWidth) / 2, avatarY + avatarSize + 8);
+
+
+      const contentX = accentWidth + margin;
+      let currentY = margin + 5;
+      const contentWidth = cardWidth - contentX - margin;
+
+      doc.setTextColor(white);
+      doc.setFontSize(12);
+      doc.setFont(undefined, 'bold');
+      const nameLines = doc.splitTextToSize(developerForSalarySlip.name, contentWidth);
+      nameLines.forEach((line, index) => {
+          doc.text(line, contentX, currentY + (index * 4.5));
+      });
+      currentY += (nameLines.length * 5);
+
+      doc.setTextColor(lightGray);
+      doc.setFontSize(8);
+      doc.setFont(undefined, 'normal');
+      doc.text(developerForSalarySlip.role || 'Developer', contentX, currentY);
+      currentY += 4;
+
+      doc.setDrawColor(accentBlue);
+      doc.setLineWidth(0.3);
+      doc.line(contentX, currentY, cardWidth - margin, currentY);
+      currentY += 4;
+
+      doc.setFontSize(7.5);
+      doc.setTextColor(grayText);
+      const addDetail = (label: string, value: string) => {
+        if (currentY < cardHeight - margin - 2) {
+          doc.text(label, contentX, currentY);
+          doc.setTextColor(white);
+          doc.text(value, contentX + 15, currentY);
+          doc.setTextColor(grayText);
+          currentY += 4;
+        }
+      };
+      
+      addDetail("Phone:", developerForSalarySlip.phone || 'N/A');
+      addDetail("Email:", developerForSalarySlip.email || 'N/A');
+      
+      if(developerForSalarySlip.paymentInfo) {
+          addDetail("Account:", developerForSalarySlip.paymentInfo);
+      }
+
+      currentY += 1;
+      doc.setDrawColor(accentBlue);
+      doc.setLineWidth(0.3);
+      doc.line(contentX, currentY, cardWidth - margin, currentY);
+      currentY += 4;
+
+      doc.setFontSize(8);
+      doc.setTextColor(white);
+      doc.setFont(undefined, 'bold');
+      doc.text("Net Salary:", contentX, currentY);
+      
+      doc.setFontSize(10);
+      doc.text(`${formatCurrency(Math.round(developerForSalarySlip.finalSalary))} MMK`, cardWidth - margin, currentY, { align: 'right' });
+
+
+      doc.save(`SalarySlip_${developerForSalarySlip.name.replace(/\s+/g, '_')}_${format(currentMonth, 'MMM_yyyy')}.pdf`);
     }
   };
+
 
   const goToPreviousMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
   const goToNextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
@@ -369,7 +458,7 @@ export default function DeveloperAttendancePage() {
       
       <Card>
         <CardHeader>
-            <CardTitle>Monthly Leave Summary</CardTitle>
+            <CardTitle>Monthly Summary</CardTitle>
             <CardDescription className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
                 <span>Key metrics for the developer team for {format(currentMonth, 'MMMM yyyy')}.</span>
                 <div className="flex items-center text-green-600 font-bold text-md mt-2 sm:mt-0">
@@ -645,39 +734,11 @@ function SalarySlipDialog({ isOpen, onOpenChange, devStats, month, onPrint, slip
   return (
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
           <DialogContent className="sm:max-w-lg p-0">
-            <DialogHeader className="sr-only">
+             <DialogHeader className="sr-only">
               <DialogTitle>Salary Slip for {devStats.name}</DialogTitle>
             </DialogHeader>
-              <div ref={slipRef} className="p-6 slip-container">
-                  <div className="text-center pb-4 header">
-                      <h3 className="company-name">waansaung</h3>
-                      <p className="employee-name">{devStats.name}</p>
-                      <p className="period">Salary for {format(month, 'MMMM yyyy')}</p>
-                      {devStats.paymentInfo && (
-                        <div className="account-info">
-                            <Wallet className="h-3 w-3" /> 
-                            <span>{devStats.paymentInfo}</span>
-                        </div>
-                      )}
-                  </div>
-                  <hr className="separator" />
-                  <div className="section-grid">
-                      <div className="section-grid-item"><p className="value">{devStats.leaveDays}</p><p className="label">Total Leave</p></div>
-                      <div className="section-grid-item"><p className="value">{FREE_LEAVE_DAYS}</p><p className="label">Allowed</p></div>
-                      <div className="section-grid-item"><p className={cn("value", devStats.extraLeaveDays > 0 && "text-destructive")}>{devStats.extraLeaveDays}</p><p className="label">Extra Days</p></div>
-                  </div>
-                  <div className="details">
-                      <DetailRow label="Base Salary" value={devStats.salary || 0} />
-                      <DetailRow label="Deduction per Day" value={-Math.round(devStats.dailyWage)} isNegative />
-                      <DetailRow label="Leave Deduction" value={-Math.round(devStats.salaryDeduction)} isNegative />
-                      <DetailRow label="General Deduction" value={-devStats.generalDeduction} isNegative />
-                  </div>
-                   <div className="footer">
-                      <div className="net-payable">
-                          <p className="label">Net Payable Salary</p>
-                          <p className="value">{formatCurrency(Math.round(devStats.finalSalary))}</p>
-                      </div>
-                  </div>
+              <div ref={salarySlipRef} className="p-6 slip-container-for-pdf">
+                 {/* This div is structured for jspdf rendering */}
               </div>
               <DialogFooter className="mt-0 p-4 border-t bg-slate-50 no-print rounded-b-lg">
                 <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
