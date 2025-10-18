@@ -297,15 +297,10 @@ export default function DeveloperAttendancePage() {
     return developerStats.reduce((sum, dev) => sum + dev.finalSalary, 0);
   }, [developerStats]);
 
- const handlePrintSlip = () => {
-    const slipContent = salarySlipRef.current;
+ const handlePrintSlip = (slipContent: HTMLDivElement | null) => {
     if (!slipContent || !developerForSalarySlip) return;
 
-    const devStats = developerForSalarySlip;
-    const avatarFallback = devStats.name?.substring(0, 2).toUpperCase() || 'DV';
-    const avatarSrc = devStats.avatar || '';
-
-    const printWindow = window.open('', '_blank', 'height=800,width=800');
+    const printWindow = window.open('', '', 'height=800,width=800');
     if (printWindow) {
         printWindow.document.write('<html><head><title>Salary Slip</title>');
         printWindow.document.write(`
@@ -345,7 +340,7 @@ export default function DeveloperAttendancePage() {
             </style>
         `);
         printWindow.document.write('</head><body><div class="slip-container">');
-        const slipHTML = slipRef.current.innerHTML;
+        const slipHTML = slipContent.innerHTML;
         printWindow.document.write(slipHTML);
         printWindow.document.write('</div></body></html>');
         printWindow.document.close();
@@ -431,7 +426,7 @@ export default function DeveloperAttendancePage() {
       {selectedDeveloper && <LeaveFormDialog isOpen={isLeaveFormDialogOpen} onOpenChange={setIsLeaveFormDialogOpen} developer={selectedDeveloper} onSuccess={onLeaveFormSuccess}/>}
       {leaveToEdit && <EditLeaveFormDialog isOpen={isEditLeaveFormDialogOpen} onOpenChange={setIsEditLeaveFormDialogOpen} leave={leaveToEdit} onSuccess={onEditLeaveFormSuccess} onDelete={() => { setIsEditLeaveFormDialogOpen(false); handleUnleaveClick(leaveToEdit.developerName, leaveToEdit.id); }} />}
       {developerForDeduction && <DeductionFormDialog isOpen={isDeductionDialogOpen} onOpenChange={setIsDeductionDialogOpen} developer={developerForDeduction} currentDeduction={generalDeductions[developerForDeduction.id] || 0} onSave={onDeductionSave} />}
-      <SalarySlipDialog isOpen={isSalarySlipDialogOpen} onOpenChange={setIsSalarySlipDialogOpen} devStats={developerForSalarySlip} month={currentMonth} onPrint={handlePrintSlip} slipRef={salarySlipRef}/>
+      <SalarySlipDialog isOpen={isSalarySlipDialogOpen} onOpenChange={setIsSalarySlipDialogOpen} devStats={developerForSalarySlip} month={currentMonth} onPrint={() => handlePrintSlip(salarySlipRef.current)} slipRef={salarySlipRef}/>
       
       <AlertDialog open={!!holidayToDelete} onOpenChange={(open) => !open && setHolidayToDelete(null)}>
         <AlertDialogContent>
@@ -558,7 +553,7 @@ const DeveloperInfoCard = ({ dev, isAdmin, onAddLeave, onAddDeduction, onViewSli
 };
 
 const StatItem = ({ icon: Icon, label, value, valueColor = "text-slate-700" }) => (
-    <div className="p-2 bg-white text-center rounded-md">
+    <div className="p-2 bg-white rounded-md">
         <Icon className="h-4 w-4 mx-auto text-slate-400 mb-1" />
         <p className="text-[10px] font-semibold text-slate-500 leading-tight uppercase">{label}</p>
         <p className={cn("text-sm font-bold", valueColor)}>{value}</p>
