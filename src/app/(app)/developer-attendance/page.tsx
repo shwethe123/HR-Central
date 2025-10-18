@@ -741,11 +741,46 @@ function SalarySlipDialog({ isOpen, onOpenChange, devStats, month, onPrint, slip
   return (
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
           <DialogContent className="sm:max-w-lg p-0">
-             <DialogHeader className="p-6 pb-0 sr-only">
-              <DialogTitle>Salary Slip for {devStats.name}</DialogTitle>
+             <DialogHeader className="p-6 pb-0">
+              <DialogTitle className='sr-only'>Salary Slip for {devStats.name}</DialogTitle>
             </DialogHeader>
               <div ref={slipRef} className="p-6 slip-container-for-pdf">
-                 {/* This div is structured for jspdf rendering */}
+                 <div className="text-center mb-4">
+                    <h2 className="text-2xl font-bold text-slate-800">waansaung</h2>
+                    <p className="text-sm text-slate-500">Salary Slip for {format(month, 'MMMM yyyy')}</p>
+                </div>
+                <div className="space-y-3 text-sm">
+                    <div className="flex justify-between">
+                        <span className="font-medium text-slate-600">Developer:</span>
+                        <span className="font-semibold text-slate-800">{devStats.name}</span>
+                    </div>
+                     {devStats.paymentInfo && (
+                        <div className="flex justify-between">
+                            <span className="font-medium text-slate-600">Account:</span>
+                            <span className="font-semibold text-slate-800 flex items-center gap-2"><Wallet className="h-4 w-4 text-slate-500"/>{devStats.paymentInfo}</span>
+                        </div>
+                     )}
+                </div>
+                <Separator className="my-4" />
+                <div className="space-y-2 text-sm">
+                    <DetailRow label="Base Salary" value={`${formatCurrency(devStats.salary)} MMK`} />
+                    <Separator className="my-1 bg-slate-100" />
+                    <DetailRow label="Total Leave Days" value={devStats.leaveDays} />
+                    <DetailRow label="Allowed Leave" value={FREE_LEAVE_DAYS} />
+                    <DetailRow label="Extra Leave Days" value={devStats.extraLeaveDays} isNegative={devStats.extraLeaveDays > 0} />
+                    <Separator className="my-1 bg-slate-100" />
+                    <DetailRow label="Deduction per Day" value={`${formatCurrency(Math.round(devStats.dailyWage))} MMK`} />
+                    <DetailRow label="Leave Deduction" value={`${formatCurrency(Math.round(devStats.salaryDeduction))} MMK`} isNegative={devStats.salaryDeduction > 0} />
+                    <DetailRow label="General Deduction" value={`${formatCurrency(Math.round(devStats.generalDeduction))} MMK`} isNegative={devStats.generalDeduction > 0}/>
+                </div>
+                <Separator className="my-4" />
+                <div className="bg-slate-100 rounded-lg p-4 flex justify-between items-center">
+                    <span className="text-base font-bold text-slate-800">Net Payable Salary</span>
+                    <span className="text-lg font-bold text-primary">{formatCurrency(Math.round(devStats.finalSalary))} MMK</span>
+                </div>
+                 <div className="mt-6 text-center text-xs text-slate-400">
+                    <p>This is a computer-generated salary slip and does not require a signature.</p>
+                </div>
               </div>
               <DialogFooter className="mt-0 p-4 border-t bg-slate-50 no-print rounded-b-lg">
                 <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
@@ -757,11 +792,10 @@ function SalarySlipDialog({ isOpen, onOpenChange, devStats, month, onPrint, slip
 }
 
 const DetailRow = ({ label, value, isNegative = false }: { label: string, value: string | number, isNegative?: boolean }) => (
-    <div className={cn("detail-row", isNegative && value !== 0 && "negative")}>
-        <p className="label">{label}</p>
-        <p className="value">
+    <div className={cn("flex justify-between items-center py-1", isNegative && value !== 0 && "text-destructive")}>
+        <p className="text-slate-600">{label}</p>
+        <p className="font-medium">
             {typeof value === 'number' ? formatCurrency(value) : value}
         </p>
     </div>
 );
-
