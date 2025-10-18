@@ -22,10 +22,20 @@ const ClientDeviceSchema = z.object({
   phoneModel: z.string().min(2, { message: "Phone model is required." }),
   imei: z.string().optional(),
   purchaseDate: z.string().min(1, { message: "Purchase date is required." }),
-  issueDate: z.string().min(1, { message: "Issue date is required." }),
+  issueDate: z.string().optional(),
   status: z.enum(["Active", "Damaged", "Returned", "Lost"]),
   notes: z.string().optional(),
+}).refine(data => {
+    // If status is not 'Active', issueDate must be a valid date string.
+    if (data.status !== 'Active') {
+        return data.issueDate && data.issueDate.length > 0 && !isNaN(Date.parse(data.issueDate));
+    }
+    return true;
+}, {
+    message: "Issue date is required when status is not 'Active'.",
+    path: ['issueDate'],
 });
+
 
 type DeviceFormData = z.infer<typeof ClientDeviceSchema>;
 
@@ -54,6 +64,7 @@ export function AddDeviceForm({ employees, onFormSubmissionSuccess, className }:
   });
 
   const selectedCompany = form.watch('company');
+  const deviceStatus = form.watch('status');
 
   const uniqueCompanies = useMemo(() => {
     return [...new Set(employees.map(emp => emp.company).filter(Boolean) as string[])].sort();
@@ -83,7 +94,10 @@ export function AddDeviceForm({ employees, onFormSubmissionSuccess, className }:
   const onSubmit = (data: DeviceFormData) => {
     const formData = new FormData();
     Object.entries(data).forEach(([key, value]) => {
-      if (value) formData.append(key, value);
+      // Ensure optional values are only appended if they exist
+      if (value !== undefined && value !== null) {
+         formData.append(key, String(value));
+      }
     });
     startTransition(() => formAction(formData));
   };
@@ -147,29 +161,35 @@ export function AddDeviceForm({ employees, onFormSubmissionSuccess, className }:
           {form.formState.errors.purchaseDate && <p className="text-sm text-destructive mt-1">{form.formState.errors.purchaseDate.message}</p>}
         </div>
         <div>
-          <Label htmlFor="issueDate">Issue Date</Label>
-          <Input id="issueDate" type="date" {...form.register('issueDate')} />
-          {form.formState.errors.issueDate && <p className="text-sm text-destructive mt-1">{form.formState.errors.issueDate.message}</p>}
+            <Label htmlFor="status">Device Status</Label>
+            <Controller
+            name="status"
+            control={form.control}
+            render={({ field }) => (
+                <Select onValueChange={field.onChange} value={field.value}>
+                <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
+                <SelectContent>
+                    {(['Active', 'Damaged', 'Returned', 'Lost'] as Smartphone['status'][]).map(s => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                </SelectContent>
+                </Select>
+            )}
+            />
+            {form.formState.errors.status && <p className="text-sm text-destructive mt-1">{form.formState.errors.status.message}</p>}
         </div>
       </div>
-
+      
       <div>
-        <Label htmlFor="status">Device Status</Label>
-        <Controller
-          name="status"
-          control={form.control}
-          render={({ field }) => (
-            <Select onValueChange={field.onChange} value={field.value}>
-              <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
-              <SelectContent>
-                {(['Active', 'Damaged', 'Returned', 'Lost'] as Smartphone['status'][]).map(s => (
-                  <SelectItem key={s} value={s}>{s}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        />
-        {form.formState.errors.status && <p className="text-sm text-destructive mt-1">{form.formState.errors.status.message}</p>}
+          <Label htmlFor="issueDate">Issue Date</Label>
+          <Input 
+            id="issueDate" 
+            type="date" 
+            {...form.register('issueDate')} 
+            disabled={deviceStatus === 'Active'} 
+          />
+          {form.formState.errors.issueDate && <p className="text-sm text-destructive mt-1">{form.formState.errors.issueDate.message}</p>}
+          {deviceStatus === 'Active' && <p className="text-xs text-muted-foreground mt-1">Issue date is only applicable if the status is not 'Active'.</p>}
       </div>
 
       <div>

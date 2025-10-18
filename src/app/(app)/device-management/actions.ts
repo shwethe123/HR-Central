@@ -13,10 +13,21 @@ const DeviceFormSchema = z.object({
   phoneModel: z.string().min(2, { message: "Phone model is required." }),
   imei: z.string().optional().or(z.literal('')),
   purchaseDate: z.string().refine((date) => !isNaN(Date.parse(date)), { message: "Purchase date is required." }),
-  issueDate: z.string().refine((date) => !isNaN(Date.parse(date)), { message: "Issue date is required." }),
+  issueDate: z.string().optional(),
   status: z.enum(["Active", "Damaged", "Returned", "Lost"]),
   notes: z.string().max(1000).optional().or(z.literal('')),
+}).refine(data => {
+    // If status is not 'Active', issueDate must be provided and valid.
+    if (data.status !== 'Active') {
+        return data.issueDate && data.issueDate.length > 0 && !isNaN(Date.parse(data.issueDate));
+    }
+    // If status is 'Active', issueDate is not required.
+    return true;
+}, {
+    message: "Issue date is required when status is not 'Active'.",
+    path: ['issueDate'],
 });
+
 
 export type DeviceFormState = {
   message: string | null;
@@ -32,7 +43,7 @@ export async function addDevice(prevState: DeviceFormState, formData: FormData):
     phoneModel: formData.get('phoneModel'),
     imei: formData.get('imei'),
     purchaseDate: formData.get('purchaseDate'),
-    issueDate: formData.get('issueDate'),
+    issueDate: formData.get('issueDate') || undefined,
     status: formData.get('status'),
     notes: formData.get('notes'),
   });
@@ -48,11 +59,14 @@ export async function addDevice(prevState: DeviceFormState, formData: FormData):
   const data = validatedFields.data;
 
   try {
-    await addDoc(collection(db, 'smartphones'), {
-      ...data,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
+    const dataToSave = {
+        ...data,
+        issueDate: data.status === 'Active' ? '' : data.issueDate, // Clear issue date if status is active
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+    };
+
+    await addDoc(collection(db, 'smartphones'), dataToSave);
 
     revalidatePath('/device-management');
     return { message: `Device (${data.phoneModel}) has been successfully added for ${data.department}.`, success: true };
@@ -75,7 +89,7 @@ export async function updateDevice(prevState: DeviceFormState, formData: FormDat
     phoneModel: formData.get('phoneModel'),
     imei: formData.get('imei'),
     purchaseDate: formData.get('purchaseDate'),
-    issueDate: formData.get('issueDate'),
+    issueDate: formData.get('issueDate') || undefined,
     status: formData.get('status'),
     notes: formData.get('notes'),
   });
@@ -92,10 +106,14 @@ export async function updateDevice(prevState: DeviceFormState, formData: FormDat
 
   try {
     const deviceDocRef = doc(db, 'smartphones', deviceId);
-    await updateDoc(deviceDocRef, {
+    
+    const dataToUpdate = {
       ...data,
+      issueDate: data.status === 'Active' ? '' : data.issueDate,
       updatedAt: serverTimestamp(),
-    });
+    };
+
+    await updateDoc(deviceDocRef, dataToUpdate);
 
     revalidatePath('/device-management');
     return { message: `Device record for ${data.department} has been successfully updated.`, success: true };
