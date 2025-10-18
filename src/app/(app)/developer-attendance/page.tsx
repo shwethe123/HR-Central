@@ -10,7 +10,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
@@ -34,7 +33,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { addDeveloperLeave, deleteDeveloperLeave, addPublicHoliday, deletePublicHoliday, updateDeveloperLeave } from "./actions";
 import { AddHolidayForm } from "./add-holiday-form";
-import { Code2, PlusCircle, Loader2, Calendar, User, DollarSign, Wallet, Check, X, AlertTriangle, CalendarPlus, MoreHorizontal, Printer, MinusCircle, ArrowLeft, ArrowRight, Briefcase, CalendarX, UserCheck } from 'lucide-react';
+import { Code2, PlusCircle, Loader2, Calendar, User, DollarSign, Wallet, Check, X, AlertTriangle, CalendarPlus, MoreHorizontal, Printer, MinusCircle, ArrowLeft, ArrowRight, Briefcase, CalendarX, UserCheck, UserX as UserXIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -291,6 +290,10 @@ export default function DeveloperAttendancePage() {
       };
   }, [developerStats, developers]);
 
+  const totalFinalSalary = useMemo(() => {
+    return developerStats.reduce((sum, dev) => sum + dev.finalSalary, 0);
+  }, [developerStats]);
+
   const handlePrintSlip = () => {
     const slipElement = salarySlipRef.current;
     if (slipElement) {
@@ -307,6 +310,7 @@ export default function DeveloperAttendancePage() {
             h3, p { margin: 0; }
             .header { text-align: center; padding-bottom: 16px; }
             .header h3 { font-size: 24px; font-weight: 800; letter-spacing: -0.05em; color: #5DADE2; }
+            .header .company-name { font-size: 16px; font-weight: 600; margin-top: 8px; }
             .header .employee-name { font-size: 18px; font-weight: 600; margin-top: 16px; }
             .header .period { font-size: 14px; color: #6b7280; }
             .account-info { font-size: 12px; color: #6b7280; margin-top: 8px; display: inline-flex; align-items: center; gap: 8px; background-color: #f3f4f6; padding: 4px 8px; border-radius: 4px;}
@@ -370,7 +374,7 @@ export default function DeveloperAttendancePage() {
                 <span>Key metrics for the developer team for {format(currentMonth, 'MMMM yyyy')}.</span>
                 <div className="flex items-center text-green-600 font-bold text-md mt-2 sm:mt-0">
                     <DollarSign className="h-5 w-5 mr-1"/>
-                    Total Payout: {formatCurrency(Math.round(summaryData.payout))}
+                    Total Payout: {formatCurrency(Math.round(totalFinalSalary))}
                 </div>
             </CardDescription>
         </CardHeader>
@@ -481,6 +485,12 @@ const DeveloperInfoCard = ({ dev, isAdmin, onAddLeave, onAddDeduction, onViewSli
                 <StatItem icon={DollarSign} label="Base Salary" value={formatCurrency(dev.salary)} />
                 <StatItem icon={MinusCircle} label="Total Deductions" value={formatCurrency(Math.round(dev.totalDeduction))} valueColor="text-destructive" />
                 <StatItem icon={Wallet} label="Final Salary" value={formatCurrency(Math.round(dev.finalSalary))} valueColor={dev.finalSalary < (dev.salary||0) ? "text-destructive" : "text-green-600"} />
+            </div>
+
+             <div className="grid grid-cols-3 gap-px bg-slate-200 border-b">
+                <StatItem icon={CalendarX} label="Total Leave" value={dev.leaveDays} />
+                <StatItem icon={UserCheck} label="Allowed" value={FREE_LEAVE_DAYS} />
+                <StatItem icon={UserXIcon} label="Extra Leave" value={dev.extraLeaveDays} valueColor={dev.extraLeaveDays > 0 ? "text-destructive" : "text-slate-700"} />
             </div>
 
             <div className="p-4 flex-grow">
@@ -643,7 +653,7 @@ function SalarySlipDialog({ isOpen, onOpenChange, devStats, month, onPrint, slip
             </DialogHeader>
               <div ref={slipRef} className="p-6 slip-container">
                   <div className="text-center pb-4 header">
-                      <h3>waansaung</h3>
+                      <h3 className="company-name">waansaung</h3>
                       <p className="employee-name">{devStats.name}</p>
                       <p className="period">Salary for {format(month, 'MMMM yyyy')}</p>
                       {devStats.paymentInfo && (
