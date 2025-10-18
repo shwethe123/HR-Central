@@ -20,6 +20,22 @@ export type Employee = {
   paymentInfo?: string; // For Bank or KPay account info
 };
 
+// New type for Smartphone asset management
+export type Smartphone = {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  phoneModel: string;
+  imei?: string;
+  purchaseDate: string; // Date the phone was bought
+  issueDate: string; // Date the phone was given to the employee
+  status: "Active" | "Damaged" | "Returned" | "Lost";
+  notes?: string;
+  createdAt: Timestamp;
+  updatedAt?: Timestamp;
+};
+
+
 // New type for Developer Attendance records
 export type DeveloperAttendance = {
   id: string;
