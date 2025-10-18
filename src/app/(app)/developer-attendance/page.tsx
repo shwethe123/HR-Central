@@ -1,7 +1,7 @@
 // src/app/(app)/developer-attendance/page.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo, useActionState, startTransition, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { Employee, DeveloperAttendance, PublicHoliday } from "@/types";
 import { Button } from '@/components/ui/button';
 import {
@@ -18,7 +18,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -32,13 +31,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { addDeveloperLeave, deleteDeveloperLeave, addPublicHoliday, deletePublicHoliday } from "./actions";
+import { addDeveloperLeave, deleteDeveloperLeave, addPublicHoliday, deletePublicHoliday, updateDeveloperLeave } from "./actions";
 import { AddHolidayForm } from "./add-holiday-form";
-import { Code2, PlusCircle, Loader2, Calendar, User, DollarSign, Wallet, Check, X, AlertTriangle, CalendarPlus, MoreHorizontal, Printer } from 'lucide-react';
+import { Code2, PlusCircle, Loader2, Calendar, User, DollarSign, Wallet, Check, X, AlertTriangle, CalendarPlus, MoreHorizontal, Printer, MinusCircle, ArrowLeft, ArrowRight, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
-import { format, eachDayOfInterval, isSameDay, parseISO, isValid, startOfMonth, endOfMonth, getDaysInMonth, isBefore, isToday, isWeekend } from 'date-fns';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { format, eachDayOfInterval, startOfMonth, endOfMonth, getDaysInMonth, isBefore, isToday, addMonths, subMonths } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -54,7 +53,6 @@ const formatCurrency = (amount: number | undefined) => {
     return amount.toLocaleString('en-US', { maximumFractionDigits: 0, minimumFractionDigits: 0 });
 };
 
-// Define the type for the stats object
 type DeveloperStats = Employee & {
   leaveDays: number;
   extraLeaveDays: number;
@@ -65,8 +63,7 @@ type DeveloperStats = Employee & {
   monthlyAttendance: {
       date: Date;
       status: "WorkDay" | "Leave" | "Holiday";
-      id: string | undefined;
-      holidayDetails: PublicHoliday | undefined;
+      details: DeveloperAttendance | PublicHoliday | undefined;
   }[];
 };
 
@@ -80,6 +77,9 @@ export default function DeveloperAttendancePage() {
   const [isLeaveFormDialogOpen, setIsLeaveFormDialogOpen] = useState(false);
   const [isHolidayFormDialogOpen, setIsHolidayFormDialogOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
+
+  const [leaveToEdit, setLeaveToEdit] = useState<DeveloperAttendance | null>(null);
+  const [isEditLeaveFormDialogOpen, setIsEditLeaveFormDialogOpen] = useState(false);
 
   const [leaveToDelete, setLeaveToDelete] = useState<{devName: string, attendanceId: string} | null>(null);
   const [holidayToDelete, setHolidayToDelete] = useState<PublicHoliday | null>(null);
@@ -168,6 +168,17 @@ export default function DeveloperAttendancePage() {
      setHolidayToDelete(holiday);
   }
 
+  const handleDayClick = (dayStatus: 'WorkDay' | 'Leave' | 'Holiday', details: DeveloperAttendance | PublicHoliday | undefined) => {
+    if (!isAdmin) return;
+    if (dayStatus === 'Leave' && details && 'developerId' in details) {
+        setLeaveToEdit(details as DeveloperAttendance);
+        setIsEditLeaveFormDialogOpen(true);
+    } else if (dayStatus === 'Holiday' && details) {
+        setHolidayToDelete(details as PublicHoliday);
+    }
+  };
+
+
   const handleDeleteLeaveConfirm = async () => {
     if (!leaveToDelete) return;
     setIsDeleting(true);
@@ -201,6 +212,12 @@ export default function DeveloperAttendancePage() {
     setSelectedDeveloper(null);
     fetchAllData(currentMonth);
   }
+
+  const onEditLeaveFormSuccess = () => {
+    setIsEditLeaveFormDialogOpen(false);
+    setLeaveToEdit(null);
+    fetchAllData(currentMonth);
+  };
   
   const onHolidayFormSuccess = () => {
     setIsHolidayFormDialogOpen(false);
@@ -216,7 +233,7 @@ export default function DeveloperAttendancePage() {
   
   const developerStats: DeveloperStats[] = useMemo(() => {
     const totalDaysInMonth = getDaysInMonth(currentMonth);
-    const workingDaysInMonth = totalDaysInMonth - 4; // As per user request
+    const workingDaysInMonth = totalDaysInMonth; 
     
     return developers.map(dev => {
       const devLeaves = attendances.filter(a => a.developerId === dev.id);
@@ -241,17 +258,20 @@ export default function DeveloperAttendancePage() {
         const holidayRecord = publicHolidays.find(h => h.date === formattedDay);
 
         let status: 'WorkDay' | 'Leave' | 'Holiday' = 'WorkDay';
+        let details: DeveloperAttendance | PublicHoliday | undefined = undefined;
+
         if (leaveRecord) {
             status = 'Leave';
+            details = leaveRecord;
         } else if (holidayRecord) {
             status = 'Holiday';
+            details = holidayRecord;
         }
 
         return {
             date: day,
             status: status,
-            id: leaveRecord?.id || holidayRecord?.id,
-            holidayDetails: holidayRecord,
+            details: details,
         };
       });
 
@@ -277,7 +297,7 @@ export default function DeveloperAttendancePage() {
     if (slipElement) {
         const printWindow = window.open('', '', 'height=600,width=800');
         printWindow?.document.write('<html><head><title>Salary Slip</title>');
-        printWindow?.document.write('<style>body { font-family: sans-serif; } table { width: 100%; border-collapse: collapse; } td, th { border: 1px solid #dddddd; text-align: left; padding: 8px; } .text-right { text-align: right; } .font-bold { font-weight: bold; } .bg-gray-100 { background-color: #f3f4f6; }</style>');
+        printWindow?.document.write('<style>body{font-family:sans-serif;padding:20px}@media print{body{padding:0}.no-print{display:none}}.slip-container{border:1px solid #eee;padding:16px;border-radius:8px}h3,p{margin:0}.text-center{text-align:center}.flex{display:flex;justify-content:space-between;align-items:center}.py-2{padding-top:8px;padding-bottom:8px}.border-b{border-bottom:1px dashed #ddd}.font-semibold{font-weight:600}.font-bold{font-weight:700}.text-muted-foreground{color:#666}.font-mono{font-family:monospace}.bg-background{background-color:#fff;padding:12px;border-radius:6px;border:1px solid #eee}#logo{font-weight:bold;text-align:center;font-size:1.2em;margin-bottom:8px}</style>');
         printWindow?.document.write('</head><body>');
         printWindow?.document.write(slipElement.innerHTML);
         printWindow?.document.write('</body></html>');
@@ -287,18 +307,31 @@ export default function DeveloperAttendancePage() {
     }
   };
 
+  const goToPreviousMonth = () => {
+    setCurrentMonth(subMonths(currentMonth, 1));
+  };
+
+  const goToNextMonth = () => {
+    setCurrentMonth(addMonths(currentMonth, 1));
+  };
+
   return (
-    <div className="container mx-auto py-2 space-y-6">
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        <h1 className="text-3xl font-semibold flex items-center">
-          <Code2 className="mr-3 h-8 w-8 text-primary" />
-          Developer Attendance
-        </h1>
+    <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8 bg-muted/20 min-h-screen">
+      <header className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
+        <div className="flex items-center space-x-3">
+          <div className="bg-primary/10 p-2 rounded-lg">
+            <Code2 className="h-8 w-8 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900">Developer Attendance</h1>
+            <p className="text-muted-foreground mt-1">Manage monthly attendance, leaves, and salary deductions.</p>
+          </div>
+        </div>
         <div className="flex items-center gap-2">
             {isAdmin && (
               <Dialog open={isHolidayFormDialogOpen} onOpenChange={setIsHolidayFormDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="outline"><CalendarPlus className="mr-2 h-4 w-4"/> Add Holiday</Button>
+                  <Button><CalendarPlus className="mr-2 h-4 w-4"/> Add Holiday</Button>
                 </DialogTrigger>
                 <HolidayFormDialog 
                     isOpen={isHolidayFormDialogOpen}
@@ -307,163 +340,159 @@ export default function DeveloperAttendancePage() {
                 />
               </Dialog>
             )}
-            <Label htmlFor="month-picker">Month</Label>
-            <Input
-                id="month-picker"
-                type="month"
-                value={format(currentMonth, 'yyyy-MM')}
-                onChange={(e) => setCurrentMonth(new Date(e.target.value))}
-                className="w-[180px]"
-            />
-        </div>
-      </div>
-
-       <Card>
-        <CardHeader>
-          <CardTitle>Monthly Leave Summary</CardTitle>
-          <CardDescription>
-            Each developer is allowed {FREE_LEAVE_DAYS} leave days per month. Exceeding this will result in salary deduction.
-          </CardDescription>
-           <div className="pt-2">
-            <p className="text-lg font-semibold flex items-center text-green-600">
-              <DollarSign className="mr-2 h-5 w-5"/>
-              Total Final Salary for {format(currentMonth, 'MMMM')}: {formatCurrency(Math.round(totalFinalSalary))}
-            </p>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex justify-center items-center py-20">
-              <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            <div className="flex items-center rounded-md border bg-background">
+              <Button variant="ghost" size="icon" onClick={goToPreviousMonth}><ArrowLeft className="h-4 w-4" /></Button>
+              <Input
+                  id="month-picker"
+                  type="month"
+                  value={format(currentMonth, 'yyyy-MM')}
+                  onChange={(e) => setCurrentMonth(new Date(e.target.value))}
+                  className="w-[150px] border-0 rounded-none focus-visible:ring-0 text-center"
+              />
+              <Button variant="ghost" size="icon" onClick={goToNextMonth}><ArrowRight className="h-4 w-4" /></Button>
             </div>
-          ) : (
-            <div className="space-y-4">
-              {developerStats.map(dev => (
-                <Card key={dev.id} className="p-4 relative">
-                   {isAdmin && (
-                    <div className="absolute top-2 right-2">
-                      <DropdownMenu>
+        </div>
+      </header>
+      
+      <main className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-6">
+            {isLoading ? (
+              <div className="flex justify-center items-center py-20 bg-background rounded-lg">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+              </div>
+            ) : (
+                developerStats.map(dev => (
+                <Card key={dev.id} className="overflow-hidden shadow-sm">
+                    <div className="p-4 bg-background border-b flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <User className="h-9 w-9 text-muted-foreground bg-muted p-2 rounded-full" />
+                        <div>
+                        <p className="font-semibold text-lg">{dev.name}</p>
+                        <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+                            <DollarSign className="h-4 w-4"/> Base Salary: {dev.salary ? formatCurrency(dev.salary) : 'N/A'}
+                        </p>
+                        </div>
+                    </div>
+                    {isAdmin && (
+                        <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-7 w-7">
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
                             <MoreHorizontal className="h-4 w-4" />
-                          </Button>
+                            </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem onSelect={() => handleViewSalarySlipClick(dev)}>
-                            <DollarSign className="mr-2 h-4 w-4" />
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem onSelect={() => handleViewSalarySlipClick(dev)}>
+                            <Printer className="mr-2 h-4 w-4" />
                             View Salary Slip
-                          </DropdownMenuItem>
-                           <DropdownMenuItem onSelect={() => handleAddLeaveClick(dev)}>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleAddLeaveClick(dev)}>
                             <PlusCircle className="mr-2 h-4 w-4" />
                             Add Leave
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => handleAddDeductionClick(dev)}>
-                            <DollarSign className="mr-2 h-4 w-4" />
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleAddDeductionClick(dev)}>
+                            <MinusCircle className="mr-2 h-4 w-4" />
                             General Deduction
-                          </DropdownMenuItem>
+                            </DropdownMenuItem>
                         </DropdownMenuContent>
-                      </DropdownMenu>
+                        </DropdownMenu>
+                    )}
                     </div>
-                  )}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div className="space-y-2 lg:col-span-1">
-                      <p className="font-semibold text-lg flex items-center"><User className="mr-2 h-5 w-5 text-muted-foreground" />{dev.name}</p>
-                      <p className="text-sm text-muted-foreground flex items-center">
-                        <DollarSign className="mr-2 h-4 w-4"/> Base Salary: {dev.salary ? formatCurrency(dev.salary) : 'N/A'}
-                      </p>
-                       <Badge variant="destructive" className="flex items-center gap-1.5 max-w-fit"
-                          style={{ visibility: dev.generalDeduction > 0 ? 'visible' : 'hidden' }}>
-                           <DollarSign className="h-3 w-3"/>Deduct (General): {formatCurrency(dev.generalDeduction)}
-                       </Badge>
+                    <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-6 bg-muted/30">
+                        <div className="space-y-2">
+                            <p className="text-sm font-medium text-muted-foreground">Leave Details</p>
+                            <div className="flex items-baseline gap-4">
+                                <div className="text-left">
+                                <p className="text-3xl font-bold">{dev.leaveDays}</p>
+                                <p className="text-xs text-muted-foreground">Total Leave</p>
+                                </div>
+                                <div className="text-left">
+                                <p className={cn("text-3xl font-bold", dev.extraLeaveDays > 0 ? 'text-destructive' : 'text-foreground')}>{dev.extraLeaveDays}</p>
+                                <p className="text-xs text-muted-foreground">Extra Days</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <p className="text-sm font-medium text-muted-foreground">Deductions</p>
+                            <div className="flex flex-col gap-1.5">
+                            <Badge variant="destructive" className="flex justify-between w-full max-w-xs py-1 px-2">
+                                <span>Leave Deduction</span>
+                                <span className='font-mono'>{formatCurrency(Math.round(dev.salaryDeduction))}</span>
+                            </Badge>
+                            <Badge variant="secondary" className="flex justify-between w-full max-w-xs py-1 px-2">
+                                <span>General Deduction</span>
+                                <span className='font-mono'>{formatCurrency(dev.generalDeduction)}</span>
+                            </Badge>
+                            </div>
+                        </div>
+                        <div className="space-y-2 flex flex-col items-start md:items-end">
+                            <p className="text-sm font-medium text-muted-foreground">Final Salary</p>
+                            <p className={cn("text-3xl font-bold flex items-center", (dev.finalSalary ?? 0) < (dev.salary ?? 0) ? "text-destructive" : "text-green-600")}>
+                                <Wallet className="mr-2 h-6 w-6"/> {dev.finalSalary ? formatCurrency(Math.round(dev.finalSalary)) : 'N/A'}
+                            </p>
+                        </div>
                     </div>
-                    <div className="flex-shrink-0 flex flex-col items-start sm:items-end lg:items-start gap-2 lg:col-span-1">
-                      <div className="flex items-center gap-4">
-                          <div className="text-center">
-                            <p className="text-2xl font-bold">{dev.leaveDays}</p>
-                            <p className="text-xs text-muted-foreground">Leave Days</p>
-                          </div>
-                          <div className="text-center">
-                            <p className={cn("text-2xl font-bold", dev.extraLeaveDays > 0 ? 'text-destructive' : 'text-foreground')}>{dev.extraLeaveDays}</p>
-                            <p className="text-xs text-muted-foreground">Extra Days</p>
-                          </div>
-                      </div>
-                       <Badge variant="destructive" className="flex items-center gap-1.5"
-                          style={{ visibility: dev.salaryDeduction > 0 ? 'visible' : 'hidden' }}>
-                           <DollarSign className="h-3 w-3"/>Deduct (Leave): {formatCurrency(Math.round(dev.salaryDeduction))}
-                       </Badge>
-                    </div>
-                     <div className="lg:col-span-1">
-                        <p className={cn("text-lg font-semibold flex items-center", (dev.finalSalary ?? 0) < (dev.salary ?? 0) ? "text-destructive" : "text-green-600")}>
-                            <Wallet className="mr-2 h-4 w-4"/> Final Salary: {dev.finalSalary ? formatCurrency(Math.round(dev.finalSalary)) : 'N/A'}
-                        </p>
-                    </div>
-                  </div>
-                  <div className="border-t my-3"></div>
-                  <div className="flex justify-between items-start">
-                     <div className="flex flex-wrap gap-1.5 flex-grow">
-                        {dev.monthlyAttendance.length > 0 ? dev.monthlyAttendance.map(day => {
-                            const today = new Date();
-                            if (isBefore(day.date, today) || isToday(day.date)) {
-                                const dayNumber = format(day.date, 'dd');
-                                let badgeContent;
-                                switch (day.status) {
-                                    case 'Leave':
-                                        badgeContent = (
-                                            <Badge
-                                                key={`${dev.id}-${day.date.toString()}`}
-                                                variant="destructive"
-                                                className={cn(
-                                                    "font-mono flex items-center gap-1",
-                                                    isAdmin && "cursor-pointer hover:opacity-75"
-                                                )}
-                                                onClick={() => day.id && handleUnleaveClick(dev.name, day.id)}
-                                                title={isAdmin ? `Remove leave for ${dev.name}` : "Leave Day"}
-                                            >
-                                                <X className="h-3 w-3"/>
-                                                {dayNumber}
-                                            </Badge>
-                                        );
+                    <div className="p-4 border-t bg-background">
+                      <p className="text-sm font-medium text-muted-foreground mb-2">Monthly Attendance Calendar</p>
+                      <div className="grid grid-cols-7 gap-1">
+                          {dev.monthlyAttendance.map(day => {
+                            const dayNumber = format(day.date, 'd');
+                            let statusClass = 'bg-muted/40';
+                            let content = null;
+                            let title = format(day.date, "do MMMM");
+                            let isClickable = isAdmin;
+
+                            if (isBefore(day.date, new Date()) || isToday(day.date)) {
+                                switch(day.status) {
+                                    case 'Leave': 
+                                        statusClass = "bg-destructive/10 border border-destructive/20 hover:bg-destructive/20 cursor-pointer";
+                                        content = <X className="h-4 w-4 text-destructive" />;
+                                        title = `Leave on ${title}. Click to edit/delete.`;
                                         break;
-                                    case 'Holiday':
-                                        badgeContent = (
-                                             <Badge 
-                                                key={`${dev.id}-${day.date.toString()}`}
-                                                variant="default"
-                                                className={cn(
-                                                    "font-mono flex items-center gap-1 bg-black text-white border-black",
-                                                    isAdmin && "cursor-pointer hover:opacity-75"
-                                                )}
-                                                onClick={() => day.holidayDetails && handleHolidayClick(day.holidayDetails)}
-                                                title={isAdmin ? `Remove Holiday: ${day.holidayDetails?.name}` : day.holidayDetails?.name}
-                                              >
-                                                <Calendar className="h-3 w-3"/>
-                                                {dayNumber}
-                                            </Badge>
-                                        );
+                                    case 'Holiday': 
+                                        statusClass = "bg-primary/10 border border-primary/20 hover:bg-primary/20 cursor-pointer";
+                                        content = <Calendar className="h-4 w-4 text-primary" />;
+                                        title = `${(day.details as PublicHoliday)?.name} on ${title}. Click to delete.`;
                                         break;
-                                    case 'WorkDay':
+                                    case 'WorkDay': 
                                     default:
-                                        badgeContent = (
-                                            <Badge key={`${dev.id}-${day.date.toString()}`} variant="default" className="font-mono flex items-center gap-1 bg-green-100 text-green-800 border-green-300 hover:bg-green-200">
-                                                <Check className="h-3 w-3"/>
-                                                {dayNumber}
-                                            </Badge>
-                                        );
+                                        isClickable = false;
+                                        statusClass = "bg-green-500/10 border border-green-500/20";
+                                        content = <Check className="h-4 w-4 text-green-600" />;
+                                        title = `Workday on ${title}`;
                                         break;
                                 }
-                                return badgeContent;
+                            } else {
+                                isClickable = false;
                             }
-                            return null;
-                        }) : <p className="text-xs text-muted-foreground">No attendance data for this month interval.</p>}
-                     </div>
-                  </div>
+                            return (
+                                <div key={day.date.toString()} 
+                                    className={cn("h-10 rounded-md flex flex-col items-center justify-center relative transition-colors", statusClass, isClickable && "cursor-pointer")}
+                                    title={title}
+                                    onClick={() => isClickable && handleDayClick(day.status, day.details)}>
+                                <span className="absolute top-0.5 right-1 text-[10px] text-muted-foreground">{dayNumber}</span>
+                                {content}
+                                </div>
+                            )
+                          })}
+                      </div>
+                    </div>
                 </Card>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                ))
+            )}
+        </div>
+        <aside className="lg:col-span-1 space-y-6">
+            <Card className='shadow-sm'>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><DollarSign className="h-5 w-5"/> Financial Overview</CardTitle>
+                <CardDescription>Total salary payout for {format(currentMonth, 'MMMM yyyy')}.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-4xl font-bold text-green-600">{formatCurrency(Math.round(totalFinalSalary))}</p>
+              </CardContent>
+            </Card>
+        </aside>
+      </main>
       
       {selectedDeveloper && (
         <LeaveFormDialog 
@@ -471,6 +500,19 @@ export default function DeveloperAttendancePage() {
             onOpenChange={setIsLeaveFormDialogOpen}
             developer={selectedDeveloper}
             onSuccess={onLeaveFormSuccess}
+        />
+      )}
+
+       {leaveToEdit && (
+        <EditLeaveFormDialog
+          isOpen={isEditLeaveFormDialogOpen}
+          onOpenChange={setIsEditLeaveFormDialogOpen}
+          leave={leaveToEdit}
+          onSuccess={onEditLeaveFormSuccess}
+          onDelete={() => {
+            setIsEditLeaveFormDialogOpen(false);
+            handleUnleaveClick(leaveToEdit.developerName, leaveToEdit.id);
+          }}
         />
       )}
 
@@ -495,7 +537,6 @@ export default function DeveloperAttendancePage() {
          />
       )}
       
-      {/* Holiday Deletion Dialog */}
       <AlertDialog open={!!holidayToDelete} onOpenChange={(open) => !open && setHolidayToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -516,7 +557,6 @@ export default function DeveloperAttendancePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
 
       {leaveToDelete && (
          <AlertDialog open={!!leaveToDelete} onOpenChange={(open) => !open && setLeaveToDelete(null)}>
@@ -584,7 +624,6 @@ function LeaveFormDialog({ isOpen, onOpenChange, developer, onSuccess }: LeaveFo
     setIsSubmitting(false);
   }
   
-  // Reset form when dialog opens
   useEffect(() => {
     if (isOpen) {
         setLeaveDate('');
@@ -592,41 +631,118 @@ function LeaveFormDialog({ isOpen, onOpenChange, developer, onSuccess }: LeaveFo
     }
   }, [isOpen]);
 
-  function SubmitButton() {
-      return (
-          <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save Leave Day
-          </Button>
-      )
-  }
-
   return (
      <Dialog open={isOpen} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-md">
             <DialogHeader>
                 <DialogTitle>Add Leave for {developer.name}</DialogTitle>
                 <DialogDescription>
-                    Record a single day of leave for this developer.
+                    Record a single day of leave. This will affect salary calculations if it exceeds the free leave allowance.
                 </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4 pt-2">
-                <div>
+            <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+                <div className="space-y-2">
                     <Label htmlFor="leaveDate">Leave Date</Label>
                     <Input id="leaveDate" type="date" value={leaveDate} onChange={e => setLeaveDate(e.target.value)} required />
                 </div>
-                 <div>
+                 <div className="space-y-2">
                     <Label htmlFor="reason">Reason (Optional)</Label>
                     <Textarea id="reason" value={reason} onChange={e => setReason(e.target.value)} placeholder="e.g., Sick leave, Personal matter" />
                 </div>
-                <div className="flex justify-end">
-                    <SubmitButton />
-                </div>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button type="submit" disabled={isSubmitting}>
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Save Leave
+                    </Button>
+                </DialogFooter>
             </form>
         </DialogContent>
      </Dialog>
   );
 }
+
+
+// Edit Leave Form Dialog Component
+interface EditLeaveFormDialogProps {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  leave: DeveloperAttendance;
+  onSuccess: () => void;
+  onDelete: () => void;
+}
+
+function EditLeaveFormDialog({ isOpen, onOpenChange, leave, onSuccess, onDelete }: EditLeaveFormDialogProps) {
+  const { toast } = useToast();
+  const [leaveDate, setLeaveDate] = useState(leave.leaveDate);
+  const [reason, setReason] = useState(leave.reason || '');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setLeaveDate(leave.leaveDate);
+      setReason(leave.reason || '');
+    }
+  }, [isOpen, leave]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!leaveDate) {
+      toast({ title: "Error", description: "Leave date is required.", variant: "destructive" });
+      return;
+    }
+    setIsSubmitting(true);
+    const result = await updateDeveloperLeave({
+      attendanceId: leave.id,
+      newLeaveDate: leaveDate,
+      newReason: reason,
+    });
+    
+    if (result.success) {
+      toast({ title: "Success", description: result.message });
+      onSuccess();
+    } else {
+      toast({ title: "Error", description: result.message, variant: "destructive" });
+    }
+    setIsSubmitting(false);
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit Leave for {leave.developerName}</DialogTitle>
+          <DialogDescription>
+            Update the leave date or reason.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+          <div className="space-y-2">
+            <Label htmlFor="editLeaveDate">Leave Date</Label>
+            <Input id="editLeaveDate" type="date" value={leaveDate} onChange={e => setLeaveDate(e.target.value)} required />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="editReason">Reason (Optional)</Label>
+            <Textarea id="editReason" value={reason} onChange={e => setReason(e.target.value)} placeholder="e.g., Sick leave, Personal matter" />
+          </div>
+          <DialogFooter className="justify-between">
+            <Button type="button" variant="destructive" onClick={onDelete}>
+              Delete Leave
+            </Button>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save Changes
+              </Button>
+            </div>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 // Deduction Form Dialog Component
 interface DeductionFormDialogProps {
@@ -676,7 +792,7 @@ function DeductionFormDialog({ isOpen, onOpenChange, developer, currentDeduction
     );
 }
 
-// Salary Slip Dialog Component
+
 interface SalarySlipDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
@@ -689,10 +805,10 @@ interface SalarySlipDialogProps {
 function SalarySlipDialog({ isOpen, onOpenChange, devStats, month, onPrint, slipRef }: SalarySlipDialogProps) {
   if (!devStats) return null;
 
-  const DetailRow = ({ label, value, isBold = false, isTotal = false }: { label: string, value: string | number, isBold?: boolean, isTotal?: boolean }) => (
-    <div className={cn("flex justify-between py-2", !isTotal && "border-b border-dashed")}>
-        <p className={cn(isBold ? "font-semibold" : "text-muted-foreground")}>{label}</p>
-        <p className={cn("font-mono", isBold ? "font-bold" : "")}>
+  const DetailRow = ({ label, value, isNegative = false, isBold = false }: { label: string, value: string | number, isNegative?: boolean, isBold?: boolean }) => (
+    <div className="flex justify-between items-center py-2 border-b border-dashed border-muted">
+        <p className={cn("text-sm text-muted-foreground", isBold && "font-semibold text-foreground")}>{label}</p>
+        <p className={cn("font-mono font-medium", isNegative ? "text-destructive" : "text-foreground", isBold && "font-bold")}>
             {typeof value === 'number' ? formatCurrency(value) : value}
         </p>
     </div>
@@ -700,45 +816,72 @@ function SalarySlipDialog({ isOpen, onOpenChange, devStats, month, onPrint, slip
 
   return (
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-lg">
               <DialogHeader>
                   <DialogTitle>Salary Slip</DialogTitle>
-                   <h3 className="font-bold text-center text-lg">Commpany Name - waansaung</h3>
                   <DialogDescription>
-                      Detailed salary breakdown for {devStats.name} for {format(month, 'MMMM yyyy')}.
+                      Salary details for {devStats.name} - {format(month, 'MMMM yyyy')}.
                   </DialogDescription>
               </DialogHeader>
-              <div ref={slipRef} className="space-y-4 p-4 rounded-md border bg-muted/50">
-                  <h3 className="font-bold text-center text-lg">{devStats.name}</h3>
-                  <p className="text-center text-sm text-muted-foreground -mt-3">{format(month, 'MMMM yyyy')}</p>
-                  {devStats.paymentInfo && (
-                    <p className="text-center text-sm text-muted-foreground -mt-2 flex items-center justify-center gap-2">
-                        <Wallet className="h-4 w-4" /> <span>{devStats.paymentInfo || 'N/A'}</span>
-                    </p>
-                  )}
-                  
-                  <Separator />
-                  <DetailRow label="Base Salary" value={devStats.salary || 0} isBold={true} />
-                  <Separator />
+              
+              <div ref={slipRef} className="p-4 sm:p-6 rounded-lg border bg-background slip-container">
+                  <div className="text-center pb-4">
+                      <h3 id="logo" className='text-2xl font-bold text-primary'>waansaung</h3>
+                      <p className="text-lg font-semibold mt-4">{devStats.name}</p>
+                      <p className="text-sm text-muted-foreground">Salary for {format(month, 'MMMM yyyy')}</p>
+                      {devStats.paymentInfo && (
+                        <div className="text-xs text-muted-foreground mt-2 inline-flex items-center gap-2 bg-muted px-2 py-1 rounded">
+                            <Wallet className="h-3 w-3" /> 
+                            <span>{devStats.paymentInfo}</span>
+                        </div>
+                      )}
+                  </div>
+                  <Separator className="my-4" />
 
-                  <p className="text-sm font-semibold pt-2">Attendance</p>
-                  <DetailRow label="Total Leave Days" value={devStats.leaveDays} />
-                  <DetailRow label="Allowed Leave Days" value={FREE_LEAVE_DAYS} />
-                  <DetailRow label="Extra Leave Days" value={devStats.extraLeaveDays} />
+                  <div className="mt-4">
+                      <h4 className="text-sm font-semibold text-muted-foreground mb-2 text-center">Attendance Summary</h4>
+                      <div className="grid grid-cols-3 gap-2 sm:gap-4 text-center">
+                          <div className="p-2 bg-muted/50 rounded-md">
+                              <p className="text-2xl font-bold">{devStats.leaveDays}</p>
+                              <p className="text-xs text-muted-foreground">Total Leave</p>
+                          </div>
+                          <div className="p-2 bg-muted/50 rounded-md">
+                              <p className="text-2xl font-bold">{FREE_LEAVE_DAYS}</p>
+                              <p className="text-xs text-muted-foreground">Allowed</p>
+                          </div>
+                          <div className="p-2 bg-muted/50 rounded-md">
+                              <p className={cn("text-2xl font-bold", devStats.extraLeaveDays > 0 && "text-destructive")}>
+                                {devStats.extraLeaveDays}
+                              </p>
+                              <p className="text-xs text-muted-foreground">Extra Days</p>
+                          </div>
+                      </div>
+                  </div>
+                  <Separator className="my-4" />
+
+                  <div className="mt-4 grid grid-cols-1 gap-y-4">
+                      <div className="space-y-1">
+                          <div className="flex items-center gap-2 text-foreground">
+                              <h4 className="font-semibold">Salary Calculation</h4>
+                          </div>
+                          <DetailRow label="Base Salary" value={devStats.salary || 0} />
+                          <DetailRow label="Leave Deduction" value={-Math.round(devStats.salaryDeduction)} isNegative />
+                          <DetailRow label="General Deduction" value={-devStats.generalDeduction} isNegative />
+                          <DetailRow label="Deduction/Day" value={Math.round(devStats.dailyWage)} />
+                      </div>
+                  </div>
                   
-                  <Separator />
-                  <p className="text-sm font-semibold pt-2">Deductions</p>
-                  <DetailRow label="Deduction per Day" value={Math.round(devStats.dailyWage)} />
-                  <DetailRow label="Leave Deduction" value={-Math.round(devStats.salaryDeduction)} />
-                  <DetailRow label="General Deduction" value={-devStats.generalDeduction} />
-                  
-                  <Separator className="my-4"/>
-                  
-                  <div className="bg-background p-3 rounded-md">
-                    <DetailRow label="Final Salary" value={Math.round(devStats.finalSalary)} isBold={true} isTotal={true}/>
+                  <div className="mt-6 pt-4 border-t">
+                      <div className="bg-primary/10 p-4 rounded-lg flex items-center justify-between">
+                          <p className="text-lg font-bold text-primary">Net Payable Salary</p>
+                          <p className="text-2xl font-bold text-primary font-mono">
+                              {formatCurrency(Math.round(devStats.finalSalary))}
+                          </p>
+                      </div>
                   </div>
               </div>
-              <DialogFooter>
+
+              <DialogFooter className="mt-6 no-print">
                 <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
                 <Button onClick={onPrint}><Printer className="mr-2 h-4 w-4"/> Print Slip</Button>
               </DialogFooter>
@@ -746,7 +889,6 @@ function SalarySlipDialog({ isOpen, onOpenChange, devStats, month, onPrint, slip
       </Dialog>
   );
 }
-
 
 // Add Holiday Form Dialog Component
 interface HolidayFormDialogProps {

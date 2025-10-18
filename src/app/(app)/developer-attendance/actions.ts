@@ -3,7 +3,7 @@
 
 import { z } from 'zod';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, doc, getDoc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, getDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
 import type { Employee } from '@/types';
 
@@ -63,6 +63,55 @@ export async function addDeveloperLeave(
     console.error("Error adding developer leave record:", error);
     return {
       message: error instanceof Error ? error.message : "An unknown server error occurred.",
+      success: false,
+    };
+  }
+}
+
+const UpdateDeveloperLeaveSchema = z.object({
+  attendanceId: z.string().min(1),
+  newLeaveDate: z.string().refine((date) => !isNaN(Date.parse(date)), { message: "A valid leave date is required." }),
+  newReason: z.string().max(500, "Reason is too long.").optional().or(z.literal('')),
+});
+
+export type UpdateDeveloperLeaveState = {
+  message: string;
+  success: boolean;
+};
+
+export async function updateDeveloperLeave(
+  data: { attendanceId: string, newLeaveDate: string, newReason?: string }
+): Promise<UpdateDeveloperLeaveState> {
+  const validatedFields = UpdateDeveloperLeaveSchema.safeParse(data);
+
+  if (!validatedFields.success) {
+    const firstError = Object.values(validatedFields.error.flatten().fieldErrors)[0]?.[0];
+    return {
+      message: firstError || "Validation failed.",
+      success: false,
+    };
+  }
+
+  const { attendanceId, newLeaveDate, newReason } = validatedFields.data;
+
+  try {
+    const leaveDocRef = doc(db, 'developerAttendances', attendanceId);
+    await updateDoc(leaveDocRef, {
+      leaveDate: newLeaveDate,
+      reason: newReason || '',
+    });
+
+    revalidatePath('/developer-attendance');
+    
+    return {
+      message: "Leave record updated successfully.",
+      success: true,
+    };
+
+  } catch (error) {
+    console.error("Error updating developer leave record:", error);
+    return {
+      message: error instanceof Error ? error.message : "An unknown server error occurred while updating.",
       success: false,
     };
   }
