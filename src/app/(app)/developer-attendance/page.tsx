@@ -734,10 +734,10 @@ function SalarySlipDialog({ isOpen, onOpenChange, devStats, month, onPrint, slip
   return (
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
           <DialogContent className="sm:max-w-lg p-0">
-             <DialogHeader className="sr-only">
-              <DialogTitle>Salary Slip for {devStats.name}</DialogTitle>
+             <DialogHeader className="p-6 pb-0">
+              <DialogTitle className="sr-only">Salary Slip for {devStats.name}</DialogTitle>
             </DialogHeader>
-              <div ref={salarySlipRef} className="p-6 slip-container-for-pdf">
+              <div ref={slipRef} className="p-6 slip-container-for-pdf">
                  {/* This div is structured for jspdf rendering */}
               </div>
               <DialogFooter className="mt-0 p-4 border-t bg-slate-50 no-print rounded-b-lg">
