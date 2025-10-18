@@ -10,8 +10,8 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -355,14 +355,14 @@ export default function DeveloperAttendancePage() {
       </header>
       
       <main className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 grid grid-cols-1 xl:grid-cols-2 gap-6">
             {isLoading ? (
-              <div className="flex justify-center items-center py-20 bg-background rounded-lg">
+              <div className="xl:col-span-2 flex justify-center items-center py-20 bg-background rounded-lg">
                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
               </div>
             ) : (
                 developerStats.map(dev => (
-                <Card key={dev.id} className="overflow-hidden shadow-sm">
+                <Card key={dev.id} className="overflow-hidden shadow-sm flex flex-col">
                     <div className="p-4 bg-background border-b flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <User className="h-9 w-9 text-muted-foreground bg-muted p-2 rounded-full" />
@@ -382,11 +382,7 @@ export default function DeveloperAttendancePage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem onSelect={() => handleViewSalarySlipClick(dev)}>
-                            <Printer className="mr-2 h-4 w-4" />
-                            View Salary Slip
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => handleAddLeaveClick(dev)}>
+                             <DropdownMenuItem onSelect={() => handleAddLeaveClick(dev)}>
                             <PlusCircle className="mr-2 h-4 w-4" />
                             Add Leave
                             </DropdownMenuItem>
@@ -394,43 +390,48 @@ export default function DeveloperAttendancePage() {
                             <MinusCircle className="mr-2 h-4 w-4" />
                             General Deduction
                             </DropdownMenuItem>
+                             <DropdownMenuSeparator />
+                            <DropdownMenuItem onSelect={() => handleViewSalarySlipClick(dev)}>
+                            <Printer className="mr-2 h-4 w-4" />
+                            View Salary Slip
+                            </DropdownMenuItem>
                         </DropdownMenuContent>
                         </DropdownMenu>
                     )}
                     </div>
-                    <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-6 bg-muted/30">
+                    <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/30 flex-grow">
                         <div className="space-y-2">
                             <p className="text-sm font-medium text-muted-foreground">Leave Details</p>
                             <div className="flex items-baseline gap-4">
                                 <div className="text-left">
-                                <p className="text-3xl font-bold">{dev.leaveDays}</p>
+                                <p className="text-2xl font-bold">{dev.leaveDays}</p>
                                 <p className="text-xs text-muted-foreground">Total Leave</p>
                                 </div>
                                 <div className="text-left">
-                                <p className={cn("text-3xl font-bold", dev.extraLeaveDays > 0 ? 'text-destructive' : 'text-foreground')}>{dev.extraLeaveDays}</p>
-                                <p className="text-xs text-muted-foreground">Extra Days</p>
+                                <p className={cn("text-2xl font-bold", dev.extraLeaveDays > 0 ? 'text-destructive' : 'text-foreground')}>{dev.extraLeaveDays}</p>
+                                <p className="text-xs text-muted-foreground">Extra</p>
                                 </div>
                             </div>
                         </div>
-                        <div className="space-y-2">
-                            <p className="text-sm font-medium text-muted-foreground">Deductions</p>
-                            <div className="flex flex-col gap-1.5">
-                            <Badge variant="destructive" className="flex justify-between w-full max-w-xs py-1 px-2">
-                                <span>Leave Deduction</span>
-                                <span className='font-mono'>{formatCurrency(Math.round(dev.salaryDeduction))}</span>
-                            </Badge>
-                            <Badge variant="secondary" className="flex justify-between w-full max-w-xs py-1 px-2">
-                                <span>General Deduction</span>
-                                <span className='font-mono'>{formatCurrency(dev.generalDeduction)}</span>
-                            </Badge>
-                            </div>
-                        </div>
-                        <div className="space-y-2 flex flex-col items-start md:items-end">
+                         <div className="space-y-2">
                             <p className="text-sm font-medium text-muted-foreground">Final Salary</p>
-                            <p className={cn("text-3xl font-bold flex items-center", (dev.finalSalary ?? 0) < (dev.salary ?? 0) ? "text-destructive" : "text-green-600")}>
+                            <p className={cn("text-2xl font-bold flex items-center", (dev.finalSalary ?? 0) < (dev.salary ?? 0) ? "text-destructive" : "text-green-600")}>
                                 <Wallet className="mr-2 h-6 w-6"/> {dev.finalSalary ? formatCurrency(Math.round(dev.finalSalary)) : 'N/A'}
                             </p>
                         </div>
+                         <div className="col-span-1 md:col-span-2 space-y-2">
+                             <p className="text-sm font-medium text-muted-foreground">Deductions</p>
+                             <div className="flex flex-col sm:flex-row gap-2">
+                                <Badge variant="destructive" className="flex justify-between w-full sm:w-auto py-1 px-2">
+                                    <span>Leave Deduction</span>
+                                    <span className='font-mono ml-2'>{formatCurrency(Math.round(dev.salaryDeduction))}</span>
+                                </Badge>
+                                <Badge variant="secondary" className="flex justify-between w-full sm:w-auto py-1 px-2">
+                                    <span>General Deduction</span>
+                                    <span className='font-mono ml-2'>{formatCurrency(dev.generalDeduction)}</span>
+                                </Badge>
+                             </div>
+                         </div>
                     </div>
                     <div className="p-4 border-t bg-background">
                       <p className="text-sm font-medium text-muted-foreground mb-2">Monthly Attendance Calendar</p>
@@ -445,14 +446,16 @@ export default function DeveloperAttendancePage() {
                             if (isBefore(day.date, new Date()) || isToday(day.date)) {
                                 switch(day.status) {
                                     case 'Leave': 
-                                        statusClass = "bg-destructive/10 border border-destructive/20 hover:bg-destructive/20 cursor-pointer";
+                                        statusClass = "bg-destructive/10 border border-destructive/20 hover:bg-destructive/20";
                                         content = <X className="h-4 w-4 text-destructive" />;
                                         title = `Leave on ${title}. Click to edit/delete.`;
+                                        if (isAdmin) statusClass += " cursor-pointer";
                                         break;
                                     case 'Holiday': 
-                                        statusClass = "bg-primary/10 border border-primary/20 hover:bg-primary/20 cursor-pointer";
+                                        statusClass = "bg-primary/10 border border-primary/20 hover:bg-primary/20";
                                         content = <Calendar className="h-4 w-4 text-primary" />;
                                         title = `${(day.details as PublicHoliday)?.name} on ${title}. Click to delete.`;
+                                         if (isAdmin) statusClass += " cursor-pointer";
                                         break;
                                     case 'WorkDay': 
                                     default:
