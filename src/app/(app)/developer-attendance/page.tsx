@@ -297,36 +297,46 @@ export default function DeveloperAttendancePage() {
     return developerStats.reduce((sum, dev) => sum + dev.finalSalary, 0);
   }, [developerStats]);
 
- const handlePrintSlip = async () => {
+ const handlePrintSlip = () => {
     const slipContent = salarySlipRef.current;
-    if (!slipContent) return;
+    if (!slipContent || !developerForSalarySlip) return;
+
+    const devStats = developerForSalarySlip;
+    const avatarFallback = devStats.name?.substring(0, 2).toUpperCase() || 'DV';
+    const avatarSrc = devStats.avatar || '';
 
     const printWindow = window.open('', '_blank', 'height=800,width=800');
     if (printWindow) {
         printWindow.document.write('<html><head><title>Salary Slip</title>');
         printWindow.document.write(`
             <style>
-                body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; background-color: #f9fafb; -webkit-print-color-adjust: exact; }
+                body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; background-color: #f9fafb; color: #374151; -webkit-print-color-adjust: exact; }
                 .slip-container { max-width: 800px; margin: 20px auto; background-color: white; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-                .slip-header { padding: 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e5e7eb; }
-                .slip-header .company-logo { font-size: 24px; font-weight: 700; color: #1f2937; }
-                .slip-header .header-details { text-align: right; }
-                .slip-header p { margin: 0; font-size: 14px; }
+                .slip-header { padding: 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e5e7eb; background-color: #f3f4f6; border-top-left-radius: 8px; border-top-right-radius: 8px; }
+                .avatar { height: 64px; width: 64px; border-radius: 9999px; border: 2px solid #3b82f6; object-fit: cover; }
+                .avatar-fallback { display: flex; align-items: center; justify-content: center; height: 64px; width: 64px; border-radius: 9999px; background-color: #d1d5db; color: #1f2937; font-size: 24px; font-weight: 600; border: 2px solid #3b82f6; }
+                .header-info { margin-left: 16px; }
+                .header-info h3 { font-size: 24px; font-weight: 700; color: #1f2937; margin: 0; }
+                .header-info p { font-size: 14px; color: #6b7280; margin: 0; }
+                .header-details { text-align: right; }
+                .header-details p { margin: 0; font-size: 14px; }
                 .slip-body { padding: 24px; }
-                .slip-section-title { font-size: 16px; font-weight: 600; color: #111827; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px; margin-bottom: 16px; }
-                .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-                .info-item p:first-child { font-size: 12px; color: #6b7280; margin: 0 0 4px 0; text-transform: uppercase; }
-                .info-item p:last-child { font-size: 14px; font-weight: 500; margin: 0; }
-                .calc-table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-                .calc-table tr td { padding: 10px 0; font-size: 14px; border-bottom: 1px solid #f3f4f6; }
-                .calc-table tr:last-child td { border-bottom: none; }
-                .calc-table tr td:last-child { text-align: right; font-family: monospace; font-weight: 500;}
-                .calc-table tr.total td { font-weight: 600; padding-top: 12px; border-top: 2px solid #e5e7eb; }
-                .net-payable { margin-top: 24px; background-color: #dcfce7; color: #166534; padding: 16px; border-radius: 6px; text-align: right; }
-                .net-payable .label { font-size: 14px; font-weight: 500; }
+                .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+                .section { }
+                .section-title { font-size: 18px; font-weight: 600; color: #111827; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px; margin-bottom: 16px; }
+                .detail-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 14px; }
+                .detail-row span:first-child { color: #6b7280; }
+                .detail-row span:last-child { font-weight: 500; font-family: monospace; }
+                .total-row { border-top: 1px solid #e5e7eb; margin-top: 8px; padding-top: 8px; font-weight: 600; }
+                .net-payable { margin-top: 24px; background-color: #dcfce7; color: #166534; padding: 16px; border-radius: 6px; text-align: center; }
+                .net-payable .label { font-size: 14px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
                 .net-payable .amount { font-size: 28px; font-weight: 700; margin-top: 4px; }
+                .attendance-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; text-align: center; margin-top: 24px; }
+                .attendance-item { background-color: #f3f4f6; padding: 12px; border-radius: 6px; }
+                .attendance-item .label { font-size: 12px; color: #6b7280; }
+                .attendance-item .value { font-size: 20px; font-weight: 700; color: #1f2937; }
+                .negative { color: #dc2626; }
                 .slip-footer { text-align: center; font-size: 12px; color: #9ca3af; margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e7eb;}
-                .signature-line { width: 200px; border-top: 1px solid #6b7280; margin: 40px auto 5px auto; }
                 @media print {
                     body { background-color: white; }
                     .slip-container { margin: 0; box-shadow: none; border-radius: 0; }
@@ -334,9 +344,10 @@ export default function DeveloperAttendancePage() {
                 }
             </style>
         `);
-        printWindow.document.write('</head><body>');
-        printWindow.document.write(slipContent.innerHTML);
-        printWindow.document.write('</body></html>');
+        printWindow.document.write('</head><body><div class="slip-container">');
+        const slipHTML = slipRef.current.innerHTML;
+        printWindow.document.write(slipHTML);
+        printWindow.document.write('</div></body></html>');
         printWindow.document.close();
         
         setTimeout(() => {
@@ -498,13 +509,15 @@ const DeveloperInfoCard = ({ dev, isAdmin, onAddLeave, onAddDeduction, onViewSli
                 )}
             </div>
             
-            <div className="grid grid-cols-6 p-2 gap-4">
-                <StatItem icon={DollarSign} label="Base Salary" value={formatCurrency(dev.salary)} />
-                <StatItem icon={MinusCircle} label="Deductions" value={formatCurrency(Math.round(dev.totalDeduction))} valueColor="text-destructive" />
-                <StatItem icon={Wallet} label="Final Salary" value={formatCurrency(Math.round(dev.finalSalary))} valueColor={dev.finalSalary < (dev.salary||0) ? "text-destructive" : "text-green-600"} />
-                <StatItem icon={CalendarX} label="Total Leave" value={dev.leaveDays} />
-                <StatItem icon={UserCheck} label="Allowed" value={FREE_LEAVE_DAYS} />
-                <StatItem icon={UserXIcon} label="Extra" value={dev.extraLeaveDays} valueColor={dev.extraLeaveDays > 0 ? "text-destructive" : "text-slate-700"} />
+             <div className="p-2 bg-slate-100/30">
+                <div className="grid grid-cols-6 gap-2">
+                    <StatItem icon={DollarSign} label="Base Salary" value={formatCurrency(dev.salary)} />
+                    <StatItem icon={MinusCircle} label="Deductions" value={formatCurrency(Math.round(dev.totalDeduction))} valueColor="text-destructive" />
+                    <StatItem icon={Wallet} label="Final Salary" value={formatCurrency(Math.round(dev.finalSalary))} valueColor={dev.finalSalary < (dev.salary||0) ? "text-destructive" : "text-green-600"} />
+                    <StatItem icon={CalendarX} label="Total Leave" value={dev.leaveDays} />
+                    <StatItem icon={UserCheck} label="Allowed" value={FREE_LEAVE_DAYS} />
+                    <StatItem icon={UserXIcon} label="Extra" value={dev.extraLeaveDays} valueColor={dev.extraLeaveDays > 0 ? "text-destructive" : "text-slate-700"} />
+                </div>
             </div>
 
             <div className="p-4 flex-grow bg-slate-50/50">
@@ -546,7 +559,7 @@ const DeveloperInfoCard = ({ dev, isAdmin, onAddLeave, onAddDeduction, onViewSli
 
 const StatItem = ({ icon: Icon, label, value, valueColor = "text-slate-700" }) => (
     <div className="p-2 bg-white text-center rounded-md">
-        <Icon className="h-5 w-5 mx-auto text-slate-400 mb-1" />
+        <Icon className="h-4 w-4 mx-auto text-slate-400 mb-1" />
         <p className="text-[10px] font-semibold text-slate-500 leading-tight uppercase">{label}</p>
         <p className={cn("text-sm font-bold", valueColor)}>{value}</p>
     </div>
@@ -664,14 +677,10 @@ function SalarySlipDialog({ isOpen, onOpenChange, devStats, month, onPrint, slip
   return (
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
           <DialogContent className="sm:max-w-2xl p-0 overflow-hidden">
-            <DialogHeader className="p-6 pb-0">
+            <DialogHeader className="p-6 pb-0 sr-only">
               <DialogTitle>Salary Slip for {devStats.name}</DialogTitle>
-              <DialogDescription>
-                Summary for {format(month, 'MMMM yyyy')}
-              </DialogDescription>
             </DialogHeader>
-              <div ref={slipRef} className="p-6">
-                 {/* This div is structured for jspdf rendering */}
+              <div ref={slipRef} className="p-6 slip-container-for-pdf">
                  <div className="space-y-6">
                     <div className="flex items-center justify-between p-4 bg-primary/10 rounded-lg">
                         <div className="flex items-center gap-4">
