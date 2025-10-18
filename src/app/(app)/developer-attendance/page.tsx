@@ -296,9 +296,60 @@ export default function DeveloperAttendancePage() {
   const handlePrintSlip = () => {
     const slipElement = salarySlipRef.current;
     if (slipElement) {
-        const printWindow = window.open('', '', 'height=600,width=800');
+        const printWindow = window.open('', '', 'height=700,width=800');
         printWindow?.document.write('<html><head><title>Salary Slip</title>');
-        printWindow?.document.write('<style>body{font-family:sans-serif;padding:20px}@media print{body{padding:0}.no-print{display:none}}.slip-container{border:1px solid #eee;padding:16px;border-radius:8px}h3,p{margin:0}.text-center{text-align:center}.flex{display:flex;justify-content:space-between;align-items:center}.py-2{padding-top:8px;padding-bottom:8px}.border-b{border-bottom:1px dashed #ddd}.font-semibold{font-weight:600}.font-bold{font-weight:700}.text-muted-foreground{color:#666}.font-mono{font-family:monospace}.bg-background{background-color:#fff;padding:12px;border-radius:6px;border:1px solid #eee}#logo{font-weight:bold;text-align:center;font-size:1.2em;margin-bottom:8px}</style>');
+        printWindow?.document.write(`<style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #111827; margin: 0; padding: 20px; background-color: #f9fafb; }
+            @media print {
+                body { padding: 0; background-color: #fff; }
+                .no-print { display: none; }
+                .slip-container { box-shadow: none; border: 1px solid #e5e7eb; }
+            }
+            .slip-container { width: 100%; max-width: 400px; margin: auto; background-color: #ffffff; border-radius: 8px; padding: 24px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); }
+            .text-center { text-align: center; }
+            .font-bold { font-weight: 700; }
+            .text-xl { font-size: 1.25rem; line-height: 1.75rem; }
+            .text-2xl { font-size: 1.5rem; line-height: 2rem; }
+            .text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+            .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+            .text-xs { font-size: 0.75rem; line-height: 1rem; }
+            .text-muted-foreground { color: #6b7280; }
+            .text-foreground { color: #111827; }
+            .text-primary { color: #3b82f6; }
+            .text-destructive { color: #ef4444; }
+            .text-green-600 { color: #16a34a; }
+            .font-semibold { font-weight: 600; }
+            .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+            .my-4 { margin-top: 1rem; margin-bottom: 1rem; }
+            .mb-2 { margin-bottom: 0.5rem; }
+            .mb-4 { margin-bottom: 1rem; }
+            .mt-1 { margin-top: 0.25rem; }
+            .mt-2 { margin-top: 0.5rem; }
+            .mt-4 { margin-top: 1rem; }
+            .mt-6 { margin-top: 1.5rem; }
+            .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+            .p-4 { padding: 1rem; }
+            .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
+            .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+            .flex { display: flex; }
+            .justify-between { justify-content: space-between; }
+            .items-center { align-items: center; }
+            .gap-2 { gap: 0.5rem; }
+            .grid { display: grid; }
+            .grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .gap-4 { gap: 1rem; }
+            .border-b { border-bottom-width: 1px; }
+            .border-dashed { border-style: dashed; }
+            .border-muted { border-color: #e5e7eb; }
+            .rounded-md { border-radius: 0.375rem; }
+            .rounded-lg { border-radius: 0.5rem; }
+            .bg-muted-50 { background-color: rgba(243, 244, 246, 0.5); }
+            .bg-primary-10 { background-color: rgba(59, 130, 246, 0.1); }
+            .w-full { width: 100%; }
+            .inline-flex { display: inline-flex; }
+            h3, p { margin: 0; }
+            #logo { font-weight: 900; letter-spacing: -0.05em; font-size: 1.8rem; color: #2563eb; }
+        </style>`);
         printWindow?.document.write('</head><body>');
         printWindow?.document.write(slipElement.innerHTML);
         printWindow?.document.write('</body></html>');
@@ -332,7 +383,7 @@ export default function DeveloperAttendancePage() {
             {isAdmin && (
               <Dialog open={isHolidayFormDialogOpen} onOpenChange={setIsHolidayFormDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button><CalendarPlus className="mr-2 h-4 w-4"/> Add Holiday</Button>
+                  <Button variant="outline"><CalendarPlus className="mr-2 h-4 w-4"/> Add Holiday</Button>
                 </DialogTrigger>
                 <HolidayFormDialog 
                     isOpen={isHolidayFormDialogOpen}
@@ -830,7 +881,7 @@ function SalarySlipDialog({ isOpen, onOpenChange, devStats, month, onPrint, slip
               
               <div ref={slipRef} className="p-4 sm:p-6 rounded-lg border bg-background slip-container">
                   <div className="text-center pb-4">
-                      <h3 id="logo" className='text-2xl font-bold text-primary'>waansaung</h3>
+                      <h3 id="logo" className='text-2xl font-black tracking-tighter text-primary'>waansaung</h3>
                       <p className="text-lg font-semibold mt-4">{devStats.name}</p>
                       <p className="text-sm text-muted-foreground">Salary for {format(month, 'MMMM yyyy')}</p>
                       {devStats.paymentInfo && (
@@ -845,15 +896,15 @@ function SalarySlipDialog({ isOpen, onOpenChange, devStats, month, onPrint, slip
                   <div className="mt-4">
                       <h4 className="text-sm font-semibold text-muted-foreground mb-2 text-center">Attendance Summary</h4>
                       <div className="grid grid-cols-3 gap-2 sm:gap-4 text-center">
-                          <div className="p-2 bg-muted/50 rounded-md">
+                          <div className="p-2 bg-muted-50 rounded-md">
                               <p className="text-2xl font-bold">{devStats.leaveDays}</p>
                               <p className="text-xs text-muted-foreground">Total Leave</p>
                           </div>
-                          <div className="p-2 bg-muted/50 rounded-md">
+                          <div className="p-2 bg-muted-50 rounded-md">
                               <p className="text-2xl font-bold">{FREE_LEAVE_DAYS}</p>
                               <p className="text-xs text-muted-foreground">Allowed</p>
                           </div>
-                          <div className="p-2 bg-muted/50 rounded-md">
+                          <div className="p-2 bg-muted-50 rounded-md">
                               <p className={cn("text-2xl font-bold", devStats.extraLeaveDays > 0 && "text-destructive")}>
                                 {devStats.extraLeaveDays}
                               </p>
