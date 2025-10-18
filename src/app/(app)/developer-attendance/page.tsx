@@ -301,40 +301,45 @@ export default function DeveloperAttendancePage() {
     if (!slipContent) return;
 
     const printWindow = window.open('', '', 'height=800,width=800');
-        if (printWindow) {
-            printWindow.document.write('<html><head><title>Salary Slip</title>');
-            printWindow.document.write(`
-                <style>
-                    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; -webkit-print-color-adjust: exact; color: #333; }
-                    .slip-container { max-width: 800px; margin: 20px auto; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden; }
-                    .header-main { padding: 24px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; display: flex; justify-content: space-between; align-items: center; }
-                    .header-main h1 { margin: 0; font-size: 24px; font-weight: bold; color: #0A2240; }
-                    .header-main p { margin: 0; font-size: 14px; color: #6c757d; }
-                    .employee-details { display: flex; align-items: center; padding: 24px; background: #0A2240; color: white; gap: 20px; }
-                    .employee-details .avatar { width: 64px; height: 64px; border-radius: 50%; border: 2px solid #00AEEF; object-fit: cover; }
-                    .employee-details .avatar-fallback { width: 64px; height: 64px; border-radius: 50%; background-color: #f1f5f9; color: #0A2240; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; }
-                    .employee-info h2 { font-size: 22px; font-weight: 600; margin: 0; }
-                    .employee-info p { font-size: 14px; margin: 4px 0 0; opacity: 0.8; }
-                    .salary-body { padding: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-                    .section h3 { font-size: 16px; font-weight: 600; color: #495057; border-bottom: 2px solid #e9ecef; padding-bottom: 8px; margin-bottom: 12px; }
-                    .detail-row { display: flex; justify-content: space-between; padding: 10px 0; font-size: 14px; border-bottom: 1px solid #f1f5f9; }
-                    .detail-row:last-child { border-bottom: none; }
-                    .detail-row .label { color: #6c757d; }
-                    .detail-row .value { font-weight: 500; }
-                    .total-row { font-weight: bold; background-color: #f8f9fa; margin: 8px -24px 0; padding: 12px 24px; }
-                    .deduction .value { color: #dc3545; }
-                    .net-payable-section { background-color: #e6f9f0; padding: 20px 24px; text-align: center; }
-                    .net-payable-section .label { font-size: 14px; color: #155724; font-weight: 600; text-transform: uppercase; }
-                    .net-payable-section .amount { font-size: 28px; font-weight: 700; color: #155724; margin-top: 4px; }
-                    .footer-notes { padding: 16px 24px; font-size: 12px; color: #6c757d; text-align: center; border-top: 1px solid #e9ecef; background-color: #f8f9fa; }
-                    @media print { body { background-color: white; } .slip-container { margin: 0; box-shadow: none; border-radius: 0; } }
-                </style>
-            `);
-            printWindow.document.write('</head><body>');
-            const slipHTML = slipContent.innerHTML;
-            printWindow.document.write(slipHTML);
-            printWindow.document.write('</body></html>');
-            printWindow.document.close();
+    if (printWindow) {
+        printWindow.document.write('<html><head><title>Salary Slip</title>');
+        printWindow.document.write(`
+            <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; background-color: #f9fafb; color: #1f2937; }
+                .slip-container { max-width: 800px; margin: 20px auto; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden; }
+                .header-main { padding: 24px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; display: flex; justify-content: space-between; align-items: center; }
+                .header-main h1 { margin: 0; font-size: 24px; font-weight: bold; color: #111827; }
+                .header-main p { margin: 0; font-size: 14px; color: #6b7280; }
+                .employee-details { display: flex; align-items: center; padding: 24px; background-color: #1f2937; color: white; gap: 20px; }
+                .employee-details .avatar { width: 64px; height: 64px; border-radius: 50%; border: 2px solid #3b82f6; object-fit: cover; }
+                .employee-details .avatar-fallback { width: 64px; height: 64px; border-radius: 50%; background-color: #f1f5f9; color: #1f2937; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; }
+                .employee-info h2 { font-size: 22px; font-weight: 600; margin: 0; }
+                .employee-info p { font-size: 14px; margin: 4px 0 0; opacity: 0.8; }
+                .salary-body { padding: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+                .section h3 { font-size: 16px; font-weight: 600; color: #4b5563; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+                .detail-row { display: flex; justify-content: space-between; padding: 10px 0; font-size: 14px; border-bottom: 1px solid #f3f4f6; }
+                .detail-row:last-child { border-bottom: none; }
+                .detail-row .label { color: #6b7280; }
+                .detail-row .value { font-weight: 500; font-family: monospace; }
+                .total-row { font-weight: bold; background-color: #f9fafb; margin: 8px -24px 0; padding: 12px 24px; }
+                .total-row .value { font-weight: bold; }
+                .deduction .value { color: #ef4444; }
+                .net-payable-section { background-color: #dcfce7; padding: 20px 24px; text-align: center; border-radius: 6px; }
+                .net-payable-section .label { font-size: 14px; color: #166534; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+                .net-payable-section .amount { font-size: 28px; font-weight: 700; color: #16a34a; margin-top: 4px; font-family: monospace; }
+                .footer-notes { padding: 16px 24px; font-size: 12px; color: #6b7280; text-align: center; border-top: 1px solid #e5e7eb; background-color: #f8f9fa; }
+                @media print { 
+                    body { -webkit-print-color-adjust: exact; color-adjust: exact; background-color: white; } 
+                    .slip-container { margin: 0; box-shadow: none; border-radius: 0; border: 1px solid #e5e7eb; } 
+                    .no-print { display: none; }
+                }
+            </style>
+        `);
+        printWindow.document.write('</head><body>');
+        const slipHTML = slipContent.innerHTML;
+        printWindow.document.write(slipHTML);
+        printWindow.document.write('</body></html>');
+        printWindow.document.close();
         
         setTimeout(() => {
             printWindow.focus();
@@ -343,6 +348,7 @@ export default function DeveloperAttendancePage() {
         }, 250);
     }
   };
+
 
   const goToPreviousMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
   const goToNextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
@@ -495,8 +501,8 @@ const DeveloperInfoCard = ({ dev, isAdmin, onAddLeave, onAddDeduction, onViewSli
                 )}
             </div>
             
-             <div className="p-2 bg-slate-100/30">
-                <div className="grid grid-cols-3 gap-2">
+             <div className="p-4 bg-slate-100/30">
+                <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
                     <StatItem icon={DollarSign} label="Base Salary" value={formatCurrency(dev.salary)} />
                     <StatItem icon={MinusCircle} label="Deductions" value={formatCurrency(Math.round(dev.totalDeduction))} valueColor="text-destructive" />
                     <StatItem icon={Wallet} label="Final Salary" value={formatCurrency(Math.round(dev.finalSalary))} valueColor={dev.finalSalary < (dev.salary||0) ? "text-destructive" : "text-green-600"} />
@@ -544,7 +550,7 @@ const DeveloperInfoCard = ({ dev, isAdmin, onAddLeave, onAddDeduction, onViewSli
 };
 
 const StatItem = ({ icon: Icon, label, value, valueColor = "text-slate-700" }) => (
-    <div className="p-2 bg-white rounded-md text-center">
+    <div className="p-2 bg-white rounded-md text-center shadow-sm">
         <Icon className="h-5 w-5 mx-auto text-slate-400 mb-1" />
         <p className="text-[10px] font-semibold text-slate-500 leading-tight uppercase">{label}</p>
         <p className={cn("text-lg font-bold", valueColor)}>{value}</p>
@@ -663,9 +669,9 @@ function SalarySlipDialog({ isOpen, onOpenChange, devStats, month, onPrint, slip
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
           <DialogContent className="sm:max-w-2xl">
              <DialogHeader>
-              <DialogTitle>Salary Slip</DialogTitle>
+              <DialogTitle>Salary Slip for {format(month, 'MMMM yyyy')}</DialogTitle>
               <DialogDescription>
-                Salary details for {devStats.name} for the period of {format(month, 'MMMM yyyy')}.
+                Salary details for {devStats.name}.
               </DialogDescription>
             </DialogHeader>
             <div ref={slipRef} className="bg-slate-50 rounded-lg p-6 space-y-6">
@@ -731,8 +737,8 @@ function SalarySlipDialog({ isOpen, onOpenChange, devStats, month, onPrint, slip
                  </div>
 
 
-                <div className="bg-green-100 text-green-800 rounded-lg p-4 text-center mt-4">
-                    <p className="text-sm font-semibold uppercase">Net Payable Salary</p>
+                <div className="bg-green-600 text-white rounded-lg p-4 text-center mt-4">
+                    <p className="text-sm font-semibold uppercase tracking-wider">Net Payable Salary</p>
                     <p className="text-3xl font-bold">{formatCurrency(Math.round(devStats.finalSalary))} MMK</p>
                 </div>
             </div>
