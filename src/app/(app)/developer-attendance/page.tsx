@@ -309,8 +309,7 @@ export default function DeveloperAttendancePage() {
             .slip-container { width: 100%; max-width: 400px; margin: auto; background-color: #ffffff; border-radius: 8px; padding: 24px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); }
             h3, p { margin: 0; }
             .header { text-align: center; padding-bottom: 16px; }
-            .header h3 { font-size: 24px; font-weight: 800; letter-spacing: -0.05em; color: #5DADE2; }
-            .header .company-name { font-size: 16px; font-weight: 600; margin-top: 8px; }
+            .header .company-name { font-size: 24px; font-weight: 800; letter-spacing: -0.05em; color: #5DADE2; }
             .header .employee-name { font-size: 18px; font-weight: 600; margin-top: 16px; }
             .header .period { font-size: 14px; color: #6b7280; }
             .account-info { font-size: 12px; color: #6b7280; margin-top: 8px; display: inline-flex; align-items: center; gap: 8px; background-color: #f3f4f6; padding: 4px 8px; border-radius: 4px;}
@@ -472,7 +471,7 @@ const DeveloperInfoCard = ({ dev, isAdmin, onAddLeave, onAddDeduction, onViewSli
                         <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                             <DropdownMenuItem onSelect={() => onAddLeave(dev)}><PlusCircle className="mr-2 h-4 w-4" />Add Leave</DropdownMenuItem>
+                           <DropdownMenuItem onSelect={() => onAddLeave(dev)}><PlusCircle className="mr-2 h-4 w-4" />Add Leave</DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => onAddDeduction(dev)}><MinusCircle className="mr-2 h-4 w-4" />General Deduction</DropdownMenuItem>
                              <DropdownMenuSeparator />
                             <DropdownMenuItem onSelect={() => onViewSlip(dev)}><Printer className="mr-2 h-4 w-4" />View Salary Slip</DropdownMenuItem>
@@ -481,16 +480,13 @@ const DeveloperInfoCard = ({ dev, isAdmin, onAddLeave, onAddDeduction, onViewSli
                 )}
             </div>
 
-            <div className="grid grid-cols-3 gap-px bg-slate-200 border-b">
+            <div className="grid grid-cols-6 gap-px bg-slate-200 border-b">
                 <StatItem icon={DollarSign} label="Base Salary" value={formatCurrency(dev.salary)} />
-                <StatItem icon={MinusCircle} label="Total Deductions" value={formatCurrency(Math.round(dev.totalDeduction))} valueColor="text-destructive" />
+                <StatItem icon={MinusCircle} label="Deductions" value={formatCurrency(Math.round(dev.totalDeduction))} valueColor="text-destructive" />
                 <StatItem icon={Wallet} label="Final Salary" value={formatCurrency(Math.round(dev.finalSalary))} valueColor={dev.finalSalary < (dev.salary||0) ? "text-destructive" : "text-green-600"} />
-            </div>
-
-             <div className="grid grid-cols-3 gap-px bg-slate-200 border-b">
                 <StatItem icon={CalendarX} label="Total Leave" value={dev.leaveDays} />
                 <StatItem icon={UserCheck} label="Allowed" value={FREE_LEAVE_DAYS} />
-                <StatItem icon={UserXIcon} label="Extra Leave" value={dev.extraLeaveDays} valueColor={dev.extraLeaveDays > 0 ? "text-destructive" : "text-slate-700"} />
+                <StatItem icon={UserXIcon} label="Extra" value={dev.extraLeaveDays} valueColor={dev.extraLeaveDays > 0 ? "text-destructive" : "text-slate-700"} />
             </div>
 
             <div className="p-4 flex-grow">
@@ -531,10 +527,10 @@ const DeveloperInfoCard = ({ dev, isAdmin, onAddLeave, onAddDeduction, onViewSli
 };
 
 const StatItem = ({ icon: Icon, label, value, valueColor = "text-slate-700" }) => (
-    <div className="p-3 bg-white text-center">
-        <Icon className="h-5 w-5 mx-auto text-slate-400 mb-1" />
-        <p className="text-xs text-slate-500">{label}</p>
-        <p className={cn("text-md font-bold", valueColor)}>{value}</p>
+    <div className="p-2 bg-white text-center">
+        <Icon className="h-4 w-4 mx-auto text-slate-400 mb-1" />
+        <p className="text-[11px] text-slate-500 leading-tight">{label}</p>
+        <p className={cn("text-sm font-bold", valueColor)}>{value}</p>
     </div>
 );
 
