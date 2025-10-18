@@ -230,13 +230,13 @@ export default function DeviceManagementPage() {
                     <TableHead>IMEI</TableHead>
                     <TableHead>Issue Date</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    {isAdmin && <TableHead className="text-right">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredDevices.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                      <TableCell colSpan={isAdmin ? 7 : 6} className="h-24 text-center text-muted-foreground">
                          {devices.length === 0 ? "No device records found." : "No records match the current filter."}
                       </TableCell>
                     </TableRow>
@@ -251,8 +251,8 @@ export default function DeviceManagementPage() {
                         <TableCell>
                           <Badge variant={statusBadgeVariant(device.status)}>{device.status}</Badge>
                         </TableCell>
-                        <TableCell className="text-right">
-                          {isAdmin && (
+                        {isAdmin && (
+                          <TableCell className="text-right">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" className="h-8 w-8 p-0">
@@ -271,8 +271,8 @@ export default function DeviceManagementPage() {
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
-                          )}
-                        </TableCell>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))
                   )}
