@@ -297,7 +297,7 @@ export default function DeveloperAttendancePage() {
     return developerStats.reduce((sum, dev) => sum + dev.finalSalary, 0);
   }, [developerStats]);
 
- const handlePrintSlip = (slipContent: HTMLDivElement | null) => {
+  const handlePrintSlip = (slipContent: HTMLDivElement | null) => {
     if (!slipContent) return;
 
     const printWindow = window.open('', '', 'height=800,width=800');
@@ -305,38 +305,377 @@ export default function DeveloperAttendancePage() {
         printWindow.document.write('<html><head><title>Salary Slip</title>');
         printWindow.document.write(`
             <style>
-                body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; background-color: #f9fafb; color: #1f2937; }
-                .slip-container { max-width: 800px; margin: 20px auto; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden; }
-                .header-main { padding: 24px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; display: flex; justify-content: space-between; align-items: center; }
-                .header-main h1 { margin: 0; font-size: 24px; font-weight: bold; color: #111827; }
-                .header-main p { margin: 0; font-size: 14px; color: #6b7280; }
-                .employee-details { display: flex; align-items: center; padding: 24px; background-color: #1f2937; color: white; gap: 20px; }
-                .employee-details .avatar { width: 64px; height: 64px; border-radius: 50%; border: 2px solid #3b82f6; object-fit: cover; }
-                .employee-details .avatar-fallback { width: 64px; height: 64px; border-radius: 50%; background-color: #f1f5f9; color: #1f2937; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; }
-                .employee-info h2 { font-size: 22px; font-weight: 600; margin: 0; }
-                .employee-info p { font-size: 14px; margin: 4px 0 0; opacity: 0.8; }
-                .salary-body { padding: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-                .section h3 { font-size: 16px; font-weight: 600; color: #4b5563; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
-                .detail-row { display: flex; justify-content: space-between; padding: 10px 0; font-size: 14px; border-bottom: 1px solid #f3f4f6; }
-                .detail-row:last-child { border-bottom: none; }
-                .detail-row .label { color: #6b7280; }
-                .detail-row .value { font-weight: 500; font-family: monospace; }
-                .total-row { font-weight: bold; background-color: #f9fafb; margin: 8px -24px 0; padding: 12px 24px; }
-                .total-row .value { font-weight: bold; }
-                .deduction .value { color: #ef4444; }
-                .net-payable-section { background-color: #dcfce7; padding: 20px 24px; text-align: center; border-radius: 6px; }
-                .net-payable-section .label { font-size: 14px; color: #166534; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-                .net-payable-section .amount { font-size: 28px; font-weight: 700; color: #16a34a; margin-top: 4px; font-family: monospace; }
-                .footer-notes { padding: 16px 24px; font-size: 12px; color: #6b7280; text-align: center; border-top: 1px solid #e5e7eb; background-color: #f8f9fa; }
+                * { 
+                    box-sizing: border-box;
+                    margin: 0;
+                    padding: 0;
+                }
+                body { 
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
+                    margin: 0; 
+                    background-color: white; 
+                    color: #1f2937; 
+                    line-height: 1.5;
+                }
+                .slip-container { 
+                    max-width: 800px; 
+                    margin: 0 auto; 
+                    background: white;
+                    padding: 0;
+                }
+                .header-main { 
+                    padding: 24px; 
+                    background-color: #f8f9fa; 
+                    border-bottom: 1px solid #e9ecef; 
+                    display: flex; 
+                    justify-content: space-between; 
+                    align-items: center; 
+                }
+                .header-main h1 { 
+                    margin: 0; 
+                    font-size: 24px; 
+                    font-weight: bold; 
+                    color: #111827; 
+                }
+                .header-main p { 
+                    margin: 0; 
+                    font-size: 14px; 
+                    color: #6b7280; 
+                }
+                .employee-details { 
+                    display: flex; 
+                    align-items: center; 
+                    padding: 24px; 
+                    background-color: #1f2937; 
+                    color: white; 
+                    gap: 20px; 
+                }
+                .employee-details .avatar { 
+                    width: 64px; 
+                    height: 64px; 
+                    border-radius: 50%; 
+                    border: 2px solid #3b82f6; 
+                    object-fit: cover; 
+                }
+                .employee-details .avatar-fallback { 
+                    width: 64px; 
+                    height: 64px; 
+                    border-radius: 50%; 
+                    background-color: #f1f5f9; 
+                    color: #1f2937; 
+                    display: flex; 
+                    align-items: center; 
+                    justify-content: center; 
+                    font-size: 24px; 
+                    font-weight: bold; 
+                }
+                .employee-info h2 { 
+                    font-size: 22px; 
+                    font-weight: 600; 
+                    margin: 0; 
+                }
+                .employee-info p { 
+                    font-size: 14px; 
+                    margin: 4px 0 0; 
+                    opacity: 0.8; 
+                }
+                .salary-body { 
+                    padding: 24px; 
+                    display: grid; 
+                    grid-template-columns: 1fr 1fr; 
+                    gap: 24px; 
+                }
+                .section { 
+                    margin-bottom: 24px;
+                }
+                .section h3 { 
+                    font-size: 16px; 
+                    font-weight: 600; 
+                    color: #4b5563; 
+                    border-bottom: 2px solid #e5e7eb; 
+                    padding-bottom: 8px; 
+                    margin-bottom: 12px; 
+                    display: flex; 
+                    align-items: center; 
+                    gap: 8px; 
+                }
+                .detail-row { 
+                    display: flex; 
+                    justify-content: space-between; 
+                    padding: 10px 0; 
+                    font-size: 14px; 
+                    border-bottom: 1px solid #f3f4f6; 
+                }
+                .detail-row:last-child { 
+                    border-bottom: none; 
+                }
+                .detail-row .label { 
+                    color: #6b7280; 
+                }
+                .detail-row .value { 
+                    font-weight: 500; 
+                    font-family: monospace; 
+                }
+                .total-row { 
+                    font-weight: bold; 
+                    background-color: #f9fafb; 
+                    margin: 8px -24px 0; 
+                    padding: 12px 24px; 
+                }
+                .total-row .value { 
+                    font-weight: bold; 
+                }
+                .deduction .value { 
+                    color: #ef4444; 
+                }
+                .net-payable-section { 
+                    background-color: #dcfce7; 
+                    padding: 20px 24px; 
+                    text-align: center; 
+                    border-radius: 6px; 
+                    margin: 24px;
+                }
+                .net-payable-section .label { 
+                    font-size: 14px; 
+                    color: #166534; 
+                    font-weight: 600; 
+                    text-transform: uppercase; 
+                    letter-spacing: 0.5px; 
+                }
+                .net-payable-section .amount { 
+                    font-size: 28px; 
+                    font-weight: 700; 
+                    color: #16a34a; 
+                    margin-top: 4px; 
+                    font-family: monospace; 
+                }
+                .footer-notes { 
+                    padding: 16px 24px; 
+                    font-size: 12px; 
+                    color: #6b7280; 
+                    text-align: center; 
+                    border-top: 1px solid #e5e7eb; 
+                    background-color: #f8f9fa; 
+                }
+                .attendance-summary { 
+                    margin: 24px 0;
+                }
+                .attendance-grid { 
+                    display: grid; 
+                    grid-template-columns: repeat(3, 1fr); 
+                    gap: 16px; 
+                    margin-top: 16px;
+                }
+                .attendance-item { 
+                    background: #f9fafb; 
+                    padding: 16px; 
+                    border-radius: 8px; 
+                    text-align: center; 
+                }
+                .attendance-item .label { 
+                    font-size: 14px; 
+                    color: #6b7280; 
+                }
+                .attendance-item .value { 
+                    font-size: 18px; 
+                    font-weight: 600; 
+                    margin-top: 4px;
+                }
+                .signature-section {
+                    margin-top: 40px;
+                    padding-top: 20px;
+                    border-top: 2px solid #e5e7eb;
+                }
+                .signature-container {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: flex-end;
+                    margin-top: 60px;
+                }
+                .signature-box {
+                    text-align: center;
+                    flex: 1;
+                }
+                .signature-line {
+                    width: 200px;
+                    height: 1px;
+                    background-color: #000;
+                    margin: 0 auto 8px auto;
+                }
+                .signature-name {
+                    font-size: 14px;
+                    font-weight: 600;
+                    color: #1f2937;
+                    margin-bottom: 4px;
+                }
+                .signature-title {
+                    font-size: 12px;
+                    color: #6b7280;
+                }
+                .signature-date {
+                    font-size: 12px;
+                    color: #6b7280;
+                    margin-top: 4px;
+                }
+                .no-print {
+                    display: none;
+                }
                 @media print { 
-                    body { -webkit-print-color-adjust: exact; color-adjust: exact; background-color: white; } 
-                    .slip-container { margin: 0; box-shadow: none; border-radius: 0; border: 1px solid #e5e7eb; } 
-                    .no-print { display: none; }
+                    body { 
+                        -webkit-print-color-adjust: exact; 
+                        color-adjust: exact; 
+                        background-color: white; 
+                    } 
+                    .slip-container { 
+                        margin: 0; 
+                        box-shadow: none; 
+                        border-radius: 0; 
+                        border: none;
+                    } 
+                    .no-print { 
+                        display: none !important; 
+                    }
+                    .header-main {
+                        border-bottom: 2px solid #e9ecef;
+                    }
+                    .employee-details {
+                        background-color: #1f2937 !important;
+                        -webkit-print-color-adjust: exact;
+                    }
+                    .net-payable-section {
+                        background-color: #dcfce7 !important;
+                        -webkit-print-color-adjust: exact;
+                    }
+                    .signature-line {
+                        background-color: #000 !important;
+                        -webkit-print-color-adjust: exact;
+                    }
                 }
             </style>
         `);
         printWindow.document.write('</head><body>');
-        const slipHTML = slipContent.innerHTML;
+        
+        // Create the slip content structure for printing
+        const slipHTML = `
+            <div class="slip-container">
+                <div class="header-main">
+                    <div>
+                        <h1>Waansaung</h1>
+                        <p>Salary Slip</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <p style="font-weight: 600;">${format(currentMonth, 'MMMM yyyy')}</p>
+                        <p style="font-size: 12px; color: #6b7280;">Generated on ${format(new Date(), 'dd MMM yyyy')}</p>
+                    </div>
+                </div>
+                
+                <div class="employee-details">
+                    <div class="avatar-fallback">
+                        ${developerForSalarySlip?.name?.substring(0, 2) || 'DEV'}
+                    </div>
+                    <div class="employee-info">
+                        <h2>${developerForSalarySlip?.name || 'Developer'}</h2>
+                        <p>${developerForSalarySlip?.role || 'Developer'}</p>
+                    </div>
+                </div>
+                
+                <div class="salary-body">
+                    <div class="section">
+                        <h3>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                            </svg>
+                            Earnings
+                        </h3>
+                        <div class="detail-row">
+                            <span class="label">Base Salary</span>
+                            <span class="value">${formatCurrency(developerForSalarySlip?.salary || 0)} MMK</span>
+                        </div>
+                        <div class="detail-row total-row">
+                            <span class="label">Gross Earnings</span>
+                            <span class="value">${formatCurrency(developerForSalarySlip?.salary || 0)} MMK</span>
+                        </div>
+                    </div>
+                    
+                    <div class="section">
+                        <h3>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                            </svg>
+                            Deductions
+                        </h3>
+                        <div class="detail-row deduction">
+                            <span class="label">Leave (${developerForSalarySlip?.extraLeaveDays || 0} extra days)</span>
+                            <span class="value">${formatCurrency(Math.round(developerForSalarySlip?.salaryDeduction || 0))} MMK</span>
+                        </div>
+                        <div class="detail-row deduction">
+                            <span class="label">General Deduction</span>
+                            <span class="value">${formatCurrency(developerForSalarySlip?.generalDeduction || 0)} MMK</span>
+                        </div>
+                        <div class="detail-row total-row deduction">
+                            <span class="label">Total Deductions</span>
+                            <span class="value">${formatCurrency(Math.round(developerForSalarySlip?.totalDeduction || 0))} MMK</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="attendance-summary" style="padding: 0 24px;">
+                    <h3 style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                        </svg>
+                        Attendance Summary
+                    </h3>
+                    <div class="attendance-grid">
+                        <div class="attendance-item">
+                            <div class="label">Total Leave</div>
+                            <div class="value">${developerForSalarySlip?.leaveDays || 0}</div>
+                        </div>
+                        <div class="attendance-item">
+                            <div class="label">Allowed Leave</div>
+                            <div class="value">${FREE_LEAVE_DAYS}</div>
+                        </div>
+                        <div class="attendance-item">
+                            <div class="label">Extra Leave</div>
+                            <div class="value" style="color: ${(developerForSalarySlip?.extraLeaveDays || 0) > 0 ? '#ef4444' : '#1f2937'}">
+                                ${developerForSalarySlip?.extraLeaveDays || 0}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="net-payable-section">
+                    <div class="label">Net Payable Salary</div>
+                    <div class="amount">${formatCurrency(Math.round(developerForSalarySlip?.finalSalary || 0))} MMK</div>
+                </div>
+
+                <!-- Signature Section -->
+                <div class="signature-section">
+                    <div class="signature-container">
+                        <div class="signature-box">
+                          <p class="text-sm text-gray-600">Bank/Kpay account</p>
+                          <p class="text-xs text-gray-500">${developerForSalarySlip?.paymentInfo || 'N/A'}</p>
+                            <div class="signature-date">Date: ${format(new Date(), 'dd/MM/yyyy')}</div>
+                        </div>
+                        <div class="signature-box">
+                            <div class="signature-line"></div>
+                            <div class="signature-name">Authorized Signature</div>
+                            <div class="signature-title">Manager / BOSS</div>
+                            <div class="signature-date">Date: ${format(new Date(), 'dd/MM/yyyy')}</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="footer-notes">
+                    <p>This is a computer generated salary slip and does not require signature.</p>
+                    <p style="margin-top: 8px;">Waansaung &copy; ${new Date().getFullYear()}</p>
+                </div>
+            </div>
+        `;
+        
         printWindow.document.write(slipHTML);
         printWindow.document.write('</body></html>');
         printWindow.document.close();
@@ -740,6 +1079,22 @@ function SalarySlipDialog({ isOpen, onOpenChange, devStats, month, onPrint, slip
                 <div className="bg-green-600 text-white rounded-lg p-4 text-center mt-4">
                     <p className="text-sm font-semibold uppercase tracking-wider">Net Payable Salary</p>
                     <p className="text-3xl font-bold">{formatCurrency(Math.round(devStats.finalSalary))} MMK</p>
+                </div>
+
+                {/* Signature Section for Dialog */}
+                <div className="mt-8 pt-6 border-t border-gray-300">
+                  <div className="flex justify-between items-end">
+                    <div className="text-center flex-1">
+                      {/* <div className="mx-auto w-48 h-0.5 bg-gray-400 mb-2"></div> */}
+                      <p className="text-sm text-gray-600">Bank/Kpay account</p>
+                      <p className="text-xs text-gray-500">{devStats.paymentInfo}</p>
+                    </div>
+                    <div className="text-center flex-1">
+                      <div className="mx-auto w-48 h-0.5 bg-gray-400 mb-2"></div>
+                      <p className="text-sm text-gray-600">Authorized Signature</p>
+                      <p className="text-xs text-gray-500">Manager / BOSS</p>
+                    </div>
+                  </div>
                 </div>
             </div>
               <DialogFooter className="mt-0 p-4 border-t bg-slate-100 no-print rounded-b-lg">
