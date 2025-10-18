@@ -18,8 +18,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -47,6 +47,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/auth-context';
 import { Separator } from '@/components/ui/separator';
 import jsPDF from 'jspdf';
+import Image from 'next/image';
 
 const FREE_LEAVE_DAYS = 4;
 
@@ -297,140 +298,62 @@ export default function DeveloperAttendancePage() {
   }, [developerStats]);
 
   const handlePrintSlip = async () => {
-    if (!developerForSalarySlip) return;
+    if (!salarySlipRef.current) return;
   
-    const doc = new jsPDF({
-      orientation: 'landscape',
-      unit: 'mm',
-      format: [85.6, 54], // Credit card size
-    });
+    const slipContent = salarySlipRef.current.innerHTML;
+    const printWindow = window.open('', '', 'height=600,width=800');
   
-    const cardWidth = 85.6;
-    const cardHeight = 54;
-    const margin = 4;
-  
-    const darkBlue = '#0A2240';
-    const accentBlue = '#00AEEF';
-    const white = '#FFFFFF';
-    const lightGray = '#D3D3D3';
-    const grayText = '#9CA3AF';
-  
-    doc.setFillColor(darkBlue);
-    doc.rect(0, 0, cardWidth, cardHeight, 'F');
-    
-    const accentWidth = 28;
-    doc.setFillColor(accentBlue);
-    doc.rect(0, 0, accentWidth, cardHeight, 'F');
-  
-    const avatarSize = 20;
-    const avatarX = (accentWidth - avatarSize) / 2;
-    const avatarY = margin + 2;
-  
-    let avatarAdded = false;
-    if (developerForSalarySlip.avatar) {
-      try {
-        const image = new Image();
-        image.crossOrigin = "anonymous"; // Important for CORS
-  
-        await new Promise<void>((resolve, reject) => {
-          image.onload = () => {
-            const imgProps = doc.getImageProperties(image);
-            const imgWidth = avatarSize;
-            const imgHeight = (avatarSize * imgProps.height) / imgProps.width;
-            doc.addImage(image, 'PNG', avatarX, avatarY, imgWidth, imgHeight);
-            avatarAdded = true;
-            resolve();
-          };
-          image.onerror = (err) => {
-            console.error(`Error loading image for PDF (URL: ${developerForSalarySlip.avatar}). Error:`, err);
-            reject(err);
-          };
-          image.src = developerForSalarySlip.avatar;
-        });
-      } catch (e) {
-        console.error(`Error processing image for PDF (URL: ${developerForSalarySlip.avatar}). Falling back to initials.`);
-        avatarAdded = false; // Ensure fallback is used
-      }
+    if (printWindow) {
+      printWindow.document.write('<html><head><title>Salary Slip</title>');
+      printWindow.document.write(`
+        <style>
+          body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            color: #212529;
+          }
+          .slip-container-for-pdf { 
+            max-width: 800px;
+            margin: auto;
+            padding: 2rem;
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+            background: #ffffff;
+            box-shadow: 0 0 10px rgba(0,0,0,0.05);
+          }
+          .header { text-align: center; margin-bottom: 2rem; border-bottom: 2px solid #00AEEF; padding-bottom: 1rem; }
+          .header h2 { font-size: 2rem; color: #0A2240; margin: 0; }
+          .header p { font-size: 1rem; color: #6c757d; margin: 0; }
+          .employee-info, .salary-details, .leave-details { margin-bottom: 2rem; }
+          .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+          .grid-item { padding: 0.5rem; border-bottom: 1px solid #e9ecef; }
+          .grid-item .label { font-weight: 500; color: #495057; }
+          .grid-item .value { font-weight: 600; text-align: right; }
+          .separator { border-top: 1px dashed #ced4da; margin: 1.5rem 0; }
+          .net-salary { 
+            background-color: #0A2240; 
+            color: #ffffff; 
+            padding: 1.5rem; 
+            border-radius: 0.5rem; 
+            text-align: center;
+            margin-top: 2rem;
+          }
+          .net-salary .label { font-size: 1.2rem; margin: 0; }
+          .net-salary .value { font-size: 2.2rem; font-weight: 700; margin: 0; }
+          .footer { text-align: center; margin-top: 2rem; font-size: 0.8rem; color: #6c757d; }
+          .no-print { display: none; }
+        </style>
+      `);
+      printWindow.document.write('</head><body>');
+      printWindow.document.write(slipContent);
+      printWindow.document.write('</body></html>');
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
+      printWindow.close();
     }
-  
-    if (!avatarAdded) {
-        const initials = developerForSalarySlip.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
-        doc.setFillColor(white);
-        doc.circle(accentWidth / 2, avatarY + avatarSize / 2, avatarSize / 2, 'F');
-        doc.setTextColor(darkBlue);
-        doc.setFontSize(10);
-        doc.setFont(undefined, 'bold');
-        const initialsWidth = doc.getTextWidth(initials);
-        doc.text(initials, (accentWidth - initialsWidth) / 2, avatarY + avatarSize / 2 + 3.5);
-    }
-    
-    doc.setTextColor(white);
-    doc.setFontSize(8);
-    doc.setFont(undefined, 'bold');
-    const companyName = "waansaung";
-    const companyNameWidth = doc.getTextWidth(companyName);
-    doc.text(companyName, (accentWidth - companyNameWidth) / 2, avatarY + avatarSize + 8);
-  
-  
-    const contentX = accentWidth + margin;
-    let currentY = margin + 5;
-    const contentWidth = cardWidth - contentX - margin;
-  
-    doc.setTextColor(white);
-    doc.setFontSize(12);
-    doc.setFont(undefined, 'bold');
-    const nameLines = doc.splitTextToSize(developerForSalarySlip.name, contentWidth);
-    nameLines.forEach((line, index) => {
-        doc.text(line, contentX, currentY + (index * 4.5));
-    });
-    currentY += (nameLines.length * 5);
-  
-    doc.setTextColor(lightGray);
-    doc.setFontSize(8);
-    doc.setFont(undefined, 'normal');
-    doc.text(developerForSalarySlip.role || 'Developer', contentX, currentY);
-    currentY += 4;
-  
-    doc.setDrawColor(accentBlue);
-    doc.setLineWidth(0.3);
-    doc.line(contentX, currentY, cardWidth - margin, currentY);
-    currentY += 4;
-  
-    doc.setFontSize(7.5);
-    doc.setTextColor(grayText);
-    const addDetail = (label: string, value: string) => {
-      if (currentY < cardHeight - margin - 2) {
-        doc.text(label, contentX, currentY);
-        doc.setTextColor(white);
-        doc.text(value, contentX + 15, currentY);
-        doc.setTextColor(grayText);
-        currentY += 4;
-      }
-    };
-    
-    addDetail("Phone:", developerForSalarySlip.phone || 'N/A');
-    addDetail("Email:", developerForSalarySlip.email || 'N/A');
-    
-    if(developerForSalarySlip.paymentInfo) {
-        addDetail("Account:", developerForSalarySlip.paymentInfo);
-    }
-  
-    currentY += 1;
-    doc.setDrawColor(accentBlue);
-    doc.setLineWidth(0.3);
-    doc.line(contentX, currentY, cardWidth - margin, currentY);
-    currentY += 4;
-  
-    doc.setFontSize(8);
-    doc.setTextColor(white);
-    doc.setFont(undefined, 'bold');
-    doc.text("Net Salary:", contentX, currentY);
-    
-    doc.setFontSize(10);
-    doc.text(`${formatCurrency(Math.round(developerForSalarySlip.finalSalary))} MMK`, cardWidth - margin, currentY, { align: 'right' });
-  
-  
-    doc.save(`SalarySlip_${developerForSalarySlip.name.replace(/\s+/g, '_')}_${format(currentMonth, 'MMM_yyyy')}.pdf`);
   };
 
 
@@ -799,3 +722,4 @@ const DetailRow = ({ label, value, isNegative = false }: { label: string, value:
         </p>
     </div>
 );
+
