@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AddDeviceForm } from "./add-device-form";
 import { EditDeviceForm } from "./edit-device-form";
 import { deleteDevice } from "./actions";
-import { Smartphone as SmartphoneIcon, PlusCircle, Loader2, MoreHorizontal, Edit, Trash2, AlertTriangle } from 'lucide-react';
+import { Smartphone as SmartphoneIcon, PlusCircle, Loader2, MoreHorizontal, Edit, Trash2, AlertTriangle, ListFilter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, Timestamp, doc } from 'firebase/firestore';
@@ -19,6 +19,8 @@ import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useAuth } from '@/contexts/auth-context';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 
 const formatDate = (dateInput: string | Timestamp | undefined): string => {
   if (!dateInput) return 'N/A';
@@ -56,9 +58,21 @@ export default function DeviceManagementPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
 
-  const uniqueDepartments = useMemo(() => {
-    return [...new Set(employees.map(emp => emp.department))].filter(Boolean).sort();
+  const [selectedCompany, setSelectedCompany] = useState<string>('all');
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
+
+  const uniqueCompanies = useMemo(() => {
+    return ['all', ...new Set(employees.map(emp => emp.company).filter(Boolean) as string[])].sort((a,b) => a === 'all' ? -1 : b === 'all' ? 1 : a.localeCompare(b));
   }, [employees]);
+
+  const uniqueDepartments = useMemo(() => {
+    const filteredEmployees = selectedCompany === 'all' 
+      ? employees 
+      : employees.filter(emp => emp.company === selectedCompany);
+    
+    return ['all', ...new Set(filteredEmployees.map(emp => emp.department))].filter(Boolean).sort((a,b) => a === 'all' ? -1 : b === 'all' ? 1 : a.localeCompare(b));
+  }, [employees, selectedCompany]);
+
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -87,6 +101,20 @@ export default function DeviceManagementPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+  
+  useEffect(() => {
+    // Reset department filter when company changes
+    setSelectedDepartment('all');
+  }, [selectedCompany]);
+
+  const filteredDevices = useMemo(() => {
+    return devices.filter(device => {
+      const companyMatch = selectedCompany === 'all' || device.company === selectedCompany;
+      const departmentMatch = selectedDepartment === 'all' || device.department === selectedDepartment;
+      return companyMatch && departmentMatch;
+    });
+  }, [devices, selectedCompany, selectedDepartment]);
+
 
   const handleFormSuccess = () => {
     fetchData();
@@ -137,11 +165,49 @@ export default function DeviceManagementPage() {
                 <DialogTitle>Add New Device</DialogTitle>
                 <DialogDescription>Enter the details for the new smartphone asset.</DialogDescription>
               </DialogHeader>
-              <AddDeviceForm uniqueDepartments={uniqueDepartments} onFormSubmissionSuccess={handleFormSuccess} />
+              <AddDeviceForm employees={employees} onFormSubmissionSuccess={handleFormSuccess} />
             </DialogContent>
           </Dialog>
         )}
       </div>
+
+       <Card className="shadow-md rounded-lg">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center"><ListFilter className="mr-2 h-5 w-5 text-primary/80"/>Filters</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="filter-company" className="text-sm font-medium">Company Name</Label>
+            <Select value={selectedCompany} onValueChange={setSelectedCompany}>
+              <SelectTrigger id="filter-company" className="mt-1">
+                <SelectValue placeholder="Filter by Company" />
+              </SelectTrigger>
+              <SelectContent>
+                {uniqueCompanies.map(company => (
+                  <SelectItem key={company} value={company}>
+                    {company === 'all' ? 'All Companies' : company}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="filter-department" className="text-sm font-medium">Department</Label>
+            <Select value={selectedDepartment} onValueChange={setSelectedDepartment} disabled={selectedCompany === 'all' && uniqueDepartments.length <= 1}>
+              <SelectTrigger id="filter-department" className="mt-1">
+                <SelectValue placeholder="Filter by Department" />
+              </SelectTrigger>
+              <SelectContent>
+                {uniqueDepartments.map(dept => (
+                  <SelectItem key={dept} value={dept}>
+                     {dept === 'all' ? 'All Departments' : dept}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="shadow-lg rounded-lg">
         <CardHeader>
@@ -158,6 +224,7 @@ export default function DeviceManagementPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Company</TableHead>
                     <TableHead>Department</TableHead>
                     <TableHead>Phone Model</TableHead>
                     <TableHead>IMEI</TableHead>
@@ -167,15 +234,16 @@ export default function DeviceManagementPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {devices.length === 0 ? (
+                  {filteredDevices.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                        No device records found.
+                      <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                         {devices.length === 0 ? "No device records found." : "No records match the current filter."}
                       </TableCell>
                     </TableRow>
                   ) : (
-                    devices.map(device => (
+                    filteredDevices.map(device => (
                       <TableRow key={device.id}>
+                        <TableCell className="font-medium">{device.company || 'N/A'}</TableCell>
                         <TableCell className="font-medium">{device.department}</TableCell>
                         <TableCell>{device.phoneModel}</TableCell>
                         <TableCell className="text-muted-foreground">{device.imei || 'N/A'}</TableCell>
@@ -225,7 +293,7 @@ export default function DeviceManagementPage() {
             </DialogHeader>
             <EditDeviceForm
               deviceToEdit={deviceToEdit}
-              uniqueDepartments={uniqueDepartments}
+              employees={employees}
               onFormSubmissionSuccess={handleFormSuccess}
             />
           </DialogContent>

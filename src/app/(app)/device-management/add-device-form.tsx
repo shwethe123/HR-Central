@@ -1,7 +1,7 @@
 // src/app/(app)/device-management/add-device-form.tsx
 'use client';
 
-import { useEffect, useActionState, startTransition } from 'react';
+import { useEffect, useActionState, startTransition, useState, useMemo } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import type { Employee, Smartphone } from '@/types';
 
 const ClientDeviceSchema = z.object({
+  company: z.string().min(1, { message: "Please select a company." }),
   department: z.string().min(1, { message: "Please select a department." }),
   phoneModel: z.string().min(2, { message: "Phone model is required." }),
   imei: z.string().optional(),
@@ -29,18 +30,19 @@ const ClientDeviceSchema = z.object({
 type DeviceFormData = z.infer<typeof ClientDeviceSchema>;
 
 interface AddDeviceFormProps {
-  uniqueDepartments: string[];
+  employees: Employee[];
   onFormSubmissionSuccess?: () => void;
   className?: string;
 }
 
-export function AddDeviceForm({ uniqueDepartments, onFormSubmissionSuccess, className }: AddDeviceFormProps) {
+export function AddDeviceForm({ employees, onFormSubmissionSuccess, className }: AddDeviceFormProps) {
   const { toast } = useToast();
   const [state, formAction, isPending] = useActionState(addDevice, { message: null, success: false });
 
   const form = useForm<DeviceFormData>({
     resolver: zodResolver(ClientDeviceSchema),
     defaultValues: {
+      company: '',
       department: '',
       phoneModel: '',
       imei: '',
@@ -50,6 +52,23 @@ export function AddDeviceForm({ uniqueDepartments, onFormSubmissionSuccess, clas
       notes: '',
     },
   });
+
+  const selectedCompany = form.watch('company');
+
+  const uniqueCompanies = useMemo(() => {
+    return [...new Set(employees.map(emp => emp.company).filter(Boolean) as string[])].sort();
+  }, [employees]);
+
+  const departmentsForSelectedCompany = useMemo(() => {
+    if (!selectedCompany) return [];
+    return [...new Set(employees.filter(emp => emp.company === selectedCompany).map(emp => emp.department))].sort();
+  }, [employees, selectedCompany]);
+
+  useEffect(() => {
+    // Reset department when company changes
+    form.setValue('department', '');
+  }, [selectedCompany, form]);
+
 
   useEffect(() => {
     if (state?.success) {
@@ -72,16 +91,34 @@ export function AddDeviceForm({ uniqueDepartments, onFormSubmissionSuccess, clas
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className={cn("space-y-4 max-h-[70vh] overflow-y-auto p-1 pr-4", className)}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+         <div>
+          <Label htmlFor="company">Company</Label>
+          <Controller
+            name="company"
+            control={form.control}
+            render={({ field }) => (
+              <Select onValueChange={field.onChange} value={field.value}>
+                <SelectTrigger><SelectValue placeholder="Select a company" /></SelectTrigger>
+                <SelectContent>
+                  {uniqueCompanies.map(comp => (
+                    <SelectItem key={comp} value={comp}>{comp}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+          {form.formState.errors.company && <p className="text-sm text-destructive mt-1">{form.formState.errors.company.message}</p>}
+        </div>
         <div>
           <Label htmlFor="department">Assign to Department</Label>
           <Controller
             name="department"
             control={form.control}
             render={({ field }) => (
-              <Select onValueChange={field.onChange} value={field.value}>
+              <Select onValueChange={field.onChange} value={field.value} disabled={!selectedCompany}>
                 <SelectTrigger><SelectValue placeholder="Select a department" /></SelectTrigger>
                 <SelectContent>
-                  {uniqueDepartments.map(dept => (
+                  {departmentsForSelectedCompany.map(dept => (
                     <SelectItem key={dept} value={dept}>{dept}</SelectItem>
                   ))}
                 </SelectContent>
@@ -90,11 +127,11 @@ export function AddDeviceForm({ uniqueDepartments, onFormSubmissionSuccess, clas
           />
           {form.formState.errors.department && <p className="text-sm text-destructive mt-1">{form.formState.errors.department.message}</p>}
         </div>
-        <div>
-          <Label htmlFor="phoneModel">Phone Model</Label>
-          <Input id="phoneModel" {...form.register('phoneModel')} placeholder="e.g., iPhone 15 Pro" />
-          {form.formState.errors.phoneModel && <p className="text-sm text-destructive mt-1">{form.formState.errors.phoneModel.message}</p>}
-        </div>
+      </div>
+      <div>
+        <Label htmlFor="phoneModel">Phone Model</Label>
+        <Input id="phoneModel" {...form.register('phoneModel')} placeholder="e.g., iPhone 15 Pro" />
+        {form.formState.errors.phoneModel && <p className="text-sm text-destructive mt-1">{form.formState.errors.phoneModel.message}</p>}
       </div>
       
       <div>

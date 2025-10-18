@@ -1,7 +1,7 @@
 // src/app/(app)/device-management/edit-device-form.tsx
 'use client';
 
-import { useEffect, useActionState, startTransition } from 'react';
+import { useEffect, useActionState, startTransition, useMemo } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -18,6 +18,7 @@ import type { Employee, Smartphone } from '@/types';
 
 const ClientDeviceSchema = z.object({
   id: z.string().min(1),
+  company: z.string().min(1, { message: "Please select a company." }),
   department: z.string().min(1, { message: "Please select a department." }),
   phoneModel: z.string().min(2, { message: "Phone model is required." }),
   imei: z.string().optional(),
@@ -31,12 +32,12 @@ type DeviceFormData = z.infer<typeof ClientDeviceSchema>;
 
 interface EditDeviceFormProps {
   deviceToEdit: Smartphone;
-  uniqueDepartments: string[];
+  employees: Employee[];
   onFormSubmissionSuccess?: () => void;
   className?: string;
 }
 
-export function EditDeviceForm({ deviceToEdit, uniqueDepartments, onFormSubmissionSuccess, className }: EditDeviceFormProps) {
+export function EditDeviceForm({ deviceToEdit, employees, onFormSubmissionSuccess, className }: EditDeviceFormProps) {
   const { toast } = useToast();
   const [state, formAction, isPending] = useActionState(updateDevice, { message: null, success: false });
 
@@ -44,6 +45,7 @@ export function EditDeviceForm({ deviceToEdit, uniqueDepartments, onFormSubmissi
     resolver: zodResolver(ClientDeviceSchema),
     defaultValues: {
       id: deviceToEdit.id,
+      company: deviceToEdit.company || '',
       department: deviceToEdit.department || '',
       phoneModel: deviceToEdit.phoneModel || '',
       imei: deviceToEdit.imei || '',
@@ -54,9 +56,39 @@ export function EditDeviceForm({ deviceToEdit, uniqueDepartments, onFormSubmissi
     },
   });
 
+  const selectedCompany = form.watch('company');
+
+  const uniqueCompanies = useMemo(() => {
+    return [...new Set(employees.map(emp => emp.company).filter(Boolean) as string[])].sort();
+  }, [employees]);
+
+  const departmentsForSelectedCompany = useMemo(() => {
+    if (!selectedCompany) return [];
+    return [...new Set(employees.filter(emp => emp.company === selectedCompany).map(emp => emp.department))].sort();
+  }, [employees, selectedCompany]);
+
   useEffect(() => {
-    form.reset(deviceToEdit);
-  }, [deviceToEdit, form]);
+    form.reset({
+      id: deviceToEdit.id,
+      company: deviceToEdit.company || '',
+      department: deviceToEdit.department || '',
+      phoneModel: deviceToEdit.phoneModel || '',
+      imei: deviceToEdit.imei || '',
+      purchaseDate: deviceToEdit.purchaseDate || '',
+      issueDate: deviceToEdit.issueDate || '',
+      status: deviceToEdit.status || 'Active',
+      notes: deviceToEdit.notes || '',
+    });
+  }, [deviceToEdit, form.reset]);
+  
+  useEffect(() => {
+    if (selectedCompany && deviceToEdit.company === selectedCompany) {
+      form.setValue('department', deviceToEdit.department);
+    } else {
+      form.setValue('department', '');
+    }
+  }, [selectedCompany, form, deviceToEdit.company, deviceToEdit.department]);
+
 
   useEffect(() => {
     if (state?.success) {
@@ -80,15 +112,33 @@ export function EditDeviceForm({ deviceToEdit, uniqueDepartments, onFormSubmissi
       <input type="hidden" {...form.register('id')} />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="department">Assign to Department</Label>
+          <Label htmlFor="company-edit">Company</Label>
+          <Controller
+            name="company"
+            control={form.control}
+            render={({ field }) => (
+              <Select onValueChange={field.onChange} value={field.value}>
+                <SelectTrigger><SelectValue placeholder="Select a company" /></SelectTrigger>
+                <SelectContent>
+                  {uniqueCompanies.map(comp => (
+                    <SelectItem key={comp} value={comp}>{comp}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+          {form.formState.errors.company && <p className="text-sm text-destructive mt-1">{form.formState.errors.company.message}</p>}
+        </div>
+        <div>
+          <Label htmlFor="department-edit">Assign to Department</Label>
           <Controller
             name="department"
             control={form.control}
             render={({ field }) => (
-              <Select onValueChange={field.onChange} value={field.value}>
+              <Select onValueChange={field.onChange} value={field.value} disabled={!selectedCompany}>
                 <SelectTrigger><SelectValue placeholder="Select a department" /></SelectTrigger>
                 <SelectContent>
-                  {uniqueDepartments.map(dept => (
+                  {departmentsForSelectedCompany.map(dept => (
                     <SelectItem key={dept} value={dept}>{dept}</SelectItem>
                   ))}
                 </SelectContent>
@@ -97,34 +147,34 @@ export function EditDeviceForm({ deviceToEdit, uniqueDepartments, onFormSubmissi
           />
           {form.formState.errors.department && <p className="text-sm text-destructive mt-1">{form.formState.errors.department.message}</p>}
         </div>
-        <div>
-          <Label htmlFor="phoneModel">Phone Model</Label>
-          <Input id="phoneModel" {...form.register('phoneModel')} placeholder="e.g., iPhone 15 Pro" />
+      </div>
+      <div>
+          <Label htmlFor="phoneModel-edit">Phone Model</Label>
+          <Input id="phoneModel-edit" {...form.register('phoneModel')} placeholder="e.g., iPhone 15 Pro" />
           {form.formState.errors.phoneModel && <p className="text-sm text-destructive mt-1">{form.formState.errors.phoneModel.message}</p>}
-        </div>
       </div>
       
       <div>
-        <Label htmlFor="imei">IMEI Number (Optional)</Label>
-        <Input id="imei" {...form.register('imei')} placeholder="Enter device IMEI" />
+        <Label htmlFor="imei-edit">IMEI Number (Optional)</Label>
+        <Input id="imei-edit" {...form.register('imei')} placeholder="Enter device IMEI" />
         {form.formState.errors.imei && <p className="text-sm text-destructive mt-1">{form.formState.errors.imei.message}</p>}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="purchaseDate">Purchase Date</Label>
-          <Input id="purchaseDate" type="date" {...form.register('purchaseDate')} />
+          <Label htmlFor="purchaseDate-edit">Purchase Date</Label>
+          <Input id="purchaseDate-edit" type="date" {...form.register('purchaseDate')} />
           {form.formState.errors.purchaseDate && <p className="text-sm text-destructive mt-1">{form.formState.errors.purchaseDate.message}</p>}
         </div>
         <div>
-          <Label htmlFor="issueDate">Issue Date</Label>
-          <Input id="issueDate" type="date" {...form.register('issueDate')} />
+          <Label htmlFor="issueDate-edit">Issue Date</Label>
+          <Input id="issueDate-edit" type="date" {...form.register('issueDate')} />
           {form.formState.errors.issueDate && <p className="text-sm text-destructive mt-1">{form.formState.errors.issueDate.message}</p>}
         </div>
       </div>
 
       <div>
-        <Label htmlFor="status">Device Status</Label>
+        <Label htmlFor="status-edit">Device Status</Label>
         <Controller
           name="status"
           control={form.control}
@@ -143,8 +193,8 @@ export function EditDeviceForm({ deviceToEdit, uniqueDepartments, onFormSubmissi
       </div>
 
       <div>
-        <Label htmlFor="notes">Notes (Optional)</Label>
-        <Textarea id="notes" {...form.register('notes')} placeholder="e.g., minor scratch on screen, charger included..." />
+        <Label htmlFor="notes-edit">Notes (Optional)</Label>
+        <Textarea id="notes-edit" {...form.register('notes')} placeholder="e.g., minor scratch on screen, charger included..." />
         {form.formState.errors.notes && <p className="text-sm text-destructive mt-1">{form.formState.errors.notes.message}</p>}
       </div>
 

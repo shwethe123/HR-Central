@@ -8,6 +8,7 @@ import { revalidatePath } from 'next/cache';
 import type { Employee } from '@/types';
 
 const DeviceFormSchema = z.object({
+  company: z.string().min(1, { message: "Company is required." }),
   department: z.string().min(1, { message: "Department is required." }),
   phoneModel: z.string().min(2, { message: "Phone model is required." }),
   imei: z.string().optional().or(z.literal('')),
@@ -26,6 +27,7 @@ export type DeviceFormState = {
 // Action to add a new device
 export async function addDevice(prevState: DeviceFormState, formData: FormData): Promise<DeviceFormState> {
   const validatedFields = DeviceFormSchema.safeParse({
+    company: formData.get('company'),
     department: formData.get('department'),
     phoneModel: formData.get('phoneModel'),
     imei: formData.get('imei'),
@@ -68,6 +70,7 @@ export async function updateDevice(prevState: DeviceFormState, formData: FormDat
   }
 
   const validatedFields = DeviceFormSchema.safeParse({
+    company: formData.get('company'),
     department: formData.get('department'),
     phoneModel: formData.get('phoneModel'),
     imei: formData.get('imei'),
