@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils';
 import type { Employee, Smartphone } from '@/types';
 
 const ClientDeviceSchema = z.object({
-  employeeId: z.string().min(1, { message: "Please select an employee." }),
+  department: z.string().min(1, { message: "Please select a department." }),
   phoneModel: z.string().min(2, { message: "Phone model is required." }),
   imei: z.string().optional(),
   purchaseDate: z.string().min(1, { message: "Purchase date is required." }),
@@ -29,19 +29,19 @@ const ClientDeviceSchema = z.object({
 type DeviceFormData = z.infer<typeof ClientDeviceSchema>;
 
 interface AddDeviceFormProps {
-  employees: Employee[];
+  uniqueDepartments: string[];
   onFormSubmissionSuccess?: () => void;
   className?: string;
 }
 
-export function AddDeviceForm({ employees, onFormSubmissionSuccess, className }: AddDeviceFormProps) {
+export function AddDeviceForm({ uniqueDepartments, onFormSubmissionSuccess, className }: AddDeviceFormProps) {
   const { toast } = useToast();
   const [state, formAction, isPending] = useActionState(addDevice, { message: null, success: false });
 
   const form = useForm<DeviceFormData>({
     resolver: zodResolver(ClientDeviceSchema),
     defaultValues: {
-      employeeId: '',
+      department: '',
       phoneModel: '',
       imei: '',
       purchaseDate: '',
@@ -73,22 +73,22 @@ export function AddDeviceForm({ employees, onFormSubmissionSuccess, className }:
     <form onSubmit={form.handleSubmit(onSubmit)} className={cn("space-y-4 max-h-[70vh] overflow-y-auto p-1 pr-4", className)}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="employeeId">Assign to Employee</Label>
+          <Label htmlFor="department">Assign to Department</Label>
           <Controller
-            name="employeeId"
+            name="department"
             control={form.control}
             render={({ field }) => (
               <Select onValueChange={field.onChange} value={field.value}>
-                <SelectTrigger><SelectValue placeholder="Select an employee" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Select a department" /></SelectTrigger>
                 <SelectContent>
-                  {employees.map(emp => (
-                    <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
+                  {uniqueDepartments.map(dept => (
+                    <SelectItem key={dept} value={dept}>{dept}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             )}
           />
-          {form.formState.errors.employeeId && <p className="text-sm text-destructive mt-1">{form.formState.errors.employeeId.message}</p>}
+          {form.formState.errors.department && <p className="text-sm text-destructive mt-1">{form.formState.errors.department.message}</p>}
         </div>
         <div>
           <Label htmlFor="phoneModel">Phone Model</Label>

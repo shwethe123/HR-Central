@@ -8,7 +8,7 @@ import { revalidatePath } from 'next/cache';
 import type { Employee } from '@/types';
 
 const DeviceFormSchema = z.object({
-  employeeId: z.string().min(1, { message: "Employee is required." }),
+  department: z.string().min(1, { message: "Department is required." }),
   phoneModel: z.string().min(2, { message: "Phone model is required." }),
   imei: z.string().optional().or(z.literal('')),
   purchaseDate: z.string().refine((date) => !isNaN(Date.parse(date)), { message: "Purchase date is required." }),
@@ -26,7 +26,7 @@ export type DeviceFormState = {
 // Action to add a new device
 export async function addDevice(prevState: DeviceFormState, formData: FormData): Promise<DeviceFormState> {
   const validatedFields = DeviceFormSchema.safeParse({
-    employeeId: formData.get('employeeId'),
+    department: formData.get('department'),
     phoneModel: formData.get('phoneModel'),
     imei: formData.get('imei'),
     purchaseDate: formData.get('purchaseDate'),
@@ -43,26 +43,17 @@ export async function addDevice(prevState: DeviceFormState, formData: FormData):
     };
   }
 
-  const { employeeId, ...data } = validatedFields.data;
+  const data = validatedFields.data;
 
   try {
-    const employeeDocRef = doc(db, 'employees', employeeId);
-    const employeeSnap = await getDoc(employeeDocRef);
-    if (!employeeSnap.exists()) {
-      return { message: "Selected employee does not exist.", success: false };
-    }
-    const employeeName = (employeeSnap.data() as Employee).name;
-
     await addDoc(collection(db, 'smartphones'), {
       ...data,
-      employeeId,
-      employeeName,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
 
     revalidatePath('/device-management');
-    return { message: `Device (${data.phoneModel}) has been successfully added for ${employeeName}.`, success: true };
+    return { message: `Device (${data.phoneModel}) has been successfully added for ${data.department}.`, success: true };
 
   } catch (error) {
     return { message: `Failed to add device: ${error instanceof Error ? error.message : 'Unknown error'}`, success: false };
@@ -77,7 +68,7 @@ export async function updateDevice(prevState: DeviceFormState, formData: FormDat
   }
 
   const validatedFields = DeviceFormSchema.safeParse({
-    employeeId: formData.get('employeeId'),
+    department: formData.get('department'),
     phoneModel: formData.get('phoneModel'),
     imei: formData.get('imei'),
     purchaseDate: formData.get('purchaseDate'),
@@ -94,26 +85,17 @@ export async function updateDevice(prevState: DeviceFormState, formData: FormDat
     };
   }
   
-  const { employeeId, ...data } = validatedFields.data;
+  const data = validatedFields.data;
 
   try {
-    const employeeDocRef = doc(db, 'employees', employeeId);
-    const employeeSnap = await getDoc(employeeDocRef);
-    if (!employeeSnap.exists()) {
-      return { message: "Selected employee does not exist.", success: false };
-    }
-    const employeeName = (employeeSnap.data() as Employee).name;
-
     const deviceDocRef = doc(db, 'smartphones', deviceId);
     await updateDoc(deviceDocRef, {
       ...data,
-      employeeId,
-      employeeName,
       updatedAt: serverTimestamp(),
     });
 
     revalidatePath('/device-management');
-    return { message: `Device record for ${employeeName} has been successfully updated.`, success: true };
+    return { message: `Device record for ${data.department} has been successfully updated.`, success: true };
 
   } catch (error) {
     return { message: `Failed to update device: ${error instanceof Error ? error.message : 'Unknown error'}`, success: false };

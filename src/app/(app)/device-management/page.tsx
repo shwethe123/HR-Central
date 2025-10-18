@@ -56,6 +56,10 @@ export default function DeviceManagementPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
 
+  const uniqueDepartments = useMemo(() => {
+    return [...new Set(employees.map(emp => emp.department))].filter(Boolean).sort();
+  }, [employees]);
+
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -133,7 +137,7 @@ export default function DeviceManagementPage() {
                 <DialogTitle>Add New Device</DialogTitle>
                 <DialogDescription>Enter the details for the new smartphone asset.</DialogDescription>
               </DialogHeader>
-              <AddDeviceForm employees={employees} onFormSubmissionSuccess={handleFormSuccess} />
+              <AddDeviceForm uniqueDepartments={uniqueDepartments} onFormSubmissionSuccess={handleFormSuccess} />
             </DialogContent>
           </Dialog>
         )}
@@ -142,7 +146,7 @@ export default function DeviceManagementPage() {
       <Card className="shadow-lg rounded-lg">
         <CardHeader>
           <CardTitle>Smartphone Asset List</CardTitle>
-          <CardDescription>A record of all smartphones issued to employees.</CardDescription>
+          <CardDescription>A record of all smartphones issued to departments.</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -154,7 +158,7 @@ export default function DeviceManagementPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Employee</TableHead>
+                    <TableHead>Department</TableHead>
                     <TableHead>Phone Model</TableHead>
                     <TableHead>IMEI</TableHead>
                     <TableHead>Issue Date</TableHead>
@@ -172,7 +176,7 @@ export default function DeviceManagementPage() {
                   ) : (
                     devices.map(device => (
                       <TableRow key={device.id}>
-                        <TableCell className="font-medium">{device.employeeName}</TableCell>
+                        <TableCell className="font-medium">{device.department}</TableCell>
                         <TableCell>{device.phoneModel}</TableCell>
                         <TableCell className="text-muted-foreground">{device.imei || 'N/A'}</TableCell>
                         <TableCell>{formatDate(device.issueDate)}</TableCell>
@@ -217,11 +221,11 @@ export default function DeviceManagementPage() {
           <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
               <DialogTitle>Edit Device Record</DialogTitle>
-              <DialogDescription>Update details for the device assigned to {deviceToEdit.employeeName}.</DialogDescription>
+              <DialogDescription>Update details for the device assigned to the {deviceToEdit.department} department.</DialogDescription>
             </DialogHeader>
             <EditDeviceForm
               deviceToEdit={deviceToEdit}
-              employees={employees}
+              uniqueDepartments={uniqueDepartments}
               onFormSubmissionSuccess={handleFormSuccess}
             />
           </DialogContent>
@@ -234,7 +238,7 @@ export default function DeviceManagementPage() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle className="h-6 w-6 text-destructive" />Confirm Deletion</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete the record for the <strong>{deviceToDelete?.phoneModel}</strong> assigned to <strong>{deviceToDelete?.employeeName}</strong>? This action cannot be undone.
+              Are you sure you want to delete the record for the <strong>{deviceToDelete?.phoneModel}</strong> assigned to the <strong>{deviceToDelete?.department}</strong> department? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

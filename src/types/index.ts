@@ -23,8 +23,7 @@ export type Employee = {
 // New type for Smartphone asset management
 export type Smartphone = {
   id: string;
-  employeeId: string;
-  employeeName: string;
+  department: string;
   phoneModel: string;
   imei?: string;
   purchaseDate: string; // Date the phone was bought

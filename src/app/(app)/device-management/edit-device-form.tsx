@@ -18,7 +18,7 @@ import type { Employee, Smartphone } from '@/types';
 
 const ClientDeviceSchema = z.object({
   id: z.string().min(1),
-  employeeId: z.string().min(1, { message: "Please select an employee." }),
+  department: z.string().min(1, { message: "Please select a department." }),
   phoneModel: z.string().min(2, { message: "Phone model is required." }),
   imei: z.string().optional(),
   purchaseDate: z.string().min(1, { message: "Purchase date is required." }),
@@ -31,12 +31,12 @@ type DeviceFormData = z.infer<typeof ClientDeviceSchema>;
 
 interface EditDeviceFormProps {
   deviceToEdit: Smartphone;
-  employees: Employee[];
+  uniqueDepartments: string[];
   onFormSubmissionSuccess?: () => void;
   className?: string;
 }
 
-export function EditDeviceForm({ deviceToEdit, employees, onFormSubmissionSuccess, className }: EditDeviceFormProps) {
+export function EditDeviceForm({ deviceToEdit, uniqueDepartments, onFormSubmissionSuccess, className }: EditDeviceFormProps) {
   const { toast } = useToast();
   const [state, formAction, isPending] = useActionState(updateDevice, { message: null, success: false });
 
@@ -44,7 +44,7 @@ export function EditDeviceForm({ deviceToEdit, employees, onFormSubmissionSucces
     resolver: zodResolver(ClientDeviceSchema),
     defaultValues: {
       id: deviceToEdit.id,
-      employeeId: deviceToEdit.employeeId || '',
+      department: deviceToEdit.department || '',
       phoneModel: deviceToEdit.phoneModel || '',
       imei: deviceToEdit.imei || '',
       purchaseDate: deviceToEdit.purchaseDate || '',
@@ -80,22 +80,22 @@ export function EditDeviceForm({ deviceToEdit, employees, onFormSubmissionSucces
       <input type="hidden" {...form.register('id')} />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="employeeId">Assign to Employee</Label>
+          <Label htmlFor="department">Assign to Department</Label>
           <Controller
-            name="employeeId"
+            name="department"
             control={form.control}
             render={({ field }) => (
               <Select onValueChange={field.onChange} value={field.value}>
-                <SelectTrigger><SelectValue placeholder="Select an employee" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Select a department" /></SelectTrigger>
                 <SelectContent>
-                  {employees.map(emp => (
-                    <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
+                  {uniqueDepartments.map(dept => (
+                    <SelectItem key={dept} value={dept}>{dept}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             )}
           />
-          {form.formState.errors.employeeId && <p className="text-sm text-destructive mt-1">{form.formState.errors.employeeId.message}</p>}
+          {form.formState.errors.department && <p className="text-sm text-destructive mt-1">{form.formState.errors.department.message}</p>}
         </div>
         <div>
           <Label htmlFor="phoneModel">Phone Model</Label>
