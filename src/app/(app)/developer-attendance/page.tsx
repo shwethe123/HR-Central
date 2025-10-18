@@ -497,7 +497,7 @@ export default function DeveloperAttendancePage() {
                     flex: 1;
                 }
                 .signature-line {
-                    width: 200px;
+                    width: 180px;
                     height: 1px;
                     background-color: #000;
                     margin: 0 auto 8px auto;
@@ -661,16 +661,15 @@ export default function DeveloperAttendancePage() {
                             <div class="signature-date">Date: ${format(new Date(), 'dd/MM/yyyy')}</div>
                         </div>
                         <div class="signature-box">
-                            <div class="signature-line"></div>
-                            <div class="signature-name">Authorized Signature</div>
-                            <div class="signature-title">Manager / BOSS</div>
+                            <div class="signature-name">သူဌေး လက်မှတ်</div>
+                            <div class="signature-title">ခွင့်ပြု လက်မှတ်</div>
                             <div class="signature-date">Date: ${format(new Date(), 'dd/MM/yyyy')}</div>
                         </div>
                     </div>
                 </div>
                 
                 <div class="footer-notes">
-                    <p>This is a computer generated salary slip and does not require signature.</p>
+                    <p>This is a computer generated salary slip.</p>
                     <p style="margin-top: 8px;">Waansaung &copy; ${new Date().getFullYear()}</p>
                 </div>
             </div>
@@ -809,7 +808,7 @@ const DeveloperInfoCard = ({ dev, isAdmin, onAddLeave, onAddDeduction, onViewSli
     const weekDays = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
     return (
-        <Card className="overflow-hidden shadow-sm flex flex-col bg-white transition-all hover:shadow-md">
+        <Card className="overflow-hidden shadow-sm flex flex-col bg-white transition-all hover:shadow-md mt-4">
             <div className="p-4 border-b flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     <Avatar className="h-12 w-12 border-2 border-primary/50">
@@ -1082,7 +1081,7 @@ function SalarySlipDialog({ isOpen, onOpenChange, devStats, month, onPrint, slip
                 </div>
 
                 {/* Signature Section for Dialog */}
-                <div className="mt-8 pt-6 border-t border-gray-300">
+                <div className="mt-6 pt-4 border-t border-gray-300">
                   <div className="flex justify-between items-end">
                     <div className="text-center flex-1">
                       {/* <div className="mx-auto w-48 h-0.5 bg-gray-400 mb-2"></div> */}
@@ -1090,9 +1089,9 @@ function SalarySlipDialog({ isOpen, onOpenChange, devStats, month, onPrint, slip
                       <p className="text-xs text-gray-500">{devStats.paymentInfo}</p>
                     </div>
                     <div className="text-center flex-1">
-                      <div className="mx-auto w-48 h-0.5 bg-gray-400 mb-2"></div>
-                      <p className="text-sm text-gray-600">Authorized Signature</p>
-                      <p className="text-xs text-gray-500">Manager / BOSS</p>
+                      <p className="text-sm text-gray-600">ခွင့်ပြု လက်မှတ်</p>
+                      <p className="text-xs text-gray-500">သူဌေး လက်မှတ်</p>
+                      <div className="mx-auto w-48 h-0.5 bg-gray-400  mt-10"></div>
                     </div>
                   </div>
                 </div>
