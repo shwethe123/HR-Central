@@ -57,7 +57,7 @@ export function ComputerComponentForm({ employees, onFormSubmissionSuccess, clas
       serialNumber: componentToEdit?.serialNumber || '',
       purchaseDate: componentToEdit?.purchaseDate || '',
       status: componentToEdit?.status || 'In Stock',
-      assignedToEmployeeId: componentToEdit?.assignedToEmployeeId || '',
+      assignedToEmployeeId: componentToEdit?.assignedToEmployeeId || 'unassigned',
       notes: componentToEdit?.notes || '',
     },
   });
@@ -75,7 +75,9 @@ export function ComputerComponentForm({ employees, onFormSubmissionSuccess, clas
   const onSubmit = (data: ComponentFormData) => {
     const formData = new FormData();
     Object.entries(data).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
+        if (key === 'assignedToEmployeeId' && value === 'unassigned') {
+             formData.append(key, '');
+        } else if (value !== undefined && value !== null) {
             formData.append(key, String(value));
         }
     });
@@ -129,10 +131,10 @@ export function ComputerComponentForm({ employees, onFormSubmissionSuccess, clas
       <div>
         <Label htmlFor="assignedToEmployeeId">Assigned To (Optional)</Label>
         <Controller name="assignedToEmployeeId" control={form.control} render={({ field }) => (
-          <Select onValueChange={field.onChange} value={field.value}>
+          <Select onValueChange={field.onChange} value={field.value || 'unassigned'}>
             <SelectTrigger><SelectValue placeholder="Select Employee" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">None (In Stock)</SelectItem>
+              <SelectItem value="unassigned">None (In Stock)</SelectItem>
               {employees.map(emp => <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>)}
             </SelectContent>
           </Select>

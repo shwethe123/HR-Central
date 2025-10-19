@@ -182,6 +182,9 @@ export type ComponentFormState = {
 
 // Add new component
 export async function addComputerComponent(prevState: ComponentFormState, formData: FormData): Promise<ComponentFormState> {
+  
+  const assignedToEmployeeIdValue = formData.get('assignedToEmployeeId');
+  
   const validatedFields = ComputerComponentSchema.safeParse({
     componentType: formData.get('componentType'),
     brand: formData.get('brand'),
@@ -189,7 +192,7 @@ export async function addComputerComponent(prevState: ComponentFormState, formDa
     serialNumber: formData.get('serialNumber'),
     purchaseDate: formData.get('purchaseDate'),
     status: formData.get('status'),
-    assignedToEmployeeId: formData.get('assignedToEmployeeId'),
+    assignedToEmployeeId: assignedToEmployeeIdValue === 'unassigned' ? '' : assignedToEmployeeIdValue,
     notes: formData.get('notes'),
   });
 
@@ -221,6 +224,8 @@ export async function updateComputerComponent(prevState: ComponentFormState, for
   if (!componentId) {
     return { message: "Component ID is missing.", success: false };
   }
+  
+  const assignedToEmployeeIdValue = formData.get('assignedToEmployeeId');
 
   const validatedFields = ComputerComponentSchema.safeParse({
     componentType: formData.get('componentType'),
@@ -229,7 +234,7 @@ export async function updateComputerComponent(prevState: ComponentFormState, for
     serialNumber: formData.get('serialNumber'),
     purchaseDate: formData.get('purchaseDate'),
     status: formData.get('status'),
-    assignedToEmployeeId: formData.get('assignedToEmployeeId'),
+    assignedToEmployeeId: assignedToEmployeeIdValue === 'unassigned' ? '' : assignedToEmployeeIdValue,
     notes: formData.get('notes'),
   });
 
