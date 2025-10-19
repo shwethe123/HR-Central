@@ -5,7 +5,14 @@ import { z } from 'zod';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
-import type { Employee } from '@/types';
+
+// Schema for a single credential
+const CredentialSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1, { message: "Credential name is required." }),
+  username: z.string().min(1, { message: "Username is required." }),
+  password: z.string().optional().or(z.literal('')),
+});
 
 const DeviceFormSchema = z.object({
   company: z.string().min(1, { message: "Company is required." }),
@@ -16,12 +23,7 @@ const DeviceFormSchema = z.object({
   issueDate: z.string().optional(),
   status: z.enum(["Active", "Damaged", "Returned", "Lost"]),
   notes: z.string().max(1000).optional().or(z.literal('')),
-  // New credential fields
-  assignedAppName: z.string().optional().or(z.literal('')),
-  assignedAppUsername: z.string().optional().or(z.literal('')),
-  assignedAppPassword: z.string().optional().or(z.literal('')),
-  assignedEmailAccount: z.string().optional().or(z.literal('')),
-  assignedEmailPassword: z.string().optional().or(z.literal('')),
+  credentials: z.array(CredentialSchema).optional(),
 }).refine(data => {
     if (data.status !== 'Active') {
         return data.issueDate && data.issueDate.length > 0 && !isNaN(Date.parse(data.issueDate));
@@ -39,27 +41,41 @@ export type DeviceFormState = {
   success?: boolean;
 };
 
+// Helper to parse FormData into a structured object for validation
+const parseFormData = (formData: FormData) => {
+    const rawData: any = {
+        credentials: [],
+    };
+    const credentialMap: { [key: string]: any } = {};
+
+    for (const [key, value] of formData.entries()) {
+        const credentialMatch = key.match(/^credentials\[(\d+)\]\.(.+)$/);
+        if (credentialMatch) {
+            const index = credentialMatch[1];
+            const field = credentialMatch[2];
+            if (!credentialMap[index]) {
+                credentialMap[index] = { id: index };
+            }
+            credentialMap[index][field] = value;
+        } else {
+            rawData[key] = value;
+        }
+    }
+    rawData.credentials = Object.values(credentialMap);
+    return rawData;
+};
+
+
 // Action to add a new device
 export async function addDevice(prevState: DeviceFormState, formData: FormData): Promise<DeviceFormState> {
-  const validatedFields = DeviceFormSchema.safeParse({
-    company: formData.get('company'),
-    department: formData.get('department'),
-    phoneModel: formData.get('phoneModel'),
-    imei: formData.get('imei'),
-    purchaseDate: formData.get('purchaseDate'),
-    issueDate: formData.get('issueDate') || undefined,
-    status: formData.get('status'),
-    notes: formData.get('notes'),
-    assignedAppName: formData.get('assignedAppName'),
-    assignedAppUsername: formData.get('assignedAppUsername'),
-    assignedAppPassword: formData.get('assignedAppPassword'),
-    assignedEmailAccount: formData.get('assignedEmailAccount'),
-    assignedEmailPassword: formData.get('assignedEmailPassword'),
-  });
+  const rawData = parseFormData(formData);
+  const validatedFields = DeviceFormSchema.safeParse(rawData);
 
   if (!validatedFields.success) {
+    // console.log("Validation Errors:", validatedFields.error.flatten());
     return {
       message: "Validation failed. Please check form fields.",
+      // @ts-ignore
       errors: validatedFields.error.flatten().fieldErrors,
       success: false,
     };
@@ -71,6 +87,7 @@ export async function addDevice(prevState: DeviceFormState, formData: FormData):
     const dataToSave = {
         ...data,
         issueDate: data.status === 'Active' ? '' : data.issueDate,
+        credentials: data.credentials || [], // Ensure credentials is an array
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
     };
@@ -92,25 +109,14 @@ export async function updateDevice(prevState: DeviceFormState, formData: FormDat
     return { message: "Device ID is missing.", success: false };
   }
 
-  const validatedFields = DeviceFormSchema.safeParse({
-    company: formData.get('company'),
-    department: formData.get('department'),
-    phoneModel: formData.get('phoneModel'),
-    imei: formData.get('imei'),
-    purchaseDate: formData.get('purchaseDate'),
-    issueDate: formData.get('issueDate') || undefined,
-    status: formData.get('status'),
-    notes: formData.get('notes'),
-    assignedAppName: formData.get('assignedAppName'),
-    assignedAppUsername: formData.get('assignedAppUsername'),
-    assignedAppPassword: formData.get('assignedAppPassword'),
-    assignedEmailAccount: formData.get('assignedEmailAccount'),
-    assignedEmailPassword: formData.get('assignedEmailPassword'),
-  });
+  const rawData = parseFormData(formData);
+  const validatedFields = DeviceFormSchema.safeParse(rawData);
 
   if (!validatedFields.success) {
+    // console.log("Update Validation Errors:", validatedFields.error.flatten());
     return {
       message: "Validation failed. Please check form fields.",
+      // @ts-ignore
       errors: validatedFields.error.flatten().fieldErrors,
       success: false,
     };
@@ -124,6 +130,7 @@ export async function updateDevice(prevState: DeviceFormState, formData: FormDat
     const dataToUpdate = {
       ...data,
       issueDate: data.status === 'Active' ? '' : data.issueDate,
+      credentials: data.credentials || [],
       updatedAt: serverTimestamp(),
     };
 

@@ -255,11 +255,10 @@ export default function DeviceManagementPage() {
                         <TableCell>{device.phoneModel}</TableCell>
                         <TableCell className="text-muted-foreground">
                             <div className="flex items-center gap-1.5">
-                                {device.assignedAppName || device.assignedEmailAccount ? (
+                                {device.credentials && device.credentials.length > 0 ? (
                                     <>
-                                        {device.assignedAppName && <AppWindow className="h-4 w-4 text-blue-500" title={`App: ${device.assignedAppName}`} />}
-                                        {device.assignedEmailAccount && <Mail className="h-4 w-4 text-red-500" title={`Email: ${device.assignedEmailAccount}`} />}
-                                        <span className="truncate max-w-[100px]">{device.assignedAppName || device.assignedEmailAccount}</span>
+                                        <KeyRound className="h-4 w-4 text-blue-500" />
+                                        <span>{device.credentials.length} credential(s)</span>
                                     </>
                                 ) : (
                                     'N/A'

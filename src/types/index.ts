@@ -20,7 +20,15 @@ export type Employee = {
   paymentInfo?: string; // For Bank or KPay account info
 };
 
-// New type for Smartphone asset management
+// New type for individual credential
+export type Credential = {
+  id: string; // Unique ID for React keys, e.g., timestamp
+  name: string;
+  username: string;
+  password?: string;
+};
+
+// Updated type for Smartphone asset management
 export type Smartphone = {
   id: string;
   company: string;
@@ -28,17 +36,12 @@ export type Smartphone = {
   phoneModel: string;
   imei?: string;
   purchaseDate: string; // Date the phone was bought
-  issueDate: string; // Date the phone was given to the employee
+  issueDate: string; // Date the phone was given to the employee/dept
   status: "Active" | "Damaged" | "Returned" | "Lost";
   notes?: string;
   createdAt: Timestamp;
   updatedAt?: Timestamp;
-  // New fields for app and email credentials
-  assignedAppName?: string;
-  assignedAppUsername?: string;
-  assignedAppPassword?: string; // Storing passwords in plaintext is NOT recommended
-  assignedEmailAccount?: string;
-  assignedEmailPassword?: string; // Storing passwords in plaintext is NOT recommended
+  credentials: Credential[]; // Array to hold multiple credentials
 };
 
 

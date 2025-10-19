@@ -5,11 +5,12 @@ import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import type { Smartphone } from '@/types';
+import type { Smartphone, Credential } from '@/types';
 import { format } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 import { Smartphone as SmartphoneIcon, Building, Briefcase, Calendar, Hash, Info, KeyRound, User, Mail, Eye, EyeOff } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface DeviceDetailsDialogProps {
   isOpen: boolean;
@@ -84,7 +85,8 @@ export function DeviceDetailsDialog({ isOpen, onOpenChange, device }: DeviceDeta
             Full record for <strong>{device.phoneModel}</strong> assigned to <strong>{device.department}</strong>.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto pr-4">
+        <ScrollArea className="max-h-[60vh] pr-6">
+        <div className="space-y-4 py-4">
             <DetailRow label="Company" value={device.company} icon={Building} />
             <DetailRow label="Department" value={device.department} icon={Briefcase} />
             <DetailRow label="Phone Model" value={device.phoneModel} icon={SmartphoneIcon} />
@@ -99,22 +101,15 @@ export function DeviceDetailsDialog({ isOpen, onOpenChange, device }: DeviceDeta
 
             <h4 className="font-semibold flex items-center gap-2 text-md"><KeyRound className="h-5 w-5 text-primary"/>Credentials</h4>
 
-            {device.assignedAppName || device.assignedEmailAccount ? (
+            {device.credentials && device.credentials.length > 0 ? (
                 <div className="space-y-4 pl-8">
-                    {device.assignedAppName && (
-                        <div className="space-y-2">
-                             <DetailRow label="Application" value={device.assignedAppName} icon={User} />
-                             {device.assignedAppUsername && <p className="text-sm text-muted-foreground -mt-2 ml-10">Username: {device.assignedAppUsername}</p>}
-                             {device.assignedAppPassword && <PasswordRow label="App Password" value={device.assignedAppPassword} />}
+                    {device.credentials.map((cred) => (
+                        <div key={cred.id} className="p-3 border rounded-md space-y-2 bg-card">
+                            <p className="font-semibold text-sm">{cred.name}</p>
+                            <div className="text-sm text-muted-foreground">Username: {cred.username}</div>
+                            {cred.password && <PasswordRow label="Password" value={cred.password} />}
                         </div>
-                    )}
-                    {(device.assignedAppName && device.assignedEmailAccount) && <Separator />}
-                     {device.assignedEmailAccount && (
-                        <div className="space-y-2">
-                             <DetailRow label="Email Account" value={device.assignedEmailAccount} icon={Mail} />
-                             {device.assignedEmailPassword && <PasswordRow label="Email Password" value={device.assignedEmailPassword} />}
-                        </div>
-                    )}
+                    ))}
                 </div>
             ) : (
                 <p className="text-sm text-muted-foreground pl-8">No app or email credentials saved for this device.</p>
@@ -127,6 +122,7 @@ export function DeviceDetailsDialog({ isOpen, onOpenChange, device }: DeviceDeta
             </DetailRow>
 
         </div>
+        </ScrollArea>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
         </DialogFooter>
