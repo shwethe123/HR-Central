@@ -9,8 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AddDeviceForm } from "./add-device-form";
 import { EditDeviceForm } from "./edit-device-form";
+import { DeviceDetailsDialog } from './device-details-dialog'; // New import
 import { deleteDevice } from "./actions";
-import { Smartphone as SmartphoneIcon, PlusCircle, Loader2, MoreHorizontal, Edit, Trash2, AlertTriangle, ListFilter, AppWindow } from 'lucide-react';
+import { Smartphone as SmartphoneIcon, PlusCircle, Loader2, MoreHorizontal, Edit, Trash2, AlertTriangle, ListFilter, AppWindow, KeyRound, Mail, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, Timestamp, doc } from 'firebase/firestore';
@@ -53,7 +54,9 @@ export default function DeviceManagementPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAddFormOpen, setIsAddFormOpen] = useState(false);
   const [isEditFormOpen, setIsEditFormOpen] = useState(false);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false); // New state for details dialog
   const [deviceToEdit, setDeviceToEdit] = useState<Smartphone | null>(null);
+  const [deviceToView, setDeviceToView] = useState<Smartphone | null>(null); // New state for device to view
   const [deviceToDelete, setDeviceToDelete] = useState<Smartphone | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
@@ -125,6 +128,11 @@ export default function DeviceManagementPage() {
   const handleEditClick = (device: Smartphone) => {
     setDeviceToEdit(device);
     setIsEditFormOpen(true);
+  };
+  
+  const handleViewDetailsClick = (device: Smartphone) => {
+    setDeviceToView(device);
+    setIsDetailsOpen(true);
   };
 
   const handleDeleteClick = (device: Smartphone) => {
@@ -226,7 +234,7 @@ export default function DeviceManagementPage() {
                     <TableHead>Company</TableHead>
                     <TableHead>Department</TableHead>
                     <TableHead>Phone Model</TableHead>
-                    <TableHead>Assigned App</TableHead>
+                    <TableHead>Credentials</TableHead>
                     <TableHead>Issue Date</TableHead>
                     <TableHead>Status</TableHead>
                     {isAdmin && <TableHead className="text-right">Actions</TableHead>}
@@ -247,8 +255,15 @@ export default function DeviceManagementPage() {
                         <TableCell>{device.phoneModel}</TableCell>
                         <TableCell className="text-muted-foreground">
                             <div className="flex items-center gap-1.5">
-                                {device.assignedAppName && <AppWindow className="h-4 w-4" />}
-                                <span>{device.assignedAppName || 'N/A'}</span>
+                                {device.assignedAppName || device.assignedEmailAccount ? (
+                                    <>
+                                        {device.assignedAppName && <AppWindow className="h-4 w-4 text-blue-500" title={`App: ${device.assignedAppName}`} />}
+                                        {device.assignedEmailAccount && <Mail className="h-4 w-4 text-red-500" title={`Email: ${device.assignedEmailAccount}`} />}
+                                        <span className="truncate max-w-[100px]">{device.assignedAppName || device.assignedEmailAccount}</span>
+                                    </>
+                                ) : (
+                                    'N/A'
+                                )}
                             </div>
                         </TableCell>
                         <TableCell>{formatDate(device.issueDate)}</TableCell>
@@ -266,6 +281,9 @@ export default function DeviceManagementPage() {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                <DropdownMenuItem onSelect={() => handleViewDetailsClick(device)}>
+                                  <FileText className="mr-2 h-4 w-4" /> View Details
+                                </DropdownMenuItem>
                                 <DropdownMenuItem onSelect={() => handleEditClick(device)}>
                                   <Edit className="mr-2 h-4 w-4" /> Edit
                                 </DropdownMenuItem>
@@ -286,6 +304,14 @@ export default function DeviceManagementPage() {
           )}
         </CardContent>
       </Card>
+
+      {deviceToView && (
+        <DeviceDetailsDialog 
+          isOpen={isDetailsOpen}
+          onOpenChange={setIsDetailsOpen}
+          device={deviceToView}
+        />
+      )}
 
       {deviceToEdit && (
         <Dialog open={isEditFormOpen} onOpenChange={setIsEditFormOpen}>
