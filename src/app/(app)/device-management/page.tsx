@@ -235,7 +235,6 @@ export default function DeviceManagementPage() {
                     <TableHead>Department</TableHead>
                     <TableHead>Phone Model</TableHead>
                     <TableHead>Credentials</TableHead>
-                    <TableHead>Issue Date</TableHead>
                     <TableHead>Status</TableHead>
                     {isAdmin && <TableHead className="text-right">Actions</TableHead>}
                   </TableRow>
@@ -243,7 +242,7 @@ export default function DeviceManagementPage() {
                 <TableBody>
                   {filteredDevices.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={isAdmin ? 7 : 6} className="h-24 text-center text-muted-foreground">
+                      <TableCell colSpan={isAdmin ? 6 : 5} className="h-24 text-center text-muted-foreground">
                          {devices.length === 0 ? "No device records found." : "No records match the current filter."}
                       </TableCell>
                     </TableRow>
@@ -253,19 +252,17 @@ export default function DeviceManagementPage() {
                         <TableCell className="font-medium">{device.company || 'N/A'}</TableCell>
                         <TableCell className="font-medium">{device.department}</TableCell>
                         <TableCell>{device.phoneModel}</TableCell>
-                        <TableCell className="text-muted-foreground">
-                            <div className="flex items-center gap-1.5">
+                        <TableCell>
+                            <div className="flex flex-wrap gap-1">
                                 {device.credentials && device.credentials.length > 0 ? (
-                                    <>
-                                        <KeyRound className="h-4 w-4 text-blue-500" />
-                                        <span>{device.credentials.length} credential(s)</span>
-                                    </>
+                                    device.credentials.map((cred) => (
+                                        <Badge key={cred.id} variant="secondary">{cred.name}</Badge>
+                                    ))
                                 ) : (
-                                    'N/A'
+                                    <span className="text-muted-foreground">N/A</span>
                                 )}
                             </div>
                         </TableCell>
-                        <TableCell>{formatDate(device.issueDate)}</TableCell>
                         <TableCell>
                           <Badge variant={statusBadgeVariant(device.status)}>{device.status}</Badge>
                         </TableCell>

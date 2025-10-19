@@ -5,10 +5,10 @@ import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import type { Smartphone, Credential } from '@/types';
+import type { Smartphone } from '@/types';
 import { format } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
-import { Smartphone as SmartphoneIcon, Building, Briefcase, Calendar, Hash, Info, KeyRound, User, Mail, Eye, EyeOff } from 'lucide-react';
+import { Smartphone as SmartphoneIcon, Building, Briefcase, Calendar, Hash, Info, KeyRound, User, Mail, Eye, EyeOff, FileText } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -42,88 +42,95 @@ const statusBadgeVariant = (status: Smartphone['status']) => {
   }
 };
 
-const DetailRow = ({ label, value, icon: Icon, children }: { label: string; value?: string | React.ReactNode; icon: React.ElementType, children?: React.ReactNode }) => (
-  <div className="grid grid-cols-[30px_1fr] items-start gap-3">
-    <Icon className="h-5 w-5 text-muted-foreground mt-0.5" />
-    <div>
-      <p className="font-semibold text-foreground">{label}</p>
-      {value && <p className="text-muted-foreground text-sm">{value}</p>}
-      {children}
+const DetailItem = ({ label, value, icon: Icon }: { label: string; value: string | React.ReactNode; icon: React.ElementType }) => (
+    <div className="flex items-start gap-3">
+        <Icon className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-1" />
+        <div className="flex-grow">
+            <p className="text-sm text-muted-foreground">{label}</p>
+            <div className="text-md font-medium text-foreground">{value}</div>
+        </div>
     </div>
-  </div>
 );
-
 
 const PasswordRow = ({ label, value }: { label: string, value: string }) => {
     const [show, setShow] = useState(false);
     return (
-        <div className="flex justify-between items-center bg-muted/50 p-2 rounded-md">
+        <div className="flex justify-between items-center bg-background p-2 rounded-md border">
             <div>
                  <p className="text-xs font-medium text-muted-foreground">{label}</p>
                  <p className="font-mono text-sm">{show ? value : '••••••••'}</p>
             </div>
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShow(!show)}>
-                {show ? <EyeOff className="h-4 w-4"/> : <Eye className="h-4 w-4"/>}
+                {show ? <EyeOff className="h-4 w-4 text-muted-foreground"/> : <Eye className="h-4 w-4 text-muted-foreground"/>}
             </Button>
         </div>
     );
 };
-
 
 export function DeviceDetailsDialog({ isOpen, onOpenChange, device }: DeviceDetailsDialogProps) {
   if (!device) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-xl">
-            <SmartphoneIcon className="h-6 w-6 text-primary" />
-            Device Details
+          <DialogTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xl">
+                <SmartphoneIcon className="h-6 w-6 text-primary" />
+                <span>{device.phoneModel}</span>
+            </div>
+            <Badge variant={statusBadgeVariant(device.status)}>{device.status}</Badge>
           </DialogTitle>
           <DialogDescription>
-            Full record for <strong>{device.phoneModel}</strong> assigned to <strong>{device.department}</strong>.
+            Detailed record for device assigned to the <strong>{device.department}</strong> department.
           </DialogDescription>
         </DialogHeader>
-        <ScrollArea className="max-h-[60vh] pr-6">
-        <div className="space-y-4 py-4">
-            <DetailRow label="Company" value={device.company} icon={Building} />
-            <DetailRow label="Department" value={device.department} icon={Briefcase} />
-            <DetailRow label="Phone Model" value={device.phoneModel} icon={SmartphoneIcon} />
-            <DetailRow label="IMEI Number" value={device.imei || 'N/A'} icon={Hash} />
-            <DetailRow label="Purchase Date" value={formatDate(device.purchaseDate)} icon={Calendar} />
-            <DetailRow label="Issue Date" value={formatDate(device.issueDate)} icon={Calendar} />
-            <DetailRow label="Status" icon={Info}>
-                <Badge variant={statusBadgeVariant(device.status)} className="mt-1">{device.status}</Badge>
-            </DetailRow>
-
-            <Separator className="my-4" />
-
-            <h4 className="font-semibold flex items-center gap-2 text-md"><KeyRound className="h-5 w-5 text-primary"/>Credentials</h4>
-
-            {device.credentials && device.credentials.length > 0 ? (
-                <div className="space-y-4 pl-8">
-                    {device.credentials.map((cred) => (
-                        <div key={cred.id} className="p-3 border rounded-md space-y-2 bg-card">
-                            <p className="font-semibold text-sm">{cred.name}</p>
-                            <div className="text-sm text-muted-foreground">Username: {cred.username}</div>
-                            {cred.password && <PasswordRow label="Password" value={cred.password} />}
-                        </div>
-                    ))}
+        
+        <ScrollArea className="max-h-[65vh] pr-5 -mr-2">
+            <div className="space-y-6 py-4">
+                {/* Main Device Details Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
+                    <DetailItem label="Company" value={device.company} icon={Building} />
+                    <DetailItem label="Department" value={device.department} icon={Briefcase} />
+                    <DetailItem label="Phone Model" value={device.phoneModel} icon={SmartphoneIcon} />
+                    <DetailItem label="IMEI Number" value={device.imei || 'N/A'} icon={Hash} />
+                    <DetailItem label="Purchase Date" value={formatDate(device.purchaseDate)} icon={Calendar} />
+                    <DetailItem label="Issue Date" value={formatDate(device.issueDate)} icon={Calendar} />
                 </div>
-            ) : (
-                <p className="text-sm text-muted-foreground pl-8">No app or email credentials saved for this device.</p>
-            )}
 
-            <Separator className="my-4" />
+                <Separator />
 
-            <DetailRow label="Notes" icon={Info}>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap mt-1">{device.notes || 'No notes provided.'}</p>
-            </DetailRow>
+                {/* Credentials Section */}
+                <div>
+                    <h4 className="font-semibold flex items-center gap-2 text-md mb-3"><KeyRound className="h-5 w-5 text-primary"/>Credentials</h4>
+                    {device.credentials && device.credentials.length > 0 ? (
+                        <div className="space-y-3 rounded-lg bg-muted/40 p-4">
+                            {device.credentials.map((cred) => (
+                                <div key={cred.id} className="p-3 border rounded-md bg-card space-y-2">
+                                    <p className="font-semibold text-sm">{cred.name}</p>
+                                    <div className="flex items-center gap-2 text-sm text-muted-foreground"><User className="h-4 w-4" />{cred.username}</div>
+                                    {cred.password && <PasswordRow label="Password" value={cred.password} />}
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-sm text-center text-muted-foreground py-4 px-4 bg-muted/40 rounded-lg">
+                            <p>No app or email credentials saved for this device.</p>
+                        </div>
+                    )}
+                </div>
 
-        </div>
+                {/* Notes Section */}
+                <div>
+                    <h4 className="font-semibold flex items-center gap-2 text-md mb-3"><FileText className="h-5 w-5 text-primary"/>Notes</h4>
+                    <div className="p-4 rounded-lg bg-muted/40 text-sm text-foreground whitespace-pre-wrap min-h-[60px]">
+                        {device.notes || <span className="text-muted-foreground">No additional notes provided.</span>}
+                    </div>
+                </div>
+            </div>
         </ScrollArea>
-        <DialogFooter>
+
+        <DialogFooter className="pt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
         </DialogFooter>
       </DialogContent>
