@@ -36,12 +36,27 @@ export type Smartphone = {
   phoneModel: string;
   imei?: string;
   purchaseDate: string; // Date the phone was bought
-  issueDate: string; // Date the phone was given to the employee/dept
+  issueDate?: string; // Date the phone was given to the employee/dept
   status: "Active" | "Damaged" | "Returned" | "Lost";
   notes?: string;
   createdAt: Timestamp;
   updatedAt?: Timestamp;
   credentials: Credential[]; // Array to hold multiple credentials
+};
+
+// New type for Computer Component asset management
+export type ComputerComponent = {
+  id: string;
+  componentType: 'Monitor' | 'Motherboard' | 'CPU' | 'RAM' | 'Storage' | 'GPU' | 'PSU' | 'Case' | 'Other';
+  brand: string;
+  model: string;
+  serialNumber?: string;
+  purchaseDate?: string;
+  status: 'In Use' | 'In Stock' | 'Damaged' | 'Retired';
+  assignedToEmployeeId?: string; // ID of the employee using it
+  notes?: string;
+  createdAt: Timestamp;
+  updatedAt?: Timestamp;
 };
 
 

@@ -158,3 +158,112 @@ export async function deleteDevice(deviceId: string): Promise<{ success: boolean
     return { success: false, message: `Failed to delete device record: ${error instanceof Error ? error.message : 'Unknown error'}` };
   }
 }
+
+// --- Computer Component Actions ---
+
+const ComputerComponentSchema = z.object({
+  componentType: z.string().min(1, "Component type is required."),
+  brand: z.string().min(1, "Brand is required."),
+  model: z.string().min(1, "Model is required."),
+  serialNumber: z.string().optional().or(z.literal('')),
+  purchaseDate: z.string().refine((date) => date === '' || !isNaN(Date.parse(date)), {
+    message: "Purchase date must be a valid date if provided.",
+  }).optional(),
+  status: z.enum(["In Use", "In Stock", "Damaged", "Retired"]),
+  assignedToEmployeeId: z.string().optional().or(z.literal('')),
+  notes: z.string().max(1000).optional().or(z.literal('')),
+});
+
+export type ComponentFormState = {
+  message: string | null;
+  errors?: z.ZodError<z.infer<typeof ComputerComponentSchema>>['formErrors']['fieldErrors'];
+  success?: boolean;
+};
+
+// Add new component
+export async function addComputerComponent(prevState: ComponentFormState, formData: FormData): Promise<ComponentFormState> {
+  const validatedFields = ComputerComponentSchema.safeParse({
+    componentType: formData.get('componentType'),
+    brand: formData.get('brand'),
+    model: formData.get('model'),
+    serialNumber: formData.get('serialNumber'),
+    purchaseDate: formData.get('purchaseDate'),
+    status: formData.get('status'),
+    assignedToEmployeeId: formData.get('assignedToEmployeeId'),
+    notes: formData.get('notes'),
+  });
+
+  if (!validatedFields.success) {
+    return {
+      message: "Validation failed. Please check form fields.",
+      errors: validatedFields.error.flatten().fieldErrors,
+      success: false,
+    };
+  }
+
+  try {
+    await addDoc(collection(db, 'computerComponents'), {
+      ...validatedFields.data,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    revalidatePath('/device-management');
+    return { message: "Computer component added successfully.", success: true };
+  } catch (error) {
+    return { message: `Failed to add component: ${error instanceof Error ? error.message : 'Unknown error'}`, success: false };
+  }
+}
+
+
+// Update component
+export async function updateComputerComponent(prevState: ComponentFormState, formData: FormData): Promise<ComponentFormState> {
+  const componentId = formData.get('id') as string;
+  if (!componentId) {
+    return { message: "Component ID is missing.", success: false };
+  }
+
+  const validatedFields = ComputerComponentSchema.safeParse({
+    componentType: formData.get('componentType'),
+    brand: formData.get('brand'),
+    model: formData.get('model'),
+    serialNumber: formData.get('serialNumber'),
+    purchaseDate: formData.get('purchaseDate'),
+    status: formData.get('status'),
+    assignedToEmployeeId: formData.get('assignedToEmployeeId'),
+    notes: formData.get('notes'),
+  });
+
+  if (!validatedFields.success) {
+    return {
+      message: "Validation failed. Please check form fields.",
+      errors: validatedFields.error.flatten().fieldErrors,
+      success: false,
+    };
+  }
+  
+  try {
+    const componentDocRef = doc(db, 'computerComponents', componentId);
+    await updateDoc(componentDocRef, {
+      ...validatedFields.data,
+      updatedAt: serverTimestamp(),
+    });
+    revalidatePath('/device-management');
+    return { message: "Component record updated successfully.", success: true };
+  } catch (error) {
+    return { message: `Failed to update component: ${error instanceof Error ? error.message : 'Unknown error'}`, success: false };
+  }
+}
+
+// Delete component
+export async function deleteComputerComponent(componentId: string): Promise<{ success: boolean; message: string; }> {
+  if (!componentId) {
+    return { success: false, message: "Component ID is required for deletion." };
+  }
+  try {
+    await deleteDoc(doc(db, 'computerComponents', componentId));
+    revalidatePath('/device-management');
+    return { success: true, message: "Component record deleted successfully." };
+  } catch (error) {
+    return { success: false, message: `Failed to delete component: ${error instanceof Error ? error.message : 'Unknown error'}` };
+  }
+}
