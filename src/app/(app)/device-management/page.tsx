@@ -159,7 +159,7 @@ export default function DeviceManagementPage() {
     setIsDeleting(false);
   };
 
-  const computerComponentColumns = useMemo(() => getComputerComponentColumns(employees, handleEditComponentClick, handleDeleteComponentClick), [employees]);
+  const computerComponentColumns = useMemo(() => getComputerComponentColumns(employees, handleEditComponentClick, handleDeleteComponentClick, isAdmin), [employees, isAdmin]);
 
   return (
     <div className="container mx-auto py-2 space-y-6">

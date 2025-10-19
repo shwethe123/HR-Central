@@ -8,7 +8,6 @@ import { ArrowUpDown, MoreHorizontal, Edit, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { format, isValid, parseISO } from 'date-fns';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { useAuth } from "@/contexts/auth-context";
 
 const statusBadgeVariant = (status: ComputerComponent['status']) => {
   switch (status) {
@@ -32,10 +31,9 @@ const multiColumnFilterFn: FilterFn<any> = (row, columnId, value, addMeta) => {
 export const getComputerComponentColumns = (
     employees: Employee[],
     onEdit: (component: ComputerComponent) => void,
-    onDelete: (component: ComputerComponent) => void
+    onDelete: (component: ComputerComponent) => void,
+    isAdmin: boolean | null
 ): ColumnDef<ComputerComponent>[] => {
-  const { isAdmin } = useAuth();
-  
   const employeeMap = new Map(employees.map(emp => [emp.id, emp.name]));
 
   return [
