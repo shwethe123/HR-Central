@@ -12,9 +12,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, KeyRound, Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Employee, Smartphone } from '@/types';
+import { Separator } from '@/components/ui/separator';
 
 const ClientDeviceSchema = z.object({
   company: z.string().min(1, { message: "Please select a company." }),
@@ -25,8 +26,13 @@ const ClientDeviceSchema = z.object({
   issueDate: z.string().optional(),
   status: z.enum(["Active", "Damaged", "Returned", "Lost"]),
   notes: z.string().optional(),
+  // New credential fields
+  assignedAppName: z.string().optional(),
+  assignedAppUsername: z.string().optional(),
+  assignedAppPassword: z.string().optional(),
+  assignedEmailAccount: z.string().optional(),
+  assignedEmailPassword: z.string().optional(),
 }).refine(data => {
-    // If status is not 'Active', issueDate must be a valid date string.
     if (data.status !== 'Active') {
         return data.issueDate && data.issueDate.length > 0 && !isNaN(Date.parse(data.issueDate));
     }
@@ -48,6 +54,8 @@ interface AddDeviceFormProps {
 export function AddDeviceForm({ employees, onFormSubmissionSuccess, className }: AddDeviceFormProps) {
   const { toast } = useToast();
   const [state, formAction, isPending] = useActionState(addDevice, { message: null, success: false });
+  const [showAppPass, setShowAppPass] = useState(false);
+  const [showEmailPass, setShowEmailPass] = useState(false);
 
   const form = useForm<DeviceFormData>({
     resolver: zodResolver(ClientDeviceSchema),
@@ -60,6 +68,11 @@ export function AddDeviceForm({ employees, onFormSubmissionSuccess, className }:
       issueDate: '',
       status: 'Active',
       notes: '',
+      assignedAppName: '',
+      assignedAppUsername: '',
+      assignedAppPassword: '',
+      assignedEmailAccount: '',
+      assignedEmailPassword: '',
     },
   });
 
@@ -76,7 +89,6 @@ export function AddDeviceForm({ employees, onFormSubmissionSuccess, className }:
   }, [employees, selectedCompany]);
 
   useEffect(() => {
-    // Reset department when company changes
     form.setValue('department', '');
   }, [selectedCompany, form]);
 
@@ -94,7 +106,6 @@ export function AddDeviceForm({ employees, onFormSubmissionSuccess, className }:
   const onSubmit = (data: DeviceFormData) => {
     const formData = new FormData();
     Object.entries(data).forEach(([key, value]) => {
-      // Ensure optional values are only appended if they exist
       if (value !== undefined && value !== null) {
          formData.append(key, String(value));
       }
@@ -191,6 +202,51 @@ export function AddDeviceForm({ employees, onFormSubmissionSuccess, className }:
           {form.formState.errors.issueDate && <p className="text-sm text-destructive mt-1">{form.formState.errors.issueDate.message}</p>}
           {deviceStatus === 'Active' && <p className="text-xs text-muted-foreground mt-1">Issue date is only applicable if the status is not 'Active'.</p>}
       </div>
+      
+      <Separator className="my-6" />
+      
+      <div className="space-y-2">
+        <h3 className="text-md font-semibold flex items-center gap-2"><KeyRound className="h-5 w-5 text-primary" /> App & Email Credentials</h3>
+        <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive text-xs rounded-md flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>Warning: Storing passwords directly is a security risk. Only use for non-critical accounts.</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+            <Label htmlFor="assignedAppName">App Name (Optional)</Label>
+            <Input id="assignedAppName" {...form.register('assignedAppName')} placeholder="e.g., Zalo"/>
+        </div>
+        <div>
+            <Label htmlFor="assignedAppUsername">App Username (Optional)</Label>
+            <Input id="assignedAppUsername" {...form.register('assignedAppUsername')} placeholder="e.g., user.name" />
+        </div>
+      </div>
+       <div className="relative">
+          <Label htmlFor="assignedAppPassword">App Password (Optional)</Label>
+          <Input id="assignedAppPassword" type={showAppPass ? 'text' : 'password'} {...form.register('assignedAppPassword')} placeholder="Enter app password" />
+           <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-6 h-7 w-7" onClick={() => setShowAppPass(!showAppPass)}>
+            {showAppPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+            <Label htmlFor="assignedEmailAccount">Email Account (Optional)</Label>
+            <Input id="assignedEmailAccount" {...form.register('assignedEmailAccount')} placeholder="e.g., company_user@gmail.com"/>
+        </div>
+         <div className="relative">
+            <Label htmlFor="assignedEmailPassword">Email Password (Optional)</Label>
+            <Input id="assignedEmailPassword" type={showEmailPass ? 'text' : 'password'} {...form.register('assignedEmailPassword')} placeholder="Enter email password" />
+            <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-6 h-7 w-7" onClick={() => setShowEmailPass(!showEmailPass)}>
+                {showEmailPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </Button>
+        </div>
+      </div>
+
+
+      <Separator className="my-6" />
 
       <div>
         <Label htmlFor="notes">Notes (Optional)</Label>

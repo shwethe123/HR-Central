@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AddDeviceForm } from "./add-device-form";
 import { EditDeviceForm } from "./edit-device-form";
 import { deleteDevice } from "./actions";
-import { Smartphone as SmartphoneIcon, PlusCircle, Loader2, MoreHorizontal, Edit, Trash2, AlertTriangle, ListFilter } from 'lucide-react';
+import { Smartphone as SmartphoneIcon, PlusCircle, Loader2, MoreHorizontal, Edit, Trash2, AlertTriangle, ListFilter, AppWindow } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, Timestamp, doc } from 'firebase/firestore';
@@ -103,7 +103,6 @@ export default function DeviceManagementPage() {
   }, [fetchData]);
   
   useEffect(() => {
-    // Reset department filter when company changes
     setSelectedDepartment('all');
   }, [selectedCompany]);
 
@@ -227,7 +226,7 @@ export default function DeviceManagementPage() {
                     <TableHead>Company</TableHead>
                     <TableHead>Department</TableHead>
                     <TableHead>Phone Model</TableHead>
-                    <TableHead>IMEI</TableHead>
+                    <TableHead>Assigned App</TableHead>
                     <TableHead>Issue Date</TableHead>
                     <TableHead>Status</TableHead>
                     {isAdmin && <TableHead className="text-right">Actions</TableHead>}
@@ -246,7 +245,12 @@ export default function DeviceManagementPage() {
                         <TableCell className="font-medium">{device.company || 'N/A'}</TableCell>
                         <TableCell className="font-medium">{device.department}</TableCell>
                         <TableCell>{device.phoneModel}</TableCell>
-                        <TableCell className="text-muted-foreground">{device.imei || 'N/A'}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                            <div className="flex items-center gap-1.5">
+                                {device.assignedAppName && <AppWindow className="h-4 w-4" />}
+                                <span>{device.assignedAppName || 'N/A'}</span>
+                            </div>
+                        </TableCell>
                         <TableCell>{formatDate(device.issueDate)}</TableCell>
                         <TableCell>
                           <Badge variant={statusBadgeVariant(device.status)}>{device.status}</Badge>
@@ -283,7 +287,6 @@ export default function DeviceManagementPage() {
         </CardContent>
       </Card>
 
-      {/* Edit Form Dialog */}
       {deviceToEdit && (
         <Dialog open={isEditFormOpen} onOpenChange={setIsEditFormOpen}>
           <DialogContent className="sm:max-w-2xl">
@@ -300,7 +303,6 @@ export default function DeviceManagementPage() {
         </Dialog>
       )}
 
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deviceToDelete} onOpenChange={() => setDeviceToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

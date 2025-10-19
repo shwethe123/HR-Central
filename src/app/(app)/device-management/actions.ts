@@ -16,12 +16,16 @@ const DeviceFormSchema = z.object({
   issueDate: z.string().optional(),
   status: z.enum(["Active", "Damaged", "Returned", "Lost"]),
   notes: z.string().max(1000).optional().or(z.literal('')),
+  // New credential fields
+  assignedAppName: z.string().optional().or(z.literal('')),
+  assignedAppUsername: z.string().optional().or(z.literal('')),
+  assignedAppPassword: z.string().optional().or(z.literal('')),
+  assignedEmailAccount: z.string().optional().or(z.literal('')),
+  assignedEmailPassword: z.string().optional().or(z.literal('')),
 }).refine(data => {
-    // If status is not 'Active', issueDate must be provided and valid.
     if (data.status !== 'Active') {
         return data.issueDate && data.issueDate.length > 0 && !isNaN(Date.parse(data.issueDate));
     }
-    // If status is 'Active', issueDate is not required.
     return true;
 }, {
     message: "Issue date is required when status is not 'Active'.",
@@ -46,6 +50,11 @@ export async function addDevice(prevState: DeviceFormState, formData: FormData):
     issueDate: formData.get('issueDate') || undefined,
     status: formData.get('status'),
     notes: formData.get('notes'),
+    assignedAppName: formData.get('assignedAppName'),
+    assignedAppUsername: formData.get('assignedAppUsername'),
+    assignedAppPassword: formData.get('assignedAppPassword'),
+    assignedEmailAccount: formData.get('assignedEmailAccount'),
+    assignedEmailPassword: formData.get('assignedEmailPassword'),
   });
 
   if (!validatedFields.success) {
@@ -61,7 +70,7 @@ export async function addDevice(prevState: DeviceFormState, formData: FormData):
   try {
     const dataToSave = {
         ...data,
-        issueDate: data.status === 'Active' ? '' : data.issueDate, // Clear issue date if status is active
+        issueDate: data.status === 'Active' ? '' : data.issueDate,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
     };
@@ -92,6 +101,11 @@ export async function updateDevice(prevState: DeviceFormState, formData: FormDat
     issueDate: formData.get('issueDate') || undefined,
     status: formData.get('status'),
     notes: formData.get('notes'),
+    assignedAppName: formData.get('assignedAppName'),
+    assignedAppUsername: formData.get('assignedAppUsername'),
+    assignedAppPassword: formData.get('assignedAppPassword'),
+    assignedEmailAccount: formData.get('assignedEmailAccount'),
+    assignedEmailPassword: formData.get('assignedEmailPassword'),
   });
 
   if (!validatedFields.success) {

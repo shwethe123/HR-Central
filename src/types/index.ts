@@ -23,7 +23,7 @@ export type Employee = {
 // New type for Smartphone asset management
 export type Smartphone = {
   id: string;
-  company: string; // Added company
+  company: string;
   department: string;
   phoneModel: string;
   imei?: string;
@@ -33,6 +33,12 @@ export type Smartphone = {
   notes?: string;
   createdAt: Timestamp;
   updatedAt?: Timestamp;
+  // New fields for app and email credentials
+  assignedAppName?: string;
+  assignedAppUsername?: string;
+  assignedAppPassword?: string; // Storing passwords in plaintext is NOT recommended
+  assignedEmailAccount?: string;
+  assignedEmailPassword?: string; // Storing passwords in plaintext is NOT recommended
 };
 
 
