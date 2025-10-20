@@ -652,7 +652,6 @@ export default function DeveloperAttendancePage() {
                     <div class="amount">${formatCurrency(Math.round(developerForSalarySlip?.finalSalary || 0))} MMK</div>
                 </div>
 
-                <!-- Signature Section -->
                 <div class="signature-section">
                     <div class="signature-container">
                         <div class="signature-box">
@@ -661,8 +660,9 @@ export default function DeveloperAttendancePage() {
                             <div class="signature-date">Date: ${format(new Date(), 'dd/MM/yyyy')}</div>
                         </div>
                         <div class="signature-box">
-                            <div class="signature-name">သူဌေး လက်မှတ်</div>
-                            <div class="signature-title">ခွင့်ပြု လက်မှတ်</div>
+                            <div class="signature-line"></div>
+                            <div class="signature-name">Authorized Signature</div>
+                            <div class="signature-title">Manager / BOSS</div>
                             <div class="signature-date">Date: ${format(new Date(), 'dd/MM/yyyy')}</div>
                         </div>
                     </div>
@@ -875,9 +875,12 @@ const DeveloperInfoCard = ({ dev, isAdmin, onAddLeave, onAddDeduction, onViewSli
                         
                         return (
                             <div key={day.date.toString()} 
-                                className={cn("h-10 rounded-md flex items-center justify-center font-semibold text-sm transition-colors", showStatus ? statusClass : 'bg-slate-100 text-slate-400', isClickable && "cursor-pointer")}
+                                className={cn("h-12 rounded-md flex flex-col items-center justify-center font-semibold text-sm transition-colors p-1", showStatus ? statusClass : 'bg-slate-100 text-slate-400', isClickable && "cursor-pointer")}
                                 onClick={() => isClickable && onDayClick(day.status, day.details)}>
-                                {dayNumber}
+                                <span>{dayNumber}</span>
+                                {day.status === 'Holiday' && day.details && 'name' in day.details && (
+                                    <span className="text-[10px] font-normal truncate w-full text-center leading-tight">{(day.details as PublicHoliday).name}</span>
+                                )}
                             </div>
                         )
                     })}
@@ -1086,7 +1089,7 @@ function SalarySlipDialog({ isOpen, onOpenChange, devStats, month, onPrint, slip
                     <div className="text-center flex-1">
                       {/* <div className="mx-auto w-48 h-0.5 bg-gray-400 mb-2"></div> */}
                       <p className="text-sm text-gray-600">Bank/Kpay account</p>
-                      <p className="text-xs text-gray-500">{devStats.paymentInfo}</p>
+                      <p className="text-xs text-gray-500">{devStats.paymentInfo || 'N/A'}</p>
                     </div>
                     <div className="text-center flex-1">
                       <p className="text-sm text-gray-600">ခွင့်ပြု လက်မှတ်</p>
