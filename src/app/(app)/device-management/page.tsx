@@ -171,7 +171,7 @@ export default function DeviceManagementPage() {
       <Tabs defaultValue="smartphones" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="smartphones"><SmartphoneIcon className="mr-2 h-4 w-4"/>Smartphones</TabsTrigger>
-          <TabsTrigger value="components"><Cpu className="mr-2 h-4 w-4"/>Computer Components</TabsTrigger>
+          <TabsTrigger value="components"><Cpu className="mr-2 h-4 w-4"/>Computer</TabsTrigger>
         </TabsList>
         <TabsContent value="smartphones">
           <Card className="shadow-lg rounded-lg mt-4">

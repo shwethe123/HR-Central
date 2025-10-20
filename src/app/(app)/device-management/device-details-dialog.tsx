@@ -88,7 +88,6 @@ export function DeviceDetailsDialog({ isOpen, onOpenChange, device }: DeviceDeta
         
         <ScrollArea className="max-h-[65vh] pr-5 -mr-2">
             <div className="space-y-6 py-4">
-                {/* Main Device Details Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
                     <DetailItem label="Company" value={device.company} icon={Building} />
                     <DetailItem label="Department" value={device.department} icon={Briefcase} />
@@ -100,7 +99,6 @@ export function DeviceDetailsDialog({ isOpen, onOpenChange, device }: DeviceDeta
 
                 <Separator />
 
-                {/* Credentials Section */}
                 <div>
                     <h4 className="font-semibold flex items-center gap-2 text-md mb-3"><KeyRound className="h-5 w-5 text-primary"/>Credentials</h4>
                     {device.credentials && device.credentials.length > 0 ? (
@@ -120,7 +118,6 @@ export function DeviceDetailsDialog({ isOpen, onOpenChange, device }: DeviceDeta
                     )}
                 </div>
 
-                {/* Notes Section */}
                 <div>
                     <h4 className="font-semibold flex items-center gap-2 text-md mb-3"><FileText className="h-5 w-5 text-primary"/>Notes</h4>
                     <div className="p-4 rounded-lg bg-muted/40 text-sm text-foreground whitespace-pre-wrap min-h-[60px]">
